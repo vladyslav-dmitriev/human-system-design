@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import "./globals.css";
+import "../shared/styles/globals.css";
+
+import { Separator } from "@/components/ui/separator";
+import { Providers } from "@/providers/providers";
+import { Header } from "../widgets/header";
 
 const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
+  src: "../shared/fonts/GeistVF.woff",
   variable: "--font-geist-sans",
 });
 const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
+  src: "../shared/fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
 });
 
@@ -23,8 +27,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+      <body
+        className={`flex flex-col min-h-screen ${geistSans.variable} ${geistMono.variable}`}
+      >
+        <Providers>
+          <Header />
+          <Separator />
+
+          <div className="flex flex-1">{children}</div>
+        </Providers>
       </body>
     </html>
   );

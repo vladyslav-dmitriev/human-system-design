@@ -1,10 +1,7 @@
-import { Button } from '@/components/ui/button';
-
 export default function Home() {
   return (
     <div>
-      <h1 className="text-3xl font-bold underline">Hello, Tailwind!</h1>
-      <Button>button</Button>
+      <h1 className="text-3xl font-bold p-4">Landing</h1>
     </div>
   );
 }

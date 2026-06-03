@@ -1,0 +1,1 @@
+export { GoalChart } from './GoalChart';
