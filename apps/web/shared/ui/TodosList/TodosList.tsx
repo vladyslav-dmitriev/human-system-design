@@ -7,7 +7,7 @@ import type { Todo } from "@/shared/types/todo";
 
 type TodosListProps = {
   todos: Todo[];
-  setTodos(): void;
+  setTodos(todos: Todo[]): void;
 };
 
 export const TodosList = ({ todos, setTodos }: TodosListProps) => {
@@ -17,7 +17,7 @@ export const TodosList = ({ todos, setTodos }: TodosListProps) => {
     setDraggedIndex(index);
   };
 
-  const handleDragOver = (event) => {
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   };
 
@@ -60,12 +60,12 @@ export const TodosList = ({ todos, setTodos }: TodosListProps) => {
         >
           <div className="flex items-center gap-2 py-1">
             <Checkbox
-              id={todo.id}
+              id={String(todo.id)}
               defaultChecked={todo.checked}
               disabled={todo.checked}
               onCheckedChange={makeHandleCheckedChange(todo.id)}
             />
-            <Label htmlFor={todo.id}>{todo.title}</Label>
+            <Label htmlFor={String(todo.id)}>{todo.title}</Label>
           </div>
         </div>
       ))}

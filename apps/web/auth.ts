@@ -1,11 +1,11 @@
 // auth.ts
-import NextAuth from "next-auth"
+import NextAuth, { NextAuthResult } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { authConfig } from "./auth.config"
 import { prisma } from "./shared/lib/prisma"
 import bcrypt from "bcrypt"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const result = NextAuth({
   ...authConfig,
 
   providers: [
@@ -37,3 +37,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
 })
+
+export const handlers: NextAuthResult['handlers'] = result.handlers;
+export const auth: NextAuthResult['auth'] = result.auth;
+export const signIn: NextAuthResult['signIn'] = result.signIn;
+export const signOut: NextAuthResult['signOut'] = result.signOut;

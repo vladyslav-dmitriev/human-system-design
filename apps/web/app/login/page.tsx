@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useRouter,
+  // useSearchParams
+} from "next/navigation";
 import { ROUTE } from "@/constants.ts";
 import { AuthFormFooter } from "../../widgets/auth/auth-form-footer";
 import { AuthFormButton } from "@/widgets/auth/auth-form-button";
@@ -16,8 +19,8 @@ import { AuthFormError } from "@/widgets/auth/auth-form-error";
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isRegistered = searchParams.get("registered");
+  // const searchParams = useSearchParams();
+  // const isRegistered = searchParams.get("registered");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -46,11 +49,11 @@ export default function LoginPage() {
       <AuthForm onSubmit={handleSubmit}>
         <AuthFormTitle title="Log in" />
 
-        {isRegistered && (
+        {/* {isRegistered && (
           <p className="text-green-600 text-sm text-center">
             Registration successful! Please log in.
           </p>
-        )}
+        )} */}
 
         <AuthFormError error={error} />
 

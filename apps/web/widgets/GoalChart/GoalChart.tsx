@@ -25,7 +25,15 @@ const chartConfig = {
   },
 };
 
-export function GoalChart({ data }) {
+type GoalChartProps = {
+  data: {
+    date: string;
+    expect: number;
+    actual: number;
+  }[];
+};
+
+export function GoalChart({ data }: GoalChartProps) {
   const [timeRange, setTimeRange] = React.useState("90d");
 
   const filteredData = data.filter((item) => {

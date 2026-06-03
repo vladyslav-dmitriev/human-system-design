@@ -11,8 +11,6 @@ export const AuthButtons = () => {
 
   const { isNewAuthDesign } = useFeatureFlag();
 
-  console.log("isNewAuthDesign", isNewAuthDesign);
-
   if (status === "loading") {
     return null;
   }
