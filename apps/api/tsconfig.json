@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "strictPropertyInitialization": false,
     "module": "preserve",
     "moduleResolution": "bundler",
