@@ -19,6 +19,7 @@ RUN npx prisma generate --schema=./src/prisma/schema.prisma
 
 # 5. Билдим
 RUN npm run build
+RUN ls -R /usr/src/app/dist
 
 EXPOSE 3001
 CMD ["node", "dist/main"]
