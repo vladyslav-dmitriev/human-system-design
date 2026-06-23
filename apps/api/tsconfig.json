@@ -21,12 +21,14 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
+    "resolveJsonModule": true,
+    "baseUrl": "./",
     "paths": {
       "prisma/*": ["src/prisma/*"],
       "interceptors": ["src/interceptors/index"],
+      "interceptors/*": ["src/interceptors/*"],
       "config/*": ["src/config/*"],
       "utils/*": ["src/utils/*"]
-    },
-    "baseUrl": "./src/"
-  },
+    }
+  }
 }
