@@ -1,4 +1,4 @@
-name: Production Deploy
+name: Deploy
 
 on:
   push:
@@ -9,20 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run Prisma Migrations
-        # Это та самая «профессиональная» часть — обновление БД
+      
+      # 1. Применяем миграции к продакшн-базе (Neon)
+      - name: Run Prisma Migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma migrate deploy --schema=./apps/api/src/prisma/schema.prisma
-
-      - name: Deploy to Server
-        # Здесь обычно вызывается скрипт для обновления твоего VPS или облака
-        run: echo "Деплой на сервер запущен..."
+        run: |
+          # В проде используем deploy, а не dev
+          npx prisma migrate deploy --schema=./src/prisma/schema.prisma
+      
+      # 2. Здесь был бы шаг деплоя на хостинг (например, Railway или Render)
+      - name: Deploy
+        run: echo "Код готов к деплою! Подключи Railway/Render к этому репозиторию."
