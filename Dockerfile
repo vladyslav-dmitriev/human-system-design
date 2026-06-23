@@ -30,4 +30,4 @@ COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 EXPOSE 3001
 
 # Теперь tsx есть в системе, а все зависимости (включая reflect-metadata) — в node_modules
-CMD ["tsx", "dist/main.js"]
+CMD ["node", "--loader", "tsx", "dist/main.js"]
