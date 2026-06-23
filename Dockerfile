@@ -4,32 +4,25 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
-# Копируем всё для сборки
 COPY . .
 RUN pnpm install --frozen-lockfile
-WORKDIR /usr/src/app/apps/api
-RUN pnpm run build
+# Собираем проект
+RUN pnpm run build --filter=api 
 
-# --- Этап 2: Финальный образ ---
+# --- Этап 2: Деплой (Критический шаг) ---
+# Создаем чистую папку только с нужными зависимостями для api
+RUN pnpm --filter=api --prod deploy /usr/src/app/deploy
+
+# --- Этап 3: Финальный образ ---
 FROM node:22-alpine
-RUN apk add --no-cache openssl
-RUN npm install -g pnpm
-
 WORKDIR /usr/src/app
 
-# Копируем только package.json и lock-файлы для установки зависимостей
-COPY --from=stage_builder /usr/src/app/package.json ./package.json
-COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
-
-# УСТАНАВЛИВАЕМ ЗАВИСИМОСТИ В ФИНАЛЬНОМ ОБРАЗЕ
-# --prod гарантирует, что reflect-metadata (который должен быть в dependencies) будет установлен
-RUN pnpm install --prod --frozen-lockfile
-
-# Копируем только результат сборки
+# Копируем только то, что подготовил pnpm deploy
+COPY --from=stage_builder /usr/src/app/deploy .
+# Копируем скомпилированные файлы
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
 EXPOSE 3001
 
-# Теперь все модули в node_modules, node их увидит
+# Теперь все зависимости гарантированно лежат в node_modules рядом с dist
 CMD ["node", "dist/main.js"]
