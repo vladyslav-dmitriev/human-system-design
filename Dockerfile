@@ -4,33 +4,32 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
+# Копируем всё для установки зависимостей
 COPY . .
+
+# Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
+# Переходим в папку API и генерируем Prisma там, где есть node_modules
 WORKDIR /usr/src/app/apps/api
 RUN pnpm prisma generate --schema=src/prisma/schema.prisma
+
+# Билд проекта
 RUN pnpm run build
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
-RUN apk add --no-cache openssl
-RUN npm install -g pnpm
-
 WORKDIR /usr/src/app
 
-# Копируем только package.json для установки зависимостей
-COPY --from=stage_builder /usr/src/app/package.json ./package.json
-COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
-
-# Устанавливаем только продакшн зависимости (без devDependencies)
-RUN pnpm install --prod --frozen-lockfile
-
-# Копируем результат сборки
-COPY --from=stage_builder /usr/src/app/apps/api/dist /usr/src/app/dist
+# Копируем из билдера только необходимое
+# Копируем результат билда (папку dist)
+COPY --from=stage_builder /usr/src/app/apps/api/dist /usr/src/app/
+# Копируем node_modules (они нужны для запуска)
+COPY --from=stage_builder /usr/src/app/node_modules /usr/src/app/node_modules
+# Копируем package.json для запуска
+COPY --from=stage_builder /usr/src/app/apps/api/package.json /usr/src/app/package.json
 
 EXPOSE 3001
 
-# Запуск через чистый node, так как после 'npm install --prod'
-# все нужные библиотеки уже есть в node_modules
-CMD ["node", "dist/main.js"]
+# Используем установленный в node_modules tsx
+CMD ["npx", "tsx", "main.js"]
