@@ -25,4 +25,4 @@ COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 EXPOSE 3001
 
 # Теперь все зависимости гарантированно лежат в node_modules рядом с dist
-CMD ["node", "dist/main.js"]
+CMD ["node", "--input-type=commonjs", "dist/main.js"]
