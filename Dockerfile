@@ -17,13 +17,15 @@ RUN pnpm run build
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем содержимое dist (включая все подпапки) в корень /usr/src/app
+# Копируем содержимое dist в корень /usr/src/app
 COPY --from=stage_builder /usr/src/app/apps/api/dist .
 
-# Копируем node_modules
+# Копируем зависимости
 COPY --from=stage_builder /usr/src/app/node_modules ./node_modules
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
 
 EXPOSE 3001
 
-CMD ["npx", "tsx", "dist/main.js"]
+# ЗАПУСК: 
+# Мы копировали файлы в КОРЕНЬ, значит main.js лежит прямо здесь.
+CMD ["npx", "tsx", "main.js"]
