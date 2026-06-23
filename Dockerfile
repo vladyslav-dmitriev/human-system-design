@@ -1,31 +1,24 @@
 # --- Этап 1: Сборка ---
 FROM node:22-alpine AS stage_builder
-RUN apk add --no-cache openssl libc6-compat
-RUN npm install -g pnpm
-
-WORKDIR /usr/src/app
-COPY . .
-RUN pnpm config set node-linker hoisted
+# ... (остальной код прежний) ...
 RUN pnpm install --frozen-lockfile
+# Генерируем клиента
 RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
 
-# СБОРКА
-WORKDIR /usr/src/app/apps/api
-RUN pnpm run build
+# ... (сборка приложения) ...
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем содержимое dist в корень /usr/src/app
-COPY --from=stage_builder /usr/src/app/apps/api/dist .
-
-# Копируем зависимости
+# Копируем всё из dist
+COPY --from=stage_builder /usr/src/app/apps/api/dist . 
+# ВАЖНО: Копируем сгенерированного клиента Prisma
+COPY --from=stage_builder /usr/src/app/apps/api/src/prisma/generated/client ./prisma/generated/client
+# Копируем node_modules
 COPY --from=stage_builder /usr/src/app/node_modules ./node_modules
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
 
 EXPOSE 3001
 
-# ЗАПУСК: 
-# Мы копировали файлы в КОРЕНЬ, значит main.js лежит прямо здесь.
 CMD ["npx", "tsx", "main.js"]
