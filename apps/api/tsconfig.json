@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "strictPropertyInitialization": false,
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "isolatedModules": true,

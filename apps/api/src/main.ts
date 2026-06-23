@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import cookieParser from 'cookie-parser';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
-import { AppModule } from './modules/app.module';
+import { AppModule } from './modules/app.module.js';
 import { setupSwagger } from './setup-swagger';
 import { ConfigService } from '@nestjs/config';
 
