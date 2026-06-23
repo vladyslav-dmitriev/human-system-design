@@ -1,31 +1,33 @@
 # --- Этап 1: Сборка ---
 FROM node:22-alpine AS builder
 RUN apk add --no-cache openssl libc6-compat
+# Устанавливаем pnpm глобально
+RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
 # Копируем всё
 COPY . .
 
-# Устанавливаем зависимости
-RUN npm install
+# Устанавливаем зависимости через pnpm
+RUN pnpm install
 
-# Prisma (уже работает, оставляем)
-RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
+# Prisma (используем pnpm для вызова)
+RUN pnpm prisma generate --schema=apps/api/src/prisma/schema.prisma
 
-# БИЛДИМ: просто заходим в папку и запускаем скрипт там
+# Билдим
 WORKDIR /usr/src/app/apps/api
-RUN npm run build
+RUN pnpm run build
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем результат сборки из папки API в корень финального образа
+# Копируем результат
 COPY --from=builder /usr/src/app/apps/api/dist ./dist
-# Копируем node_modules из папки API
-COPY --from=builder /usr/src/app/apps/api/node_modules ./node_modules
-COPY --from=builder /usr/src/app/apps/api/package.json ./package.json
+# Для pnpm node_modules могут быть сложнее, поэтому копируем целиком
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/package.json ./package.json
 
 EXPOSE 3001
 
