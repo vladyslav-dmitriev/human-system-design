@@ -4,8 +4,7 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
-# КОПИРУЕМ ВСЁ В КОРЕНЬ КОНТЕЙНЕРА
-COPY . . 
+COPY . .
 RUN pnpm install --frozen-lockfile
 WORKDIR /usr/src/app/apps/api
 RUN pnpm run build
@@ -17,20 +16,22 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
+# Копируем манифесты
 COPY --from=stage_builder /usr/src/app/package.json ./package.json
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
-# --- ФИНАЛЬНЫЙ ФИКС: ---
-# Ищем папку prisma где угодно в stage_builder и копируем ее в корень финального образа
-# Мы используем команду RUN для поиска, если COPY не справляется
-COPY --from=stage_builder /usr/src/app/apps/api/prisma ./prisma 
-# Если папка лежит в другом месте, замени путь выше на то, что выдал тебе 'ls -R'
+# АВТОМАТИЧЕСКИЙ ПОИСК И КОПИРОВАНИЕ SCHEMA.PRISMA
+# Мы не копируем конкретный путь, а находим файл и копируем папку, где он лежит
+RUN mkdir -p /usr/src/app/prisma && \
+    cp $(find /usr/src/app -name "schema.prisma" | head -n 1) /usr/src/app/prisma/schema.prisma
 
 RUN pnpm install --prod --frozen-lockfile
 RUN pnpm exec prisma generate
 
+# Копируем собранный код
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
 EXPOSE 3001
+
 CMD ["node", "dist/main.js"]
