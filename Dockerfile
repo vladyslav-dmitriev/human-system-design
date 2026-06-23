@@ -4,10 +4,9 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
+# Копируем всё содержимое (включая корень с lock-файлом)
 COPY . .
 RUN pnpm install --frozen-lockfile
-
-# Собираем проект
 WORKDIR /usr/src/app/apps/api
 RUN pnpm run build
 
@@ -18,20 +17,20 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем файлы, необходимые для работы pnpm и запуска
-COPY --from=stage_builder /usr/src/app/package.json ./package.json
-COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+# Копируем лок-файл и package.json из корня и API, чтобы pnpm видел структуру
+COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
+COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
-COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
-# Устанавливаем зависимости в финальный образ (включая devDependencies, где лежит tsx)
-# Это единственный способ гарантировать, что 'tsx' появится в PATH корректно
+# Устанавливаем зависимости с учетом лок-файла
 RUN pnpm install --frozen-lockfile
 
-# Указываем рабочую папку, где лежит скомпилированный main.js
+# Копируем собранный проект
+COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
+
 WORKDIR /usr/src/app/apps/api
 
 EXPOSE 3001
 
-# Теперь tsx будет найден, так как pnpm корректно настроил PATH в этом окружении
+# Запуск через tsx, который теперь гарантированно установлен в node_modules
 CMD ["tsx", "dist/main.js"]
