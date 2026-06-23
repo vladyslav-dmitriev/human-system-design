@@ -26,4 +26,4 @@ COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
 
 EXPOSE 3001
 
-CMD ["node", "main.js"]
+CMD ["npx", "tsx", "dist/main.js"]
