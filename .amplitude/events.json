@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Account Created",
+    "description": "Fired when a new user successfully completes registration via the create-account form. Captures signup method and whether it was email/password or OAuth."
+  },
+  {
+    "name": "User Signed In",
+    "description": "Fired when a user successfully authenticates via credentials (email/password) or OAuth providers (Google, GitHub). Captures the sign-in method used."
+  },
+  {
+    "name": "Todo Completed",
+    "description": "Fired when a user checks off an individual todo item within a todo set. Captures which set the todo belongs to and the todo title."
+  },
+  {
+    "name": "Todo Set Finished",
+    "description": "Fired when all todos within a single set are marked complete. Captures the set name and total todo count, enabling funnel/retention analysis on habit completion."
+  }
+]

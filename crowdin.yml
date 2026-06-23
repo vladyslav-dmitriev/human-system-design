@@ -1,0 +1,6 @@
+project_id: 903123
+api_token_env: CROWDIN_TOKEN
+
+files:
+  - source: /packages/i18n/src/messages/en/**/*.json
+    translation: /packages/i18n/src/messages/%two_letters_code%/**/%original_file_name%

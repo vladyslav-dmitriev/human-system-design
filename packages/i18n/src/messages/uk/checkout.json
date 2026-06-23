@@ -1,0 +1,17 @@
+{
+  "checkout_title": "Оплата",
+  "checkout_subtitle": "Безпечний платіж через Stripe",
+  "checkout_email_label": "Електронна пошта для рахунку",
+  "checkout_payment_method_label": "Спосіб оплати",
+  "checkout_add_new_card": "Додати нову картку",
+  "checkout_card_number_label": "Номер картки",
+  "checkout_expiry_label": "Термін дії",
+  "checkout_cvc_label": "CVC",
+  "checkout_payment_details_label": "Деталі оплати",
+  "checkout_plan_label": "Тарифний план",
+  "checkout_duration_label": "Тривалість",
+  "checkout_duration_value": "1 місяць",
+  "checkout_monthly_price_label": "Ціна за місяць",
+  "checkout_pay_button": "Оплатити",
+  "checkout_payment_failed": "Помилка платежу: {error}"
+}

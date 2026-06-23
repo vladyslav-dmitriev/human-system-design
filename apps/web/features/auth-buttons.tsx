@@ -1,13 +1,22 @@
-import { useSession, signOut } from "next-auth/react";
+"use client";
+
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
-import { ROUTE } from "@/constants.ts";
+import { ROUTE } from "@/constants";
 import { useFeatureFlag } from "@/shared/hooks/use-feature-flag";
+import { useTranslations } from "next-intl";
+import { RoleBadge } from "@/widgets/role-badge";
+import { usePathname } from "@/i18n/navigation";
+import { User } from "lucide-react";
 
 export const AuthButtons = () => {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+
+  const t = useTranslations();
 
   const { isNewAuthDesign } = useFeatureFlag();
 
@@ -32,21 +41,30 @@ export const AuthButtons = () => {
           <span className="self-center">{session.user.name}</span>
         )}
 
-        <Button onClick={() => signOut()}>Log out</Button>
+        {session?.user?.role === "ADMIN" && <RoleBadge text="Admin" />}
       </div>
     );
   }
 
   return (
     <div className="flex gap-2 justify-end p-2">
-      <Button>
-        <Link href={ROUTE.LOGIN}>Log in</Link>
-      </Button>
-      <Button>
-        <Link href={ROUTE.CREATE_ACCOUNT}>
-          {isNewAuthDesign ? "Create account" : "New account"}
+      {pathname !== ROUTE.LOGIN && (
+        <Link href={ROUTE.LOGIN}>
+          <Button>
+            <User />
+            {t("login")}
+          </Button>
         </Link>
-      </Button>
+      )}
+
+      {pathname !== ROUTE.CREATE_ACCOUNT && (
+        <Link href={ROUTE.CREATE_ACCOUNT}>
+          <Button>
+            <User />
+            {isNewAuthDesign ? t("createAccount") : "New account"}
+          </Button>
+        </Link>
+      )}
     </div>
   );
 };

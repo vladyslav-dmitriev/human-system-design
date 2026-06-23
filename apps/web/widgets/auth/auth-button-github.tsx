@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import React from "react";
 
 interface AuthButtonGithubProps {
@@ -11,12 +12,14 @@ export const AuthButtonGithub = ({
   onClick,
   isLoading = false,
 }: AuthButtonGithubProps) => {
+  const t = useTranslations();
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={isLoading}
-      className="cursor-pointer flex items-center justify-center w-full max-w-md p-4 h-10 text-sm font-medium text-white bg-[#24292e] hover:bg-[#1b1f23] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#24292e] rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+      className="flex items-center justify-center w-full max-w-md p-4 h-10 text-sm font-medium text-white bg-[#24292e] hover:bg-[#1b1f23] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#24292e] rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
     >
       {isLoading ? (
         <svg
@@ -48,7 +51,12 @@ export const AuthButtonGithub = ({
         </svg>
       )}
 
-      <span>Continue with GitHub</span>
+      <span>
+        {" "}
+        {t("continueWith", {
+          social: "Github",
+        })}
+      </span>
     </button>
   );
 };

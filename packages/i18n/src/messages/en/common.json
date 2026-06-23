@@ -1,0 +1,21 @@
+{
+  "create": "Create",
+  "add": "Add",
+  "password": "Password",
+  "name": "Name",
+  "dashboard": "Dashboard",
+  "billing": "Billing",
+  "profile": "Profile",
+  "settings": "Settings",
+  "getPlan": "Upgrade to {plan}",
+  "cancelSubscription": "Cancel Subscription",
+  "month": "month",
+  "popular": "Popular",
+  "usd": "$",
+  "language_title": "Interface language",
+  "language_description": "Select a language to display the panel and notifications",
+  "not_available": "Not available",
+  "upgrade": "Upgrade",
+  "upgrade_for": "Upgrade for {price}",
+  "prices": "Prices"
+}

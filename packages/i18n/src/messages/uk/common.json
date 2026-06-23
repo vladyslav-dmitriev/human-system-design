@@ -1,0 +1,21 @@
+{
+  "create": "Створити",
+  "add": "Додати",
+  "password": "Пароль",
+  "name": "Ім'я",
+  "dashboard": "Дашборд",
+  "billing": "Оплата",
+  "profile": "Профіль",
+  "settings": "Налаштування",
+  "getPlan": "Оновити до {plan}",
+  "cancelSubscription": "Скасувати підписку",
+  "month": "місяць",
+  "popular": "Популярно",
+  "usd": "$",
+  "language_title": "Мова інтерфейсу",
+  "language_description": "Виберіть мову для відображення панелі та сповіщень",
+  "not_available": "Недоступно",
+  "upgrade": "Оновити",
+  "upgrade_for": "Оновити за {price}",
+  "prices": "Ціни"
+}

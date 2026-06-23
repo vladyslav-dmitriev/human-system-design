@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type AuthFormFooterProps = {
-  text: string;
+  text: React.ReactNode;
   buttonText: string;
   buttonLink: string;
 };

@@ -1,0 +1,14 @@
+{
+  "verification": {
+    "title": "Verify your email address",
+    "body": "Welcome to TaskFlow! Your account has been successfully created. To activate your dashboard and start managing your tasks, please click the button below:",
+    "button": "Verify Email Address",
+    "footer": "If you did not create an account on our website, please ignore this email. This link is valid for 24 hours."
+  },
+  "invoice": {
+    "title": "Invoice #{{invoiceNumber}} for your subscription",
+    "amount": "The total amount of {{amount}} {{currency}} has been processed.",
+    "view_link": "Download Invoice PDF",
+    "thank_you": "Thank you for trusting our platform. If you have any questions, please contact our support team."
+  }
+}

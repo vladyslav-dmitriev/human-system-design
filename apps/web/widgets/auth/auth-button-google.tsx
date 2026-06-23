@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import React from "react";
 
 interface AuthButtonGoogleProps {
@@ -11,12 +12,14 @@ export const AuthButtonGoogle = ({
   onClick,
   isLoading = false,
 }: AuthButtonGoogleProps) => {
+  const t = useTranslations();
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={isLoading}
-      className="cursor-pointer flex items-center justify-center w-full max-w-md p-4 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+      className="flex items-center justify-center w-full max-w-md p-4 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
     >
       {isLoading ? (
         <svg
@@ -64,7 +67,11 @@ export const AuthButtonGoogle = ({
         </svg>
       )}
 
-      <span>Continue with Google</span>
+      <span>
+        {t("continueWith", {
+          social: "Google",
+        })}
+      </span>
     </button>
   );
 };

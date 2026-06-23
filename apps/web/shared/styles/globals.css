@@ -103,6 +103,9 @@ a {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  --sidebar-width: 16rem;      /* Ширина в открытом виде (256px) */
+  --sidebar-width-icon: 3rem;
 }
 
 .dark {
@@ -146,4 +149,11 @@ a {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/**/
+
+.grecaptcha-badge {
+  visibility: hidden !important;
+  opacity: 0 !important;
 }

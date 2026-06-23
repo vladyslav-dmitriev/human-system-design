@@ -1,0 +1,134 @@
+datasource db {
+  provider = "postgresql" // или "sqlite", "mysql"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  stripePriceId String         @unique
+  name          String
+  price         Int
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  userPurchase  UserPurchase[]
+  userFeature   UserFeature[]
+}
+
+model UserPurchase {
+  id               String   @id @default(uuid())
+  userId           String
+  priceId          String
+  product          Product  @relation(fields: [priceId], references: [id])
+  stripeCheckoutId String   @unique
+  status           String
+  purchasedAt      DateTime @default(now())
+}
+
+model UserFeature {
+  id      String @id @default(uuid())
+  userId  String
+  priceId String
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [priceId], references: [stripePriceId])
+
+  expiresAt DateTime?
+
+  @@index([userId])
+}
+
+model Invoice {
+  id String @id @default(uuid())
+
+  stripePaymentIntentId String @unique // Для поиска и предотвращения дублей
+  stripeCustomerId      String // Чтобы знать, кому выставили счет
+
+  number   String @unique // Сквозной номер: INV-2026-0001
+  amount   Float // Сумма в момент оплаты
+  currency String // Валюта (USD, EUR, UAH и т.д.)
+  status   String // 'paid', 'void', 'refunded'
+
+  pdfUrl   String? // Ссылка на готовый файл в S3
+  metadata Json? // Для хранения состава заказа (line items)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId]) // Индекс для быстрого поиска всех счетов юзера
+}
+
+model Todo {
+  id        String  @id @default(cuid())
+  title     String
+  completed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  imageUrl  String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  role      String   @default("USER")
+
+  userBillingProfile UserBillingProfile?
+  profile            UserProfile?
+  authSettings       AuthSettings?
+  subscription       Subscription?
+  invoices           Invoice[]
+  features           UserFeature[]
+  todos              Todo[]
+}
+
+model UserBillingProfile {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  stripeCustomerId       String?  @unique
+  defaultPaymentMethodId String?
+  currency               String?  @default("USD")
+  taxId                  String?
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id     String  @id @default(cuid())
+  name   String?
+  phone  String?
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id])
+}
+
+model AuthSettings {
+  id               String  @id @default(cuid())
+  isVerified       Boolean @default(false)
+  verifiedToken    String? @unique
+  twoFactorEnabled Boolean @default(false)
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  status               String? // active, trialing, etc.
+  autoRenew            Boolean   @default(true)
+  currentPeriodEnd     DateTime?
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id])
+}

@@ -4,6 +4,10 @@ export const content = [
 ];
 export const theme = {
   extend: {
+    width: {
+      sidebar: "var(--sidebar-width)",
+      "sidebar-icon": "var(--sidebar-width-icon)",
+    },
     colors: {
       border: "hsl(var(--border))",
       input: "hsl(var(--input))",

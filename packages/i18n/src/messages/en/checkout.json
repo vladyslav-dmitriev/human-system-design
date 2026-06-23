@@ -1,0 +1,17 @@
+{
+  "checkout_title": "Payment",
+  "checkout_subtitle": "Secure payment via Stripe",
+  "checkout_email_label": "Email for invoice",
+  "checkout_payment_method_label": "Payment method",
+  "checkout_add_new_card": "Add new card",
+  "checkout_card_number_label": "Card number",
+  "checkout_expiry_label": "Expiry date",
+  "checkout_cvc_label": "CVC",
+  "checkout_payment_details_label": "Payment details",
+  "checkout_plan_label": "Subscription plan",
+  "checkout_duration_label": "Duration",
+  "checkout_duration_value": "1 month",
+  "checkout_monthly_price_label": "Monthly price",
+  "checkout_pay_button": "Pay",
+  "checkout_payment_failed": "Payment failed: {error}"
+}
