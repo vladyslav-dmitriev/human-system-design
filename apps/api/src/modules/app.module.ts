@@ -28,6 +28,7 @@ import { AuthModule } from './auth';
 import { CaptchaModule } from './captcha';
 import { FeatureModule } from './billing/feature';
 import { ProductModule } from './billing/product';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -80,7 +81,7 @@ import { ProductModule } from './billing/product';
     TodoModule,
     PdfModule,
   ],
-  controllers: [MetricsController],
+  controllers: [MetricsController, AppController],
   providers: [
     {
       provide: APP_GUARD,
