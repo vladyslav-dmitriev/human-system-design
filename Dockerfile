@@ -7,24 +7,25 @@ WORKDIR /usr/src/app
 # Копируем всё
 COPY . .
 
-# 1. Устанавливаем все зависимости в корне
-RUN npm install
+# 1. Устанавливаем все зависимости (добавляем --unsafe-perm для корректности в Docker)
+RUN npm install --unsafe-perm
 
-# 2. Генерируем клиент. 
-# Используем прямой вызов из node_modules, чтобы избежать проблем с npx/pnpm
-RUN ./node_modules/.bin/prisma generate --schema=apps/api/src/prisma/schema.prisma
+# 2. Устанавливаем Prisma явно, если его нет в node_modules
+RUN npm install prisma @prisma/client
 
-# 3. Билдим проект (используем npm команду для конкретного workspace)
-# Если используешь npm workspaces, эта команда сработает
-RUN npm run build -w apps/api
+# 3. Теперь генерируем клиент, используя глобальный npx
+# npx сам найдет установленный пакет в node_modules/.bin
+RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
+
+# 4. Билдим (замени 'build' на имя твоего скрипта, если оно другое)
+RUN npm run build --workspace=apps/api
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем результат сборки
+# Копируем результат
 COPY --from=builder /usr/src/app/apps/api/dist ./dist
-# Копируем node_modules из корня, чтобы @prisma/client был доступен
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/package.json ./package.json
 
