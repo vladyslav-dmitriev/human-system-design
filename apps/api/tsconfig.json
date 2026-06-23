@@ -24,11 +24,14 @@
     "resolveJsonModule": true,
     "baseUrl": "./",
     "paths": {
+      "*": ["src/*"],
       "prisma/*": ["src/prisma/*"],
-      "interceptors": ["src/interceptors/index"],
       "interceptors/*": ["src/interceptors/*"],
       "config/*": ["src/config/*"],
-      "utils/*": ["src/utils/*"]
+      "utils/*": ["src/utils/*"],
+      "types/*": ["src/types/*"],
+      "emails/*": ["src/emails/*"],
+      "modules/*": ["src/modules/*"]
     }
   }
 }
