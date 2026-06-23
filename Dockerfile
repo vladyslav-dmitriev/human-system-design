@@ -4,31 +4,32 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
+# Копируем всё для установки зависимостей
 COPY . .
 
-# Устанавливаем зависимости с учетом структуры монорепозитория
+# Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
-# Генерируем Prisma (используем pnpm exec, это надежнее npx в Docker)
-# Убедись, что путь к схеме верный
-RUN pnpm exec prisma generate --schema=apps/api/src/prisma/schema.prisma
-
-# СБОРКА
+# Переходим в папку API и генерируем Prisma там, где есть node_modules
 WORKDIR /usr/src/app/apps/api
+RUN pnpm prisma generate --schema=src/prisma/schema.prisma
+
+# Билд проекта
 RUN pnpm run build
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем всё содержимое папки build в корень
+# Копируем из билдера только необходимое
+# Копируем результат билда (папку dist)
 COPY --from=stage_builder /usr/src/app/apps/api/dist /usr/src/app/
-COPY --from=stage_builder /usr/src/app/node_modules ./node_modules
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
-# Копируем сгенерированного Prisma клиента
-COPY --from=stage_builder /usr/src/app/apps/api/src/prisma/generated ./prisma/generated
+# Копируем node_modules (они нужны для запуска)
+COPY --from=stage_builder /usr/src/app/node_modules /usr/src/app/node_modules
+# Копируем package.json для запуска
+COPY --from=stage_builder /usr/src/app/apps/api/package.json /usr/src/app/package.json
 
 EXPOSE 3001
 
-# Используем установленный tsx
+# Используем установленный в node_modules tsx
 CMD ["npx", "tsx", "main.js"]
