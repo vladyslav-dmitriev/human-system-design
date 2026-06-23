@@ -1,35 +1,40 @@
 # --- Этап 1: Сборка ---
 FROM node:22-alpine AS builder
+
+# Установка необходимых системных библиотек
 RUN apk add --no-cache openssl libc6-compat
-# Устанавливаем pnpm
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем всё
+# Копируем всё содержимое проекта
 COPY . .
 
-# Устанавливаем зависимости
-RUN pnpm install
+# Настройка pnpm для плоской структуры (решает проблему с путями)
+RUN pnpm config set node-linker hoisted
 
-# Генерируем клиент Prisma
-# Вместо попытки запустить pnpm prisma, идем напрямую в папку .bin
-RUN ./node_modules/.bin/prisma generate --schema=apps/api/src/prisma/schema.prisma
+# Установка зависимостей и генерация Prisma
+RUN pnpm install --frozen-lockfile
+RUN pnpm prisma generate --schema=apps/api/src/prisma/schema.prisma
 
-# Билдим
+# Сборка приложения
 WORKDIR /usr/src/app/apps/api
 RUN pnpm run build
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
+
 WORKDIR /usr/src/app
 
-# Копируем результат
+# Копируем только то, что нужно для работы
+# 1. Скомпилированный код
 COPY --from=builder /usr/src/app/apps/api/dist ./dist
-# Копируем node_modules из корня (pnpm использует общие модули)
+# 2. Необходимые зависимости (копируем из корня, так как они сhoisted)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
-COPY --from=builder /usr/src/app/package.json ./package.json
+# 3. Файлы package.json для корректного запуска
+COPY --from=builder /usr/src/app/apps/api/package.json ./package.json
 
 EXPOSE 3001
 
+# Запуск приложения
 CMD ["node", "dist/main.js"]
