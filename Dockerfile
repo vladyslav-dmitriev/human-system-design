@@ -5,32 +5,30 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 COPY . .
+
+# Устанавливаем зависимости с учетом структуры монорепозитория
 RUN pnpm install --frozen-lockfile
-RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
+
+# Генерируем Prisma (используем pnpm exec, это надежнее npx в Docker)
+# Убедись, что путь к схеме верный
+RUN pnpm exec prisma generate --schema=apps/api/src/prisma/schema.prisma
 
 # СБОРКА
 WORKDIR /usr/src/app/apps/api
 RUN pnpm run build
-# ДОБАВЬ ЭТУ СТРОКУ, ЧТОБЫ УВИДЕТЬ, ГДЕ ФАЙЛЫ:
-RUN ls -R /usr/src/app/apps/api
 
-# --- Этап 2: Финальный образ ---
-# ... (остальной Dockerfile)
-
-# ... остальной Dockerfile
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# ВАЖНО: Мы берем файлы ИМЕННО из того места, где они были созданы
-# stage_builder находится в /usr/src/app/apps/api
-COPY --from=stage_builder /usr/src/app/apps/api/dist /usr/src/app/dist
+# Копируем всё содержимое папки build в корень
+COPY --from=stage_builder /usr/src/app/apps/api/dist /usr/src/app/
 COPY --from=stage_builder /usr/src/app/node_modules ./node_modules
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
-# Копируем Prisma клиента, если он там есть
+# Копируем сгенерированного Prisma клиента
 COPY --from=stage_builder /usr/src/app/apps/api/src/prisma/generated ./prisma/generated
 
 EXPOSE 3001
 
-# Теперь мы запускаем из папки dist, куда мы все скопировали
-CMD ["npx", "tsx", "dist/main.js"]
+# Используем установленный tsx
+CMD ["npx", "tsx", "main.js"]
