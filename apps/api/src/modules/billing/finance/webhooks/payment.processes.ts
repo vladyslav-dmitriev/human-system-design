@@ -1,6 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
-import Stripe from 'stripe';
 import { Job } from 'bullmq';
 
 import { QUEUE, QUEUE_JOB } from 'config/queue.config';
@@ -28,21 +27,21 @@ export class PaymentProcessor extends WorkerHost {
 
   async process(job: Job): Promise<void> {
     if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase) {
-      return this.handleSubscriptionPurchase(job.data as Stripe.Invoice);
+      return this.handleSubscriptionPurchase(job.data as any);
     }
 
     if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade) {
-      return this.handleSubscriptionUpgrade(job.data as Stripe.PaymentIntent);
+      return this.handleSubscriptionUpgrade(job.data as any);
     }
 
     if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase) {
-      return this.handleOneTimePurchase(job.data as Stripe.PaymentIntent);
+      return this.handleOneTimePurchase(job.data as any);
     }
 
     throw new Error(`Unknown job: ${job.name}`);
   }
 
-  async handleSubscriptionPurchase(invoice: Stripe.Invoice) {
+  async handleSubscriptionPurchase(invoice: any) {
     const stripeCustomerId = invoice.customer as string;
 
     const user =
@@ -87,7 +86,7 @@ export class PaymentProcessor extends WorkerHost {
     });
   }
 
-  async handleSubscriptionUpgrade(paymentIntent: Stripe.PaymentIntent) {
+  async handleSubscriptionUpgrade(paymentIntent: any) {
     const stripeCustomerId = paymentIntent.customer as string;
     const subscriptionId = paymentIntent.metadata.subscriptionId;
 
@@ -134,7 +133,7 @@ export class PaymentProcessor extends WorkerHost {
     }
   }
 
-  async handleOneTimePurchase(paymentIntent: Stripe.PaymentIntent) {
+  async handleOneTimePurchase(paymentIntent: any) {
     // return this.prisma.$transaction(async (tx) => {
     // const existingInvoice = await tx.invoice.findUnique({
     //   where: { stripePaymentIntentId: paymentIntent.id },

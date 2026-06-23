@@ -1,6 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { PaymentHandler } from './payment.handler';
-import Stripe from 'stripe';
 import { PaymentsService } from '../../payments';
 
 @Injectable()
@@ -12,7 +11,7 @@ export class WebhookService {
   ) {}
 
   async execute(rawBody: Buffer, signature: string) {
-    let event: Stripe.Event;
+    let event: any;
 
     try {
       event = await this.paymentsService.constructEvent(rawBody, signature);

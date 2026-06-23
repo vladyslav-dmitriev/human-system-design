@@ -1,10 +1,8 @@
-import Stripe from 'stripe';
-
 import { ProductDto } from './dto';
 
 export class ProductMapper {
-  static toDomain(price: Stripe.Price): ProductDto {
-    const product = price.product as Stripe.Product;
+  static toDomain(price: any): ProductDto {
+    const product = price.product as any;
 
     if (typeof product === 'string') {
       throw new Error('Product not found');

@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { Inject } from '@nestjs/common';
 
 import { CACHE } from 'config/cache.config';

@@ -1,5 +1,4 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import Stripe from 'stripe';
 
 import { UserRepository } from '../../user';
 import { PaymentsService } from '../payments';
@@ -72,7 +71,7 @@ export class SubscriptionService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as Stripe.Product).name;
+    const productName = (price.product as any).name;
 
     const id = subscription.items.data[0].id;
 

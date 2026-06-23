@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable } from '@nestjs/common';
@@ -35,7 +34,7 @@ export class InvoiceService {
     customerEmail: string;
     amount: number;
     currency: string;
-    metadata: Nullable<Stripe.Metadata>;
+    metadata: Nullable<any>;
   }) {
     const invoiceNumber = await this.generateUniqueInvoiceNumber();
 

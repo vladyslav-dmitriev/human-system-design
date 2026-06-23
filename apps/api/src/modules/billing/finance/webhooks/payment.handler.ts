@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { Injectable } from '@nestjs/common';
 import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -10,7 +9,7 @@ export class PaymentHandler {
     @InjectQueue(QUEUE.PaymentQueue) private readonly paymentQueue: Queue,
   ) {}
 
-  async handleSubscriptionPurchase(event: Stripe.Event) {
+  async handleSubscriptionPurchase(event: any) {
     await this.paymentQueue.add(
       QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase,
       event.data.object,
@@ -21,7 +20,7 @@ export class PaymentHandler {
     );
   }
 
-  async handleSubscriptionUpgrade(event: Stripe.Event) {
+  async handleSubscriptionUpgrade(event: any) {
     await this.paymentQueue.add(
       QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade,
       event.data.object,
@@ -32,7 +31,7 @@ export class PaymentHandler {
     );
   }
 
-  async handleOneTimePurchase(event: Stripe.Event) {
+  async handleOneTimePurchase(event: any) {
     await this.paymentQueue.add(
       QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase,
       event.data.object,

@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import {
   BadRequestException,
   Inject,
@@ -78,7 +77,7 @@ export class FinanceService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as Stripe.Product).name;
+    const productName = (price.product as any).name;
 
     const subscription = await this.paymentsService.createSubscription(
       stripeCustomerId,
@@ -119,7 +118,7 @@ export class FinanceService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as Stripe.Product).name;
+    const productName = (price.product as any).name;
 
     const paymentIntent = await this.paymentsService.createPaymentIntent({
       stripeCustomerId,

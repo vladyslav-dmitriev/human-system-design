@@ -6,7 +6,7 @@ import { IPaymentProvider } from '../payments.interface';
 
 @Injectable()
 export class StripeProvider implements IPaymentProvider {
-  private stripe: Stripe;
+  private stripe: any;
 
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
