@@ -4,28 +4,30 @@ RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /usr/src/app
 
-# Копируем всё для корректной работы Turborepo
+# Копируем всё
 COPY . .
 
-# Устанавливаем зависимости
-# Если используешь npm, убедись, что package-lock.json есть в корне
+# Устанавливаем зависимости в корне
 RUN npm install
 
-# Генерируем клиент Prisma именно для приложения api
-RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
+# ПРИНУДИТЕЛЬНО устанавливаем Prisma и клиент в папку api, 
+# чтобы решить проблему "Could not resolve @prisma/client"
+RUN npm install prisma @prisma/client --prefix apps/api
 
-# Билдим проект через Turbo (явно указываем только api)
+# Генерируем клиент, явно указывая путь к исполняемому файлу prisma
+RUN ./apps/api/node_modules/.bin/prisma generate --schema=apps/api/src/prisma/schema.prisma
+
+# Билдим через Turbo
 RUN npx turbo run build --filter=api
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем результат билда (обычно turbo кладет его в dist или .turbo/output)
-# Проверь структуру: чаще всего для Turbo это dist внутри папки приложения
+# Копируем результат
 COPY --from=builder /usr/src/app/apps/api/dist ./dist
 COPY --from=builder /usr/src/app/apps/api/node_modules ./node_modules
-COPY --from=builder /usr/src/app/apps/api/package.json ./package.json
+COPY --from=builder /usr/src/app/package.json ./package.json
 
 EXPOSE 3001
 
