@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "strictPropertyInitialization": false,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "isolatedModules": true,
@@ -22,7 +22,10 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "prisma/*": ["prisma/*"]
+      "prisma/*": ["src/prisma/*"],
+      "interceptors": ["src/interceptors/index"],
+      "config/*": ["src/config/*"],
+      "utils/*": ["src/utils/*"]
     },
     "baseUrl": "./src/"
   },
