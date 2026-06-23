@@ -14,15 +14,13 @@ RUN pnpm run build
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем node_modules из билдера (там лежит tsx)
+# Копируем node_modules из билдера
 COPY --from=stage_builder /usr/src/app/node_modules ./node_modules
 # Копируем результат сборки
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
-# Добавляем путь к бинарникам в PATH, чтобы `tsx` стал виден как команда
-ENV PATH="/usr/src/app/node_modules/.bin:${PATH}"
-
 EXPOSE 3001
 
-# Теперь команда tsx будет найдена, так как мы добавили её папку в PATH
-CMD ["tsx", "dist/main.js"]
+# Используем абсолютный путь к исполняемому файлу tsx
+# Это гарантированно запустит именно утилиту tsx, а не попытается найти файл 'tsx' в папке
+CMD ["./node_modules/.bin/tsx", "dist/main.js"]
