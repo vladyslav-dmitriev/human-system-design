@@ -4,35 +4,29 @@ RUN apk add --no-cache openssl libc6-compat
 
 WORKDIR /usr/src/app
 
-# Копируем всё содержимое проекта
+# Копируем всё для корректной работы Turborepo
 COPY . .
 
-# Устанавливаем все зависимости в корне
+# Устанавливаем зависимости
+# Если используешь npm, убедись, что package-lock.json есть в корне
 RUN npm install
 
-# Устанавливаем @prisma/client отдельно для приложения api, 
-# чтобы Prisma точно видела путь к node_modules
-RUN npm install @prisma/client --prefix apps/api
-
-# Генерируем Prisma Client (путь к схеме указываем явно)
+# Генерируем клиент Prisma именно для приложения api
 RUN npx prisma generate --schema=apps/api/src/prisma/schema.prisma
 
-# Билдим проект (предполагаем, что в корне есть скрипт build)
-RUN npm run build
+# Билдим проект через Turbo (явно указываем только api)
+RUN npx turbo run build --filter=api
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
-RUN apk add --no-cache openssl libc6-compat
-
 WORKDIR /usr/src/app
 
-# Копируем скомпилированный код и зависимости
-# Проверь путь: обычно Nx/NestJS кладет билд в dist/apps/api
-COPY --from=builder /usr/src/app/dist/apps/api ./dist
-COPY --from=builder /usr/src/app/node_modules ./node_modules
-COPY --from=builder /usr/src/app/package.json ./package.json
+# Копируем результат билда (обычно turbo кладет его в dist или .turbo/output)
+# Проверь структуру: чаще всего для Turbo это dist внутри папки приложения
+COPY --from=builder /usr/src/app/apps/api/dist ./dist
+COPY --from=builder /usr/src/app/apps/api/node_modules ./node_modules
+COPY --from=builder /usr/src/app/apps/api/package.json ./package.json
 
 EXPOSE 3001
 
-# Запускаем приложение
 CMD ["node", "dist/main.js"]
