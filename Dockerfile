@@ -23,4 +23,4 @@ EXPOSE 3001
 
 # Используем абсолютный путь к исполняемому файлу tsx
 # Это гарантированно запустит именно утилиту tsx, а не попытается найти файл 'tsx' в папке
-CMD ["./node_modules/.bin/tsx", "dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/tsx dist/main.js"]
