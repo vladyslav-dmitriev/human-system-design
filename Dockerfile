@@ -7,28 +7,27 @@ WORKDIR /usr/src/app
 # Копируем всё
 COPY . .
 
-# Явно указываем Turbo, какой менеджер использовать (замени на pnpm или yarn, если не npm)
-ENV TURBO_PACKAGE_MANAGER=npm
+# ДИАГНОСТИКА: если lock-файла нет в списке, значит он в .dockerignore
+RUN ls -la
 
-# Устанавливаем зависимости (теперь Turbo должен их увидеть)
+# Устанавливаем зависимости
 RUN npm install
 
-# Устанавливаем Prisma локально, чтобы избежать конфликтов путей
+# Устанавливаем Prisma локально
 RUN npm install prisma @prisma/client --prefix apps/api
 
-# Генерируем клиент через прямой вызов бинарника
+# Генерируем клиент
 RUN ./apps/api/node_modules/.bin/prisma generate --schema=apps/api/src/prisma/schema.prisma
 
-# Билдим проект
-RUN npx turbo run build --filter=api
+# Билдим через npx, явно указав путь к turbo
+# И добавляем --no-daemon, чтобы избежать ошибок с путями демона Turbo
+RUN npx turbo run build --filter=api --no-daemon
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine
 WORKDIR /usr/src/app
 
-# Копируем скомпилированный код
 COPY --from=builder /usr/src/app/apps/api/dist ./dist
-# Копируем node_modules из API, чтобы приложение имело доступ к @prisma/client
 COPY --from=builder /usr/src/app/apps/api/node_modules ./node_modules
 COPY --from=builder /usr/src/app/package.json ./package.json
 
