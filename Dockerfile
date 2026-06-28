@@ -4,8 +4,8 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
+# Копируем всё содержимое для сборки
 COPY . .
-# Устанавливаем все зависимости и собираем проект
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build --filter=api
 
@@ -16,26 +16,29 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем файлы, необходимые для pnpm workspace
+# Копируем необходимые файлы конфигурации для работы pnpm
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
+# Копируем содержимое папки api целиком, чтобы сохранить структуру путей
+COPY --from=stage_builder /usr/src/app/apps/api ./apps/api
 
-# Установка зависимостей (устанавливаем всё, чтобы pnpm создал корректные линки)
+# Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
-# Генерация Prisma Client
-# Переходим в директорию api, чтобы контекст pnpm был привязан к этому пакету
-RUN cd apps/api && \
-    pnpm exec prisma generate --schema=./src/prisma/schema.prisma
+# Генерация Prisma Client через прямой вызов
+RUN SCHEMA_PATH=$(find /usr/src/app/apps/api -name "schema.prisma" | grep -v "generated" | head -n 1) && \
+    echo "Using schema: $SCHEMA_PATH" && \
+    # Ищем бинарник Prisma в node_modules/.bin
+    PRISMA_BIN=$(find /usr/src/app/node_modules -name prisma | grep ".bin/prisma" | head -n 1) && \
+    echo "Using binary: $PRISMA_BIN" && \
+    $PRISMA_BIN generate --schema=$SCHEMA_PATH
 
-# Удаляем только dev-зависимости (typescript, prisma cli и т.д.)
-# Все зависимости, нужные для работы (NestJS, cookie-parser и т.д.), останутся
+# Очистка dev-зависимостей
 RUN pnpm prune --prod
 
-# Копируем собранный dist из первого этапа
-COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
+# Копируем только скомпилированный код
+COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]
