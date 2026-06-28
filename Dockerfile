@@ -8,8 +8,8 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 
-# Генерируем клиент, чтобы билд прошел успешно
-RUN pnpm exec prisma generate --schema=./apps/api/src/prisma/schema.prisma
+# Используем `pnpm prisma`, это работает надежнее, чем npx или pnpm exec
+RUN pnpm prisma generate --schema=./apps/api/src/prisma/schema.prisma
 
 # Билд проекта
 RUN pnpm run build --filter=api
@@ -27,19 +27,18 @@ COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
-# ВАЖНО: Копируем схему в финальный образ, чтобы prisma generate сработал
+# Копируем скомпилированный код
+COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
+
+# ВАЖНО: Копируем схему в финальный образ
 COPY --from=stage_builder /usr/src/app/apps/api/src/prisma ./apps/api/src/prisma
 
 # Устанавливаем только production-зависимости
-# ВНИМАНИЕ: Prisma должна быть в 'dependencies' (не devDependencies), 
-# иначе она удалится при --prod
+# Пакет "prisma" должен быть в devDependencies, а "@prisma/client" в dependencies
 RUN pnpm install --frozen-lockfile --prod
 
-# Теперь генерация сработает, так как мы скопировали схему
-RUN pnpm exec prisma generate --schema=./apps/api/src/prisma/schema.prisma
-
-# Копируем скомпилированный код
-COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
+# Генерируем клиент для рантайма
+RUN pnpm prisma generate --schema=./apps/api/src/prisma/schema.prisma
 
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]
