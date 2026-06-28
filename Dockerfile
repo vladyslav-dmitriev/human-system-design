@@ -5,6 +5,7 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 COPY . .
+# Устанавливаем все зависимости и собираем проект
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build --filter=api
 
@@ -15,25 +16,26 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем критически важные файлы для установки зависимостей
+# Копируем файлы, необходимые для pnpm workspace
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
-# УСТАНОВКА: устанавливаем всё БЕЗ --prod, чтобы все зависимости (в т.ч. NestJS) попали в node_modules
-# Это гарантирует, что все ссылки внутри монорепозитория будут работать
+# Установка зависимостей (устанавливаем всё, чтобы pnpm создал корректные линки)
 RUN pnpm install --frozen-lockfile
 
-# Генерация Prisma
-RUN node ./node_modules/prisma/build/index.js generate --schema=./apps/api/src/prisma/schema.prisma
+# Генерация Prisma Client
+# Переходим в директорию api, чтобы контекст pnpm был привязан к этому пакету
+RUN cd apps/api && \
+    pnpm exec prisma generate --schema=./src/prisma/schema.prisma
 
-# Копируем только скомпилированный код
-COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
-
-# УДАЛЯЕМ только то, что НЕ нужно в продакшене (например, исходники и лишние инструменты)
-# Но оставляем node_modules нетронутым, чтобы NestJS нашел свои модули
+# Удаляем только dev-зависимости (typescript, prisma cli и т.д.)
+# Все зависимости, нужные для работы (NestJS, cookie-parser и т.д.), останутся
 RUN pnpm prune --prod
+
+# Копируем собранный dist из первого этапа
+COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
 EXPOSE 3001
 CMD ["node", "dist/main.js"]
