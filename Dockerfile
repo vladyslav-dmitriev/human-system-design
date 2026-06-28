@@ -15,29 +15,28 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем только необходимые файлы для установки зависимостей
+# Копируем всё необходимое для установки (целиком структуру для pnpm)
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
+COPY --from=stage_builder /usr/src/app/apps/api ./apps/api
 
-# Устанавливаем зависимости
+# Устанавливаем все зависимости (чтобы были доступны в node_modules)
 RUN pnpm install --frozen-lockfile
 
 # 1. Генерация Prisma Client
-RUN SCHEMA_PATH=$(find /usr/src/app/apps/api -name "schema.prisma" | grep -v "generated" | head -n 1) && \
-    PRISMA_BIN=$(find /usr/src/app/node_modules -name prisma | grep ".bin/prisma" | head -n 1) && \
-    $PRISMA_BIN generate --schema=$SCHEMA_PATH
+# Мы переходим в папку API и вызываем бинарник напрямую через npx
+RUN cd apps/api && \
+    npx prisma generate --schema=./src/prisma/schema.prisma
 
 # 2. ПРИНУДИТЕЛЬНОЕ копирование сгенерированного клиента в dist
-# Это решает проблему MODULE_NOT_FOUND для ./generated/client
-RUN mkdir -p /usr/src/app/apps/api/dist/prisma/generated/client && \
-    cp -r /usr/src/app/apps/api/node_modules/.prisma/client/* /usr/src/app/apps/api/dist/prisma/generated/client/
+# NestJS ищет клиент в скомпилированном коде, поэтому он должен лежать в dist
+RUN cp -r /usr/src/app/apps/api/node_modules/.prisma/client /usr/src/app/apps/api/dist/prisma/generated/client
 
-# Очистка dev-зависимостей (оставит только то, что в dependencies)
+# Очистка dev-зависимостей
 RUN pnpm prune --prod
 
-# Копируем скомпилированный код
+# Копируем остальной скомпилированный код
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
