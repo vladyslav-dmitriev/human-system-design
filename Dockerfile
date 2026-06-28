@@ -15,25 +15,31 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# 1. Копируем всё необходимое для pnpm
+# Копируем манифесты
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
-# 2. ВАЖНО: Копируем исходники prisma, чтобы генератор их видел
+# Копируем исходники, необходимые для генерации Prisma
 COPY --from=stage_builder /usr/src/app/apps/api/src ./apps/api/src
 
-# 3. Устанавливаем зависимости
+# Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
-# 4. Генерируем клиент (теперь src/prisma/schema.prisma существует)
+# 1. Генерация Prisma Client
 RUN cd apps/api && npx prisma generate --schema=./src/prisma/schema.prisma
 
-# 5. Удаляем dev-зависимости
+# 2. ФИКС: Принудительно копируем клиент в папку dist, где его ищет Node.js
+# Мы копируем то, что Prisma создала в node_modules, в папку dist, 
+# чтобы путь ./generated/client стал доступен для require()
+RUN mkdir -p /usr/src/app/apps/api/dist/prisma/generated/client && \
+    cp -r /usr/src/app/node_modules/.prisma/client/* /usr/src/app/apps/api/dist/prisma/generated/client/
+
+# 3. Удаляем dev-зависимости
 RUN pnpm prune --prod
 
-# 6. Копируем скомпилированный код
+# 4. Копируем скомпилированный код (поверх того, что мы уже настроили)
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
