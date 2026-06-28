@@ -1,1 +1,0 @@
-export { GoalChart } from './GoalChart';

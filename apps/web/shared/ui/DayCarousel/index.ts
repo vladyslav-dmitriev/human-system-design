@@ -1,1 +1,0 @@
-export { DayCarousel } from './DayCarousel';
