@@ -10,6 +10,17 @@ export const result = NextAuth({
   session: {
     strategy: "jwt", // Сессии хранятся в зашифрованной куке, а не в БД
   },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax", // 'lax' достаточно для переходов между страницами
+        path: "/",
+        secure: true, // ВАЖНО: на Vercel всегда true (HTTPS)
+      },
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
