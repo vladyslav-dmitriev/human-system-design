@@ -17,7 +17,12 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    await this.$connect();
+    try {
+      await this.$connect();
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      // Не обязательно бросать ошибку, если хотите, чтобы API всё равно стартовал
+    }
   }
 
   async onModuleDestroy() {
