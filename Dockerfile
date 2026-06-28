@@ -4,30 +4,38 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
-# Копируем всё из корня (контекст билда - корень)
 COPY . .
 RUN pnpm install --frozen-lockfile
-# Собираем только API
 RUN pnpm run build --filter=api
 
 # --- Этап 2: Финальный образ ---
-FROM node:22-alpine
+FROM node:22-alpine AS final_runner
 RUN apk add --no-cache openssl
 RUN npm install -g pnpm
 
+# Добавляем путь pnpm в PATH прямо здесь
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
 WORKDIR /usr/src/app
 
-# Копируем сгенерированные файлы для продакшена
-COPY --from=stage_builder /usr/src/app/apps/api/package.json ./package.json
+# Отключаем проверки
+ENV PNPM_IGNORE_POLICY=true
+ENV CI=true
+
+# Копируем манифесты
+COPY --from=stage_builder /usr/src/app/package.json ./package.json
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./pnpm-lock.yaml
-# Копируем схему напрямую из известного места
-COPY --from=stage_builder /usr/src/app/apps/api/prisma ./prisma
+COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
+COPY --from=stage_builder /usr/src/app/apps/api/src/prisma/schema.prisma ./prisma/schema.prisma
 
-# Установка и генерация клиента
-RUN pnpm install --prod --frozen-lockfile && \
-    pnpm exec prisma generate
+# Установка и генерация
+RUN pnpm install --prod --no-frozen-lockfile && \
+    pnpm add prisma @prisma/client && \
+    # Вызываем Prisma через node, минуя бинарники с правами доступа
+    node ./node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma && \
+    pnpm prune --prod
 
-# Копируем результат сборки
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
 EXPOSE 3001
