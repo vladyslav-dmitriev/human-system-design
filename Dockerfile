@@ -25,14 +25,14 @@ COPY --from=stage_builder /usr/src/app/apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
 
 # 1. Генерация Prisma Client
-# Мы переходим в папку API и вызываем бинарник напрямую через npx
-RUN cd apps/api && \
-    npx prisma generate --schema=./src/prisma/schema.prisma
+RUN cd apps/api && npx prisma generate --schema=./src/prisma/schema.prisma
 
-# 2. ПРИНУДИТЕЛЬНОЕ копирование сгенерированного клиента в dist
-# NestJS ищет клиент в скомпилированном коде, поэтому он должен лежать в dist
-RUN cp -r /usr/src/app/apps/api/node_modules/.prisma/client /usr/src/app/apps/api/dist/prisma/generated/client
-
+# 2. Поиск и копирование сгенерированного клиента
+# Мы ищем папку .prisma/client и копируем её содержимое в нужный dist
+RUN CLIENT_PATH=$(find /usr/src/app -name "client" | grep ".prisma/client" | head -n 1) && \
+    echo "Found client at: $CLIENT_PATH" && \
+    mkdir -p /usr/src/app/apps/api/dist/prisma/generated/client && \
+    cp -r $CLIENT_PATH/* /usr/src/app/apps/api/dist/prisma/generated/client/
 # Очистка dev-зависимостей
 RUN pnpm prune --prod
 
