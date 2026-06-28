@@ -8,8 +8,9 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 
-# Используем `pnpm prisma`, это работает надежнее, чем npx или pnpm exec
-RUN pnpm prisma generate --schema=./apps/api/src/prisma/schema.prisma
+# Использование прямого пути к бинарнику. 
+# В монорепозиториях это работает независимо от того, где установлен пакет.
+RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
 
 # Билд проекта
 RUN pnpm run build --filter=api
@@ -27,18 +28,16 @@ COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
+# Копируем схему (ОБЯЗАТЕЛЬНО для генерации в рантайме)
+COPY --from=stage_builder /usr/src/app/apps/api/src/prisma ./apps/api/src/prisma
+
 # Копируем скомпилированный код
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
-# ВАЖНО: Копируем схему в финальный образ
-COPY --from=stage_builder /usr/src/app/apps/api/src/prisma ./apps/api/src/prisma
-
-# Устанавливаем только production-зависимости
-# Пакет "prisma" должен быть в devDependencies, а "@prisma/client" в dependencies
 RUN pnpm install --frozen-lockfile --prod
 
-# Генерируем клиент для рантайма
-RUN pnpm prisma generate --schema=./apps/api/src/prisma/schema.prisma
+# Тот же надежный метод прямого вызова бинарника
+RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
 
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]
