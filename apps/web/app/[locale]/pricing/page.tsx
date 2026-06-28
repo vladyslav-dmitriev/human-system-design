@@ -52,7 +52,7 @@ export default async function PricingPage() {
   console.log("userBilling p", userBilling);
   console.log("billingProducts p", billingProducts);
 
-  const lastPriceId = billingProducts.recurring.find(
+  const lastPriceId = billingProducts.recurring?.find(
     (p) => p.name === "Pro",
   )?.priceId;
 
