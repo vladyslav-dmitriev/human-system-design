@@ -4,7 +4,6 @@ RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
-# Копируем всё содержимое для сборки
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build --filter=api
@@ -16,28 +15,29 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем необходимые файлы конфигурации для работы pnpm
+# Копируем только необходимые файлы для установки зависимостей
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
-# Копируем содержимое папки api целиком, чтобы сохранить структуру путей
-COPY --from=stage_builder /usr/src/app/apps/api ./apps/api
+COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 
 # Устанавливаем зависимости
 RUN pnpm install --frozen-lockfile
 
-# Генерация Prisma Client через прямой вызов
+# 1. Генерация Prisma Client
 RUN SCHEMA_PATH=$(find /usr/src/app/apps/api -name "schema.prisma" | grep -v "generated" | head -n 1) && \
-    echo "Using schema: $SCHEMA_PATH" && \
-    # Ищем бинарник Prisma в node_modules/.bin
     PRISMA_BIN=$(find /usr/src/app/node_modules -name prisma | grep ".bin/prisma" | head -n 1) && \
-    echo "Using binary: $PRISMA_BIN" && \
     $PRISMA_BIN generate --schema=$SCHEMA_PATH
 
-# Очистка dev-зависимостей
+# 2. ПРИНУДИТЕЛЬНОЕ копирование сгенерированного клиента в dist
+# Это решает проблему MODULE_NOT_FOUND для ./generated/client
+RUN mkdir -p /usr/src/app/apps/api/dist/prisma/generated/client && \
+    cp -r /usr/src/app/apps/api/node_modules/.prisma/client/* /usr/src/app/apps/api/dist/prisma/generated/client/
+
+# Очистка dev-зависимостей (оставит только то, что в dependencies)
 RUN pnpm prune --prod
 
-# Копируем только скомпилированный код
+# Копируем скомпилированный код
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
