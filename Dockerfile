@@ -1,5 +1,5 @@
 # --- Этап 2: Финальный образ ---
-FROM node:22-alpine AS stage_builder
+FROM node:22-alpine AS final_runner
 RUN apk add --no-cache openssl
 RUN npm install -g pnpm
 
