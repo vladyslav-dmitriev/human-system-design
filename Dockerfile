@@ -31,12 +31,12 @@ COPY --from=stage_builder /usr/src/app/apps/api/src/prisma/schema.prisma ./prism
 
 # Установка и генерация
 RUN pnpm install --prod --no-frozen-lockfile && \
-    # Добавляем принудительно, если вдруг забыли в package.json
-    pnpm add reflect-metadata prisma @prisma/client && \
-    # Генерация клиента через node (без использования .bin)
-    node ./node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma && \
-    # Prune удалит devDependencies, но ОСТАВИТ все в dependencies
-    pnpm prune --prod
+    # Устанавливаем зависимости конкретно для api, чтобы они были доступны
+    # Используем --filter для монорепозитория
+    pnpm --filter api install --prod --no-frozen-lockfile && \
+    # Устанавливаем prisma и клиент отдельно, так как это критические зависимости
+    pnpm add prisma @prisma/client reflect-metadata cookie-parser && \
+    node ./node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma
 
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./dist
 
