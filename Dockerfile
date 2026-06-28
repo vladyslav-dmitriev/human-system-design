@@ -5,14 +5,15 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 COPY . .
+
 RUN pnpm install --frozen-lockfile
 
-# ВАЖНО: Генерируем клиент ДО сборки, чтобы TypeScript увидел типы моделей
-RUN npx prisma generate --schema=./apps/api/src/prisma/schema.prisma
+# Используем pnpm exec — это гарантированно находит prisma, 
+# даже если она установлена как зависимость в воркспейсе
+RUN pnpm exec prisma generate --schema=./apps/api/src/prisma/schema.prisma
 
-# Теперь, когда типы сгенерированы, запускаем билд
+# Билд проекта
 RUN pnpm run build --filter=api
-
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine AS final_runner
 RUN apk add --no-cache openssl
