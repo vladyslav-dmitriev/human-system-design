@@ -1,13 +1,16 @@
 # --- Этап 1: Сборка ---
 FROM node:22-alpine AS stage_builder
+RUN apk add --no-cache openssl libc6-compat
 RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 COPY . .
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter=api
 
-# RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
+# Использование прямого пути к бинарнику. 
+# В монорепозиториях это работает независимо от того, где установлен пакет.
+RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
 
 # Билд проекта
 RUN pnpm run build --filter=api
@@ -31,8 +34,6 @@ RUN pnpm install --frozen-lockfile --prod --filter=api
 
 # Тот же надежный метод прямого вызова бинарника
 RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
-
-RUN apk add --no-cache openssl libc6-compat netcat-openbsd
 
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]
