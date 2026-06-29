@@ -5,7 +5,7 @@ import {
   getBillingProducts,
   getUserData,
   getUserBilling,
-  syncBillingProducts,
+  // syncBillingProducts,
 } from "@/utils";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";

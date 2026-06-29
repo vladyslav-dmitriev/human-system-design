@@ -26,6 +26,9 @@ export default function LoginPage() {
 
   const handleSubmitAuthForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    console.log("!!! ХЕНДЛЕР СРАБОТАЛ !!!");
+
     setIsLoading(true);
     setError(null);
 
@@ -41,7 +44,10 @@ export default function LoginPage() {
     }
 
     try {
+      console.log("try");
       const captchaToken = await executeRecaptcha("login");
+
+      console.log("captchaToken");
 
       const response = await fetch(API_URL.auth.login(), {
         method: "POST",
@@ -55,6 +61,8 @@ export default function LoginPage() {
           captchaToken,
         }),
       });
+
+      console.log("response");
 
       const result = await response.json();
 

@@ -22,22 +22,20 @@ RUN npm install -g pnpm
 
 WORKDIR /usr/src/app
 
-# Копируем манифесты
 COPY --from=stage_builder /usr/src/app/package.json ./
 COPY --from=stage_builder /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
-
-# Копируем схему (ОБЯЗАТЕЛЬНО для генерации в рантайме)
 COPY --from=stage_builder /usr/src/app/apps/api/src/prisma ./apps/api/src/prisma
-
-# Копируем скомпилированный код
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
+COPY --from=stage_builder /usr/src/app /usr/src/app
 
 RUN pnpm install --frozen-lockfile --prod
 
 # Тот же надежный метод прямого вызова бинарника
 RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
+
+RUN apk add --no-cache openssl libc6-compat netcat-openbsd
 
 EXPOSE 3001
 CMD ["node", "apps/api/dist/main.js"]

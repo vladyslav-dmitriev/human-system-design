@@ -17,21 +17,33 @@ function normalize(pathname: string) {
 export default async function middleware(req: any) {
   const { pathname } = req.nextUrl;
 
+  console.log("Middleware check for:", pathname);
+
   const path = normalize(pathname);
+
+  const allCookies = req.cookies.toString();
+  console.log("ВСЕ КУКИ В МИДЛВАРЕ:", allCookies);
 
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: true,
-    cookieName: "__Secure-next-auth.session-token",
+    secureCookie: false,
+    // secureCookie: process.env.NODE_ENV === "production",
+    cookieName:
+      process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
   });
 
   const isLoggedIn = !!token;
+
+  console.log("Is Logged In:", isLoggedIn); // ЭТО САМОЕ ВАЖНОЕ
 
   const isAuthPage = ROUTES.auth.includes(path);
   const isProtected = ROUTES.protected.includes(path);
 
   if (isLoggedIn && isAuthPage) {
+    console.log("!!! REDIRECTING TO LOGIN !!!");
     return NextResponse.redirect(new URL(ROUTE.DASHBOARD, req.url));
   }
 
@@ -43,5 +55,12 @@ export default async function middleware(req: any) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  // matcher: ["/((?!api|_next|.*\\..*).*)"],
+  // matcher: [
+  //   "/((?!api|_next|.*\\..*|en/login|uk/login|en/create-account|uk/create-account).*)",
+  // ],
+  // matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|_next/webpack-hmr|favicon.ico).*)",
+  ],
 };

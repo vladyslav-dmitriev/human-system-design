@@ -69,8 +69,7 @@ export default async function CheckoutPage({
   const { priceId, email, type, billingOperation } = await searchParams;
 
   if (!priceId || !type || !billingOperation) {
-    return null;
-    // redirect(ROUTE.HOME);
+    redirect(ROUTE.HOME);
   }
 
   const [paymentMethods, paymentData] = await Promise.all([

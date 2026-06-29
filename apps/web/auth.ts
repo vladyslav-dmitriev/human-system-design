@@ -12,12 +12,14 @@ export const result = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: `next-auth.session-token`,
+      // name: `__Secure-next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax", // 'lax' достаточно для переходов между страницами
         path: "/",
-        secure: true, // ВАЖНО: на Vercel всегда true (HTTPS)
+        secure: process.env.NODE_ENV === "production", // ВАЖНО: на Vercel всегда true (HTTPS)
+        domain: ".myapp.local",
       },
     },
   },

@@ -6,6 +6,7 @@ import { ROUTE } from "./constants";
 
 export const authConfig = {
   providers: [Google, Github],
+  basePath: "/api/auth",
   pages: {
     signIn: ROUTE.LOGIN,
   },

@@ -15,7 +15,7 @@ import {
 import { CaptchaGuard } from '../captcha/guards';
 import { Serialize } from 'interceptors';
 
-@Controller('auth')
+@Controller('service-auth')
 export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
