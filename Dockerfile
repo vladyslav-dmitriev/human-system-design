@@ -28,7 +28,7 @@ COPY --from=stage_builder /usr/src/app/pnpm-lock.yaml ./
 COPY --from=stage_builder /usr/src/app/apps/api/package.json ./apps/api/package.json
 COPY --from=stage_builder /usr/src/app/apps/api/src/prisma ./apps/api/src/prisma
 COPY --from=stage_builder /usr/src/app/apps/api/dist ./apps/api/dist
-COPY --from=stage_builder /usr/src/app /usr/src/app
+# COPY --from=stage_builder /usr/src/app /usr/src/app
 
 RUN pnpm install --frozen-lockfile --prod
 
