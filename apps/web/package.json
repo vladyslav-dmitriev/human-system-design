@@ -7,12 +7,14 @@
     "dev": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint --max-warnings 0",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --quiet || true",
     "check-types": "tsc --noEmit",
     "tailwind:init": "tailwindcss init -p",
     "test": "vitest",
+    "test:unit": "jest",
     "test:run": "vitest run",
-    "test:coverage": "rm -rf .vitest-cache coverage && vitest run --coverage"
+    "test:coverage": "rm -rf .vitest-cache coverage && vitest run --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.42.5",

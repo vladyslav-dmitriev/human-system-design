@@ -1,0 +1,54 @@
+name: Verify Project
+description: Install dependencies and run verification
+
+inputs:
+  node-version:
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+
+    - name: Install Dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Lint
+      shell: bash
+      run: pnpm turbo run lint
+
+    # - name: Generate Prisma Client
+    #   run: pnpm --filter=api prisma generate || true
+    #   shell: bash
+
+    - name: Typecheck
+      shell: bash
+      run: pnpm turbo run typecheck
+
+    - name: Unit Tests
+      shell: bash
+      run: pnpm turbo run test
+
+    - name: Build
+      shell: bash
+      run: pnpm turbo run build
+
+    # - name: Audit
+    #   shell: bash
+    #   run: pnpm audit || true
+
+    - name: Build Docker
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
