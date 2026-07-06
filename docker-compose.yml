@@ -11,16 +11,14 @@ services:
 
   api:
     build: .
-    working_dir: /usr/src/app/apps/api
     volumes:
       - ./apps/api:/usr/src/app/apps/api
     env_file:
-      - .env
+      - ./apps/api/.env
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://user:password@db:5432/mydb
-      - PRISMA_CONFIG_PATH=/usr/src/app/apps/api/src/prisma/prisma.config.ts
-    command: pnpm --filter api run start:dev
+    working_dir: /usr/src/app/apps/api
+    command: pnpm run start:dev
 
   db:
     image: postgres:16-alpine
@@ -30,15 +28,45 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydb
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    labels:
+      backup.enabled: "true"
+      backup.cron: "0 2 * * *"      # Каждый день в 2 часа ночи
+      backup.type: "postgres"
+      backup.conn: "postgresql://user:password@postgres:5432/mydb"
+      backup.dest: "remote"         # В S3 или MinIO
+      backup.retention: "7d"        # Хранить 7 дней
+
+  label-backup:   # ← Добавьте ЭТОТ сервис
+    image: resulgg/label-backup
+    environment:
+      LOCAL_BACKUP_PATH: "/backups"
+      GLOBAL_RETENTION_PERIOD: "30d"
+      LOG_LEVEL: "info"
+    volumes:
+      - ./backups:/backups
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redisdata:/data
 
@@ -46,13 +74,10 @@ services:
     build: .
     volumes:
       - ./apps/web:/usr/src/app/apps/web
+    env_file:
+      - ./apps/web/.env
     working_dir: /usr/src/app/apps/web
-    environment:
-      - NEXT_PUBLIC_API_URL=/api
-      - NEXT_TELEMETRY_DISABLED=1
-      - HOST=0.0.0.0
-      - NEXT_PUBLIC_SITE_URL=http://myapp.local
-    command: pnpm --filter web run dev
+    command: pnpm run dev
 
 volumes:
   pgdata:

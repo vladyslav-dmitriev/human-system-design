@@ -13,7 +13,7 @@ import { StorageModule } from './storage';
 import { UserModule } from './user';
 import { PdfModule } from './pdf';
 import { RedisModule } from './redis';
-import { MetricsController } from './metrics';
+import { MetricsController, MetricsModule } from './metrics';
 import { CacheModule } from './cache';
 import { FinanceModule } from './billing/finance';
 import { PaymentsModule } from './billing/payments';
@@ -29,6 +29,10 @@ import { CaptchaModule } from './captcha';
 import { FeatureModule } from './billing/feature';
 import { ProductModule } from './billing/product';
 import { AppController } from './app.controller';
+import appConfig from 'config/app.config';
+import databaseConfig from 'config/database.config';
+import redisConfig from 'config/redis.config';
+// import { validationSchema } from 'config/validation';
 
 @Module({
   imports: [
@@ -39,6 +43,8 @@ import { AppController } from './app.controller';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: 'apps/api/.env',
+      // validationSchema,
+      load: [appConfig, databaseConfig, redisConfig],
     }),
 
     BullModule.forRoot({
@@ -77,6 +83,7 @@ import { AppController } from './app.controller';
     SmsModule,
     StorageModule,
     CaptchaModule,
+    MetricsModule,
 
     TodoModule,
     PdfModule,

@@ -1,0 +1,57 @@
+name: Cleanup GHCR Images
+
+on:
+  schedule:
+    - cron: "0 2 * * 0" # Every Sunday at 02:00 UTC
+
+  workflow_dispatch:
+
+permissions:
+  packages: write
+  contents: read
+
+concurrency:
+  group: cleanup
+  cancel-in-progress: false
+
+env:
+  OWNER: your-github-org-or-user
+
+jobs:
+  cleanup-api:
+    name: Cleanup API Images
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete old API container versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: fullstack-api
+          package-type: container
+          owner: ${{ env.OWNER }}
+
+          min-versions-to-keep: 20
+
+          delete-only-untagged-versions: false
+
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-web:
+    name: Cleanup WEB Images
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete old WEB container versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: fullstack-web
+          package-type: container
+          owner: ${{ env.OWNER }}
+
+          min-versions-to-keep: 20
+
+          delete-only-untagged-versions: false
+
+          token: ${{ secrets.GITHUB_TOKEN }}

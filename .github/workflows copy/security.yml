@@ -1,0 +1,70 @@
+name: Security Scan
+
+on:
+  workflow_run:
+    workflows:
+      - Build & Push Docker Images
+    types:
+      - completed
+
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    if: github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+
+      - name: Run npm audit
+        run: |
+          npm audit --audit-level=high || true
+
+      - name: Scan API Image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/your-github-username/fullstack-api:sha-${{ github.event.workflow_run.head_sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      - name: Scan WEB Image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/your-github-username/fullstack-web:sha-${{ github.event.workflow_run.head_sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      - name: Generate SBOM (API)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/your-github-username/fullstack-api:sha-${{ github.event.workflow_run.head_sha }}
+          artifact-name: api-sbom
+
+      - name: Generate SBOM (WEB)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/your-github-username/fullstack-web:sha-${{ github.event.workflow_run.head_sha }}
+          artifact-name: web-sbom
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            *.spdx.json

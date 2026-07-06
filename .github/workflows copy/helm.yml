@@ -1,0 +1,55 @@
+name: Update Helm Charts
+
+on:
+  workflow_run:
+    workflows:
+      - Build & Push Docker Images
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  update-helm:
+    if: github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitOps Repository
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/fullstack-gitops   # TODO
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Install yq
+        uses: mikefarah/yq@master
+
+      - name: Update API image tag
+        run: |
+          cd gitops
+          yq -i '.image.tag = "sha-${{ github.event.workflow_run.head_sha }}"' \
+            helm/api/values.yaml
+
+      - name: Update WEB image tag
+        run: |
+          cd gitops
+          yq -i '.image.tag = "sha-${{ github.event.workflow_run.head_sha }}"' \
+            helm/web/values.yaml
+
+      - name: Commit changes
+        run: |
+          cd gitops
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add .
+
+          git commit -m "Update image tag to sha-${{ github.event.workflow_run.head_sha }}" || echo "Nothing to commit"
+
+      - name: Push
+        run: |
+          cd gitops
+          git push

@@ -1,0 +1,96 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  nightly:
+    name: Nightly Verification
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: Typecheck
+        run: pnpm turbo run typecheck
+
+      - name: Unit Tests
+        run: pnpm turbo run test
+
+      - name: Build
+        run: pnpm turbo run build
+
+      - name: Audit Dependencies
+        run: pnpm audit || true
+
+      - name: Build Docker API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: false
+
+      - name: Build Docker WEB
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: false
+
+      - name: Scan API Image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: docker.io/library/api:latest
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Scan WEB Image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: docker.io/library/web:latest
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-results
+          path: |
+            coverage
+            reports

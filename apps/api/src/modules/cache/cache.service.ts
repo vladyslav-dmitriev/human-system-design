@@ -1,12 +1,12 @@
 import { Injectable, Inject } from '@nestjs/common';
 import Redis from 'ioredis';
-import { Counter } from 'prom-client';
+// import { Counter } from 'prom-client';
 
-const cacheCounter = new Counter({
-  name: 'redis_cache_hits_misses',
-  help: 'Count of cache hits and misses',
-  labelNames: ['result'],
-});
+// const cacheCounter = new Counter({
+//   name: 'redis_cache_hits_misses',
+//   help: 'Count of cache hits and misses',
+//   labelNames: ['result'],
+// });
 
 @Injectable()
 export class CacheService {
@@ -16,12 +16,12 @@ export class CacheService {
     const data = await this.redis.get(key);
 
     if (data) {
-      cacheCounter.inc({ result: 'hit' });
+      // cacheCounter.inc({ result: 'hit' });
 
       return JSON.parse(data);
     }
 
-    cacheCounter.inc({ result: 'miss' });
+    // cacheCounter.inc({ result: 'miss' });
 
     return null;
   }
