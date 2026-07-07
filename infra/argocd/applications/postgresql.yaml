@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres
+  namespace: argocd
+spec:
+  project: human-system-design
+  destination:
+    namespace: database
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/helm/vendors/postgresql # Создайте эту папку
+    helm:
+      valueFiles:
+      - values.yaml # Файл с настройками должен лежать здесь
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

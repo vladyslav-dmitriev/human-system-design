@@ -124,6 +124,20 @@ kubectl rollout status deployment/argocd-server \
 --timeout=300s
 
 ########################################
+# Add Github Secrets to ArgoCD
+########################################
+
+# echo "Creating GitHub repository secret..."
+
+# kubectl create secret generic human-system-design-repo \
+#   --namespace argocd \
+#   --from-literal=type=git \
+#   --from-literal=url=https://github.com/vladyslav-dmitriev/human-system-design.git \
+#   --from-literal=username=vladyslav-dmitriev \
+#   --from-literal=password="$GITHUB_TOKEN" \
+#   --dry-run=client -o yaml | kubectl apply -f -
+
+########################################
 # Wait for Sealed Secrets
 ########################################
 

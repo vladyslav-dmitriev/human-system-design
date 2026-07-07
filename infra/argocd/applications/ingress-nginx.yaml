@@ -12,10 +12,11 @@ spec:
     - repoURL: https://kubernetes.github.io/ingress-nginx
       chart: ingress-nginx
       targetRevision: 4.15.1
+      path: infra/argocd/applications
 
       helm:
         valueFiles:
-          - $values/infra/values/ingress-nginx.yaml
+          - ingress-nginx.yaml
 
     - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
       targetRevision: main

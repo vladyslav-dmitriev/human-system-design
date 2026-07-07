@@ -12,10 +12,11 @@ spec:
     - repoURL: https://charts.jetstack.io
       chart: cert-manager
       targetRevision: v1.20.3
+      path: infra/argocd/applications
 
       helm:
         valueFiles:
-          - $values/infra/values/cert-manager.yaml
+          - cert-manager.yaml
 
     - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
       targetRevision: main
