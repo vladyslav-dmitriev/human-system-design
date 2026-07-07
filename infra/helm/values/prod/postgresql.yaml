@@ -1,0 +1,19 @@
+auth:
+  username: app
+  password: ${POSTGRES_PASSWORD}
+  database: app
+
+primary:
+  persistence:
+    enabled: true
+    storageClass: standard
+    size: 50Gi
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+  limits:
+    cpu: "2"
+    memory: 4Gi

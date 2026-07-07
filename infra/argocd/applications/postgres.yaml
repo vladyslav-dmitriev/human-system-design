@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: postgres
+  namespace: argocd
+
+spec:
+  project: human-system-design
+
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: postgresql
+    targetRevision: 18.7.12
+
+    helm:
+      valueFiles:
+        - $values/infra/values/postgresql.yaml
+
+  sources:
+    - repoURL: https://charts.bitnami.com/bitnami
+      chart: postgresql
+      targetRevision: 18.7.12
+
+      helm:
+        valueFiles:
+          - $values/infra/values/postgresql.yaml
+
+    - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: database
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true

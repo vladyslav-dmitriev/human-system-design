@@ -1,0 +1,12 @@
+prometheus:
+  prometheusSpec:
+    retention: 30d
+
+alertmanager:
+  enabled: true
+
+grafana:
+  adminPassword: ${GRAFANA_ADMIN_PASSWORD}
+  persistence:
+    enabled: true
+    size: 10Gi

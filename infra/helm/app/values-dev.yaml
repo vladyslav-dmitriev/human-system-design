@@ -1,0 +1,23 @@
+config:
+  NODE_ENV: development
+
+api:
+  replicas: 1
+
+web:
+  replicas: 1
+
+worker:
+  replicas: 1
+
+ingress:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+  limits:
+    cpu: 300m
+    memory: 256Mi

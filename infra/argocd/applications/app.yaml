@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: app
+  namespace: argocd
+
+spec:
+  project: human-system-design
+
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/helm/app
+
+    helm:
+      valueFiles:
+        - values-dev.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
