@@ -1,35 +1,18 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-
-metadata:
-  name: cert-manager
-  namespace: argocd
-
 spec:
   project: human-system-design
-
-  sources:
-    - repoURL: https://charts.jetstack.io
-      chart: cert-manager
-      targetRevision: v1.20.3
-      path: infra/argocd/applications
-
-      helm:
-        valueFiles:
-          - cert-manager.yaml
-
-    - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
-      targetRevision: main
-      ref: values
-
   destination:
-    server: https://kubernetes.default.svc
     namespace: cert-manager
-
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/helm/vendors/cert-manager
+    helm:
+      valueFiles:
+      - values.yaml
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-
     syncOptions:
-      - CreateNamespace=true
+    - CreateNamespace=true

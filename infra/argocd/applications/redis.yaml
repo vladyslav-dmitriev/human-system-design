@@ -1,35 +1,18 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-
-metadata:
-  name: redis
-  namespace: argocd
-
 spec:
   project: human-system-design
-
-  sources:
-    - repoURL: https://charts.bitnami.com/bitnami
-      chart: redis
-      targetRevision: 27.0.14
-      path: infra/argocd/applications
-
-      helm:
-        valueFiles:
-         - redis.yaml
-
-    - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
-      targetRevision: main
-      ref: values
-
   destination:
-    server: https://kubernetes.default.svc
     namespace: database
-
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/helm/vendors/redis
+    helm:
+      valueFiles:
+      - values.yaml
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-
     syncOptions:
-      - CreateNamespace=true
+    - CreateNamespace=true

@@ -11,10 +11,10 @@ spec:
   source:
     repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
     targetRevision: main
-    path: infra/helm/vendors/postgresql # Создайте эту папку
+    path: infra/helm/vendors/postgresql
     helm:
       valueFiles:
-      - values.yaml # Файл с настройками должен лежать здесь
+      - values.yaml
   syncPolicy:
     automated:
       prune: true
