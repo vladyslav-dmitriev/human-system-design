@@ -6,15 +6,41 @@ persistence:
 
 service:
   type: ClusterIP
+  port: 80
 
 rbac:
-  create: true
   pspEnabled: false
-  namespaced: true 
+  namespaced: true
 
-global:
-  podSecurityPolicy:
-    enabled: false
-  podSecurityStandards:
-    enabled: true
-    enforce: restricted
+adminPassword: admin
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+securityContext:
+  fsGroup: 472
+  runAsGroup: 472
+  runAsNonRoot: true
+  runAsUser: 472
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.monitoring.svc.cluster.local
+      access: proxy
+      isDefault: true
