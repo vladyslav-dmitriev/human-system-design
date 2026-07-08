@@ -3,21 +3,38 @@ kind: Application
 metadata:
   name: grafana
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: human-system-design
   destination:
     namespace: monitoring
     server: https://kubernetes.default.svc
   source:
-    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
-    targetRevision: main
-    path: infra/helm/vendors/grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 8.5.1
+    chart: grafana
     helm:
-      valueFiles:
-      - values.yaml
+      values: |
+        podSecurityPolicy:
+          enabled: false
+        persistence:
+          enabled: false
+        service:
+          type: ClusterIP
+        rbac:
+          pspEnabled: false
+        adminPassword: admin
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
+    - SkipDryRun=true
+    - ApplyOutOfSyncOnly=true
+  ignoreDifferences:
+  - group: policy
+    kind: PodSecurityPolicy
+    jsonPointers:
+    - /spec
