@@ -3,13 +3,7 @@ kind: Application
 metadata:
   name: grafana
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
 spec:
-  project: human-system-design
-  destination:
-    namespace: monitoring
-    server: https://kubernetes.default.svc
   source:
     repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
     targetRevision: main
@@ -17,9 +11,12 @@ spec:
     helm:
       valueFiles:
       - values.yaml
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-    - CreateNamespace=true
+      parameters:
+      - name: podSecurityPolicy.enabled
+        value: "false"
+      - name: rbac.pspEnabled
+        value: "false"
+      - name: global.podSecurityPolicy.enabled
+        value: "false"
+      - name: persistence.enabled
+        value: "false"

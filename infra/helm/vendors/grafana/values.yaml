@@ -1,25 +1,20 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: grafana
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: human-system-design
-  destination:
-    namespace: monitoring
-    server: https://kubernetes.default.svc
-  source:
-    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
-    targetRevision: main
-    path: infra/helm/vendors/grafana
-    helm:
-      valueFiles:
-      - values.yaml
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-    - CreateNamespace=true
+podSecurityPolicy:
+  enabled: false
+
+persistence:
+  enabled: false
+
+service:
+  type: ClusterIP
+
+rbac:
+  create: true
+  pspEnabled: false
+  namespaced: true 
+
+global:
+  podSecurityPolicy:
+    enabled: false
+  podSecurityStandards:
+    enabled: true
+    enforce: restricted
