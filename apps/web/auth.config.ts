@@ -12,6 +12,8 @@ export const authConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      console.log("authorized 777");
+
       const isLoggedIn = !!auth?.user;
       const isProtectedRoute = [ROUTE.DASHBOARD, ROUTE.TODOS].includes(
         nextUrl.pathname,

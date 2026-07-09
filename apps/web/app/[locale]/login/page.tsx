@@ -101,7 +101,7 @@ export default function LoginPage() {
     } else {
       amplitude.track("User Signed In", { sign_in_method: "credentials" });
       router.push(ROUTE.DASHBOARD);
-      router.refresh();
+      // router.refresh();
     }
   };
 

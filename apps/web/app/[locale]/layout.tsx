@@ -18,12 +18,12 @@ export default async function RootLayout({
 
   return (
     <GoogleCaptchaProvider
-      siteKey={process.env.NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY}
+      siteKey={process.env.NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY!}
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         <Providers>
           <SidebarWrapper>{children}</SidebarWrapper>
-          <Toaster richColors closeButton /> {/* 👈 Добавляем сюда */}
+          <Toaster richColors closeButton />
         </Providers>
       </NextIntlClientProvider>
     </GoogleCaptchaProvider>

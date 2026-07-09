@@ -74,6 +74,7 @@ services:
     build: .
     volumes:
       - ./apps/web:/usr/src/app/apps/web
+      - ./apps/web:/app
     env_file:
       - ./apps/web/.env
     working_dir: /usr/src/app/apps/web

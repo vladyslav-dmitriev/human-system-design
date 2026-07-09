@@ -12,14 +12,17 @@ export const result = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
-      // name: `__Secure-next-auth.session-token`,
+      // name:
+      //   process.env.NODE_ENV === "production"
+      //     ? `__Secure-next-auth.session-token`
+      //     : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax", // 'lax' достаточно для переходов между страницами
         path: "/",
-        secure: process.env.NODE_ENV === "production", // ВАЖНО: на Vercel всегда true (HTTPS)
-        domain: ".myapp.local",
+        // secure: process.env.NODE_ENV === "production", // ВАЖНО: на Vercel всегда true (HTTPS)
+        secure: false,
+        domain: "myapp.local",
       },
     },
   },
@@ -46,6 +49,8 @@ export const result = NextAuth({
 
     Credentials({
       async authorize(credentials) {
+        console.log("authorize", credentials);
+
         if (!credentials?.email || !credentials?.password) return null;
 
         try {

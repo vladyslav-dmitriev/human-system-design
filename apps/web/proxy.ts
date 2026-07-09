@@ -17,7 +17,7 @@ function normalize(pathname: string) {
 export default async function middleware(req: any) {
   const { pathname } = req.nextUrl;
 
-  console.log("Middleware check for:", pathname);
+  console.log("req", req);
 
   const path = normalize(pathname);
 
@@ -28,12 +28,15 @@ export default async function middleware(req: any) {
     req,
     secret: process.env.NEXTAUTH_SECRET,
     secureCookie: false,
+    cookieName: "next-auth.session-token",
     // secureCookie: process.env.NODE_ENV === "production",
-    cookieName:
-      process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
-        : "next-auth.session-token",
+    // cookieName:
+    //   process.env.NODE_ENV === "production"
+    //     ? "__Secure-next-auth.session-token"
+    //     : "next-auth.session-token",
   });
+
+  console.log("token", token);
 
   const isLoggedIn = !!token;
 
