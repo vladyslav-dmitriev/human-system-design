@@ -106,6 +106,7 @@ export default function CreateAccountPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Input
+                data-testid="name-input"
                 name="name"
                 type="text"
                 placeholder={t("name")}
@@ -113,6 +114,7 @@ export default function CreateAccountPage() {
                 className="h-10 rounded-lg bg-secondary/20"
               />
               <Input
+                data-testid="email-input"
                 name="email"
                 type="email"
                 placeholder="Email"
@@ -120,6 +122,7 @@ export default function CreateAccountPage() {
                 className="h-10 rounded-lg bg-secondary/20"
               />
               <Input
+                data-testid="password-input"
                 name="password"
                 type="password"
                 placeholder={t("password")}
@@ -135,6 +138,7 @@ export default function CreateAccountPage() {
             )}
 
             <Button
+              data-testid="create-account-button"
               type="submit"
               className="w-full rounded-lg h-10 font-medium"
               disabled={isLoading}
@@ -143,7 +147,7 @@ export default function CreateAccountPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  {t("createAccount")}{" "}
+                  {t("createAccount")}
                   <ArrowRight className="ml-2 h-3.5 w-3.5" />
                 </>
               )}

@@ -10,6 +10,7 @@ export const API_URL = {
   },
   users: {
     profile: () => `${process.env.NEXT_PUBLIC_API_SERVER_URL}/user/profile`,
+    email: () => `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile`,
     password: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile/password`,
     setTwoFactor: () =>

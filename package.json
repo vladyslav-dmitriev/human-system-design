@@ -14,7 +14,9 @@
     "check-types": "turbo run check-types",
     "i18n:upload": "pnpm exec crowdin upload sources",
     "i18n:download": "pnpm exec crowdin download",
-    "i18n:sync": "pnpm exec crowdin upload sources && crowdin download"
+    "i18n:sync": "pnpm exec crowdin upload sources && crowdin download",
+    "test:e2e": "pnpm --filter web build && pnpm --filter e2e exec playwright test",
+    "test:e2e:ui": "pnpm --filter web build && pnpm --filter e2e exec playwright test --ui"
   },
   "devDependencies": {
     "@crowdin/cli": "^4.14.2",

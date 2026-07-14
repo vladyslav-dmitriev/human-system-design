@@ -21,8 +21,6 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const isLoading = status === "loading";
   const hasNoSession = !session && !isLoading;
 
-  console.log('hasNoSession', hasNoSession, session, status);
-
   // Если пользователь точно НЕ авторизован (и загрузка завершена),
   // рендерим чистую страницу без сайдбара (например, для страниц Login/Register)
   if (hasNoSession) {

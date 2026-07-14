@@ -48,6 +48,7 @@ export const LoginAuthFormStep = ({
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Input
+                data-testid="email-input"
                 name="email"
                 type="email"
                 placeholder="Email"
@@ -55,6 +56,7 @@ export const LoginAuthFormStep = ({
                 className="h-10 rounded-lg bg-secondary/20"
               />
               <Input
+                data-testid="password-input"
                 name="password"
                 type="password"
                 placeholder={t("password")}
@@ -70,6 +72,7 @@ export const LoginAuthFormStep = ({
             )}
 
             <Button
+              data-testid="login-button"
               type="submit"
               className="w-full rounded-lg h-10 font-medium"
               disabled={isLoading}

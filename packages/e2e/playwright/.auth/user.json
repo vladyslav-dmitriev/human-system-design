@@ -1,0 +1,72 @@
+{
+  "cookies": [
+    {
+      "name": "_GRECAPTCHA",
+      "value": "09AKhCRwhSMMoJgjtCVRfmFN10HR1eoyI0lkO18gSYnbqXDt93GRCBqyj5OPdDo2gwUq-dHnfVVZMVjtJum0Soc3E",
+      "domain": "www.google.com",
+      "path": "/recaptcha",
+      "expires": 1799572033.698681,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "authjs.csrf-token",
+      "value": "5d23631a579c3538fe78db2ea6e4676abdaf5266f6e1389f165f0293f099cf07%7Ca92834e9f6e80eb45a69783592d151c1d829144d77da372cb21739f766628680",
+      "domain": "myapp.local",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authjs.callback-url",
+      "value": "http%3A%2F%2Fmyapp.local%2Fen%2Flogin",
+      "domain": "myapp.local",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "next-auth.session-token",
+      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiR1pRbnU5aFBaMTloM3drMXpVdzdYVFhVbjhMUGs3QS1zQThtU01Nc3FVWW9pd2JKaWJqR2E0ckFLd05hNi1id21WbV91Z3hHU2FxNmtidWZkU3ZhUGcifQ..0W9B9fdTaKnnsJ5VyAEBJQ.js6sN_Ajp4aZHUXGCsHTJxI69pwLnKJq1QcaLErc3GketYPhm8JF5gv8BHCRBBkHJS3k8hXiMM90TJn46JVwPlCb0-AxniWt277D8X-edZjrtpOSmqbs0mYn0k7s6tl3L7INDPrlttgVmdl7wQC5-YmsHVX5XHdKmFWToLHHMHcW_fnsEWKann2zkGnm-W5tijWSpsW-O1PK6iVDlmtftqItD-cDm0hReIdb6OaT6QyxtYFYM9Zy47U8KQzwnH0e6kHiKS0fLCgFDtc6o8jMvFOHWkwebEfs4P2tSm7-qwE.2NnCr_I5Ccs4Xnz_mYnTaTSFN0KH3bakTfG2cnavY7g",
+      "domain": ".myapp.local",
+      "path": "/",
+      "expires": 1786612034.837936,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://myapp.local",
+      "localStorage": [
+        {
+          "name": "_grecaptcha",
+          "value": "09AKhCRwiqcYONfR0B-UbCgu8TAQvJKv6iphhGqdVcx1qAlvbR7kyC1iW3Qv4W6Z6voXJaQoAA7Fb7c4u_yrUDT4ksgf2J_gNzqBbRspfiwgCPPdJJ7QJ3JwQFhdOBIKNX"
+        },
+        {
+          "name": "gbFeaturesCache",
+          "value": "[[\"https://cdn.growthbook.io||sdk-XgeguRl3JqYpW2kJ\",{\"data\":{\"status\":200,\"features\":{\"new-auth-key\":{\"defaultValue\":true}},\"experiments\":[],\"dateUpdated\":\"2026-06-03T08:00:52.218Z\"},\"version\":\"2026-06-03T08:00:52.218Z\",\"staleAt\":\"2026-07-14T09:08:10.301Z\",\"sse\":true}]]"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.google.com",
+      "localStorage": [
+        {
+          "name": "rc::a",
+          "value": "MXdhZGlmNzFqeDhxZmM="
+        },
+        {
+          "name": "rc::f",
+          "value": "0aANb0gxLFM-dbkkotN3aOwmunfzjskyD-a-HOvi1uhlzX0POVV95AazEIqArSkQpOsfX9UQk"
+        }
+      ]
+    }
+  ]
+}

@@ -8,21 +8,20 @@ export const result = NextAuth({
   ...authConfig,
 
   session: {
-    strategy: "jwt", // Сессии хранятся в зашифрованной куке, а не в БД
+    strategy: "jwt",
   },
   cookies: {
     sessionToken: {
-      // name:
-      //   process.env.NODE_ENV === "production"
-      //     ? `__Secure-next-auth.session-token`
-      //     : `next-auth.session-token`,
+      name:
+        process.env.NODE_ENV === "production"
+          ? `__Secure-next-auth.session-token`
+          : `next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: "lax", // 'lax' достаточно для переходов между страницами
+        sameSite: "lax",
         path: "/",
-        // secure: process.env.NODE_ENV === "production", // ВАЖНО: на Vercel всегда true (HTTPS)
-        secure: false,
-        domain: "myapp.local",
+        secure: process.env.NODE_ENV === "production",
+        domain: ".myapp.local",
       },
     },
   },
@@ -49,8 +48,6 @@ export const result = NextAuth({
 
     Credentials({
       async authorize(credentials) {
-        console.log("authorize", credentials);
-
         if (!credentials?.email || !credentials?.password) return null;
 
         try {

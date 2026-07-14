@@ -49,7 +49,7 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(API_URL.users.profile(), {
+      const response = await fetch(API_URL.users.email(), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -98,6 +98,7 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
             {/* Инпут контейнер */}
             <div className="relative flex-1 group">
               <Input
+                data-testid="email-change-input"
                 type="text"
                 {...register("email", {
                   required: t("email_error_empty"),
@@ -127,6 +128,7 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
 
             {/* Компактная кнопка в одну линию */}
             <Button
+              data-testid="email-change-button"
               type="submit"
               disabled={isLoading || !hasChanges}
               className={`h-9 px-4 rounded-lg font-medium text-xs transition-all duration-200 ${
