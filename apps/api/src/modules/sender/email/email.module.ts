@@ -3,13 +3,13 @@ import { EmailsController } from './emails.controller';
 import { EmailService } from './email.service';
 
 import { EmailProcessor } from './email.processor';
-import { QUEUE } from 'config/queue.config';
-import { registerQueue, setupQueue } from 'utils/queue';
+// import { QUEUE } from 'config/queue.config';
+// import { registerQueue, setupQueue } from 'utils/queue';
 // import { RecendService } from './providers/recend.service';
 import { SendGridService } from './providers/sendgrid.service';
 
 @Module({
-  imports: [...setupQueue(QUEUE.EmailQueue), ...registerQueue(QUEUE.PdfQueue)],
+  // imports: [...setupQueue(QUEUE.EmailQueue), ...registerQueue(QUEUE.PdfQueue)],
   providers: [
     {
       provide: 'EMAIL_PROVIDER',

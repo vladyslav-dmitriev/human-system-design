@@ -1,6 +1,6 @@
 // src/modules/rabbitmq/queues/rabbitmq.queue.binder.ts
 import { Channel } from 'amqplib';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { BindingDefinition } from '../types/exchanges.types';
 

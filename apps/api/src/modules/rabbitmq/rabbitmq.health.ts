@@ -1,10 +1,10 @@
-import { RabbitMQLogger } from '../utils/rabbitmq.logger';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQLogger } from './utils/rabbitmq.logger';
+import { RabbitMQConnection } from './managers/connection.manager';
 
 import type {
   IRabbitMQHealth,
   IRabbitMQQueueManager,
-} from '../types/rabbitmq.interfaces';
+} from './types/rabbitmq.interfaces';
 
 export class RabbitMQHealth implements IRabbitMQHealth {
   private readonly logger: RabbitMQLogger;
@@ -35,10 +35,8 @@ export class RabbitMQHealth implements IRabbitMQHealth {
         };
       }
 
-      // Проверяем, можем ли мы выполнить простую операцию
-      const channel = await this.connection.getChannel();
+      await this.connection.getChannel();
 
-      // Проверяем статус основных очередей
       const queueStatus = await this.checkQueues();
 
       return {

@@ -6,6 +6,6 @@ export class JsonSerializer<T = any> extends RabbitMQSerializer<T> {
   }
 
   deserialize(buffer: Buffer): T {
-    return JSON.parse(buffer.toString());
+    return JSON.parse(buffer.toString()) as T;
   }
 }

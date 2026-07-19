@@ -1,8 +1,8 @@
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
+// import { Queue } from 'bullmq';
+// import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { Nullable } from 'types';
 
 import { InvoiceRepository } from './invoice.repository';
@@ -12,7 +12,7 @@ export class InvoiceService {
   constructor(
     @Inject(InvoiceRepository)
     private readonly invoiceRepository: InvoiceRepository,
-    @InjectQueue(QUEUE.PdfQueue) private readonly pdfQueue: Queue,
+    // @InjectQueue(QUEUE.PdfQueue) private readonly pdfQueue: Queue,
   ) {}
 
   async getUserInvoiceList(userId: string) {
@@ -77,14 +77,14 @@ export class InvoiceService {
     customerEmail: string;
     date: Date;
   }) {
-    await this.pdfQueue.add(QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice, {
-      invoiceId,
-      invoiceNumber,
-      amount,
-      currency,
-      customerEmail,
-      date,
-    });
+    // await this.pdfQueue.add(QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice, {
+    //   invoiceId,
+    //   invoiceNumber,
+    //   amount,
+    //   currency,
+    //   customerEmail,
+    //   date,
+    // });
   }
 
   private async generateUniqueInvoiceNumber(): Promise<string> {

@@ -2,7 +2,7 @@ import { Message } from 'amqplib';
 import { EventEmitter } from 'events';
 
 import { ConsumeOptions } from '../types/rabbitmq.types';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { QUEUE_DEFINITIONS } from '../constants/queue-definitions.constants';
@@ -10,7 +10,7 @@ import { QUEUE_DEFINITIONS } from '../constants/queue-definitions.constants';
 export class RabbitMQConsumer extends EventEmitter {
   private consumerTags: Map<string, string> = new Map();
   private pausedQueues: Set<string> = new Set();
-  private readonly logger: RabbitMQLogger;
+  protected readonly logger: RabbitMQLogger;
 
   constructor(
     protected readonly connection: RabbitMQConnection,

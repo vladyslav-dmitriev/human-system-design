@@ -1,5 +1,5 @@
 import { RabbitMQConsumer } from './rabbitmq.consumer';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import type { RabbitMQMessage } from '../types/rabbitmq.types';
 import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';

@@ -1,10 +1,10 @@
 import { Channel } from 'amqplib';
 
-import { Binding, BindingCollection } from './binding';
+import { Binding, BindingCollection } from '../bindings/binding';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { retry } from '../utils/retry';
 import { DEFAULT_BINDINGS } from '../constants/bindings.constants';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from './connection.manager';
 import type { BindingDefinition } from '../types/exchanges.types';
 
 export class BindingManager {

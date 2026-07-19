@@ -9,8 +9,8 @@ import {
   Provider,
 } from '@nestjs/common';
 
-import { RabbitMQService } from './services/rabbitmq.service';
-import { RabbitMQConnection } from './connection/connection.manager';
+import { RabbitMQService } from './rabbitmq.service';
+import { RabbitMQConnection } from './managers/connection.manager';
 import { EmailProducer } from './producers/email.producer';
 import { OrderProducer } from './producers/order.producer';
 import { NotificationProducer } from './producers/notification.producer';
@@ -61,79 +61,6 @@ export class RabbitMQModule implements OnModuleInit, OnModuleDestroy {
     @Inject(RABBITMQ_MODULE_OPTIONS) private options: RabbitMQModuleOptions,
   ) {}
 
-  // ============================================
-  // ✅ СИНХРОННАЯ РЕГИСТРАЦИЯ (forRoot)
-  // ============================================
-  static forRoot(options: RabbitMQModuleOptions = {}): DynamicModule {
-    const config = loadRabbitMQConfig({
-      environment: options.environment,
-      customConfig: options.config,
-    });
-
-    const providers: Provider[] = [
-      { provide: RABBITMQ_MODULE_OPTIONS, useValue: options },
-      { provide: RABBITMQ_CONFIG, useValue: config },
-      { provide: RABBITMQ_SERIALIZER, useClass: JsonSerializer },
-      { provide: RABBITMQ_CONNECTION, useClass: RabbitMQConnection },
-
-      // Producers
-      { provide: RABBITMQ_EMAIL_PRODUCER, useClass: EmailProducer },
-      { provide: RABBITMQ_ORDER_PRODUCER, useClass: OrderProducer },
-      {
-        provide: RABBITMQ_NOTIFICATION_PRODUCER,
-        useClass: NotificationProducer,
-      },
-
-      // Consumers
-      {
-        provide: RABBITMQ_EMAIL_CONSUMER,
-        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
-          return new EmailConsumer(connection, cfg);
-        },
-        inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG],
-      },
-      {
-        provide: RABBITMQ_ORDER_CONSUMER,
-        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
-          return new OrderConsumer(connection, cfg);
-        },
-        inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG],
-      },
-      {
-        provide: RABBITMQ_NOTIFICATION_CONSUMER,
-        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
-          return new NotificationConsumer(connection, cfg);
-        },
-        inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG],
-      },
-
-      EmailConsumer,
-      RabbitMQService,
-    ];
-
-    return {
-      module: RabbitMQModule,
-      providers,
-      exports: [
-        EmailConsumer,
-        RabbitMQService,
-        RABBITMQ_CONFIG,
-        RABBITMQ_CONNECTION,
-        RABBITMQ_EMAIL_PRODUCER,
-        RABBITMQ_ORDER_PRODUCER,
-        RABBITMQ_NOTIFICATION_PRODUCER,
-        RABBITMQ_EMAIL_CONSUMER,
-        RABBITMQ_ORDER_CONSUMER,
-        RABBITMQ_NOTIFICATION_CONSUMER,
-        RABBITMQ_SERIALIZER,
-      ],
-      global: options.global || false,
-    };
-  }
-
-  // ============================================
-  // ✅ АСИНХРОННАЯ РЕГИСТРАЦИЯ (forRootAsync)
-  // ============================================
   static forRootAsync(asyncOptions: RabbitMQModuleAsyncOptions): DynamicModule {
     const providers: Provider[] = [
       {

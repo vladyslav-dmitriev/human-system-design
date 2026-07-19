@@ -16,8 +16,8 @@ export class ProductService {
   ) {}
 
   async getProducts() {
-    const cached = await this.cacheService.get(CACHE.AvailablePlans);
-    if (cached) return cached;
+    // const cached = await this.cacheService.get(CACHE.AvailablePlans);
+    // if (cached) return cached;
 
     const allPrices = await this.paymentsService.getPricesList();
 
@@ -30,7 +30,7 @@ export class ProductService {
         .map(ProductMapper.toDomain),
     };
 
-    await this.cacheService.set(CACHE.AvailablePlans, result, 3600);
+    // await this.cacheService.set(CACHE.AvailablePlans, result, 3600);
 
     return result;
   }

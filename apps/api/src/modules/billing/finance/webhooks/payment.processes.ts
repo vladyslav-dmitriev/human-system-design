@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
 import { Job } from 'bullmq';
 
-import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 
 import { PaymentMethodService } from '../../payment-method';
 import { PaymentsService } from '../../payments';
@@ -10,7 +10,7 @@ import { InvoiceService } from '../../invoice';
 import { UserRepository } from '../../../user';
 import { FeatureRepository } from '../../feature';
 
-@Processor(QUEUE.PaymentQueue)
+// @Processor(QUEUE.PaymentQueue)
 export class PaymentProcessor extends WorkerHost {
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
@@ -26,17 +26,17 @@ export class PaymentProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase) {
-      return this.handleSubscriptionPurchase(job.data as any);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase) {
+    //   return this.handleSubscriptionPurchase(job.data as any);
+    // }
 
-    if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade) {
-      return this.handleSubscriptionUpgrade(job.data as any);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade) {
+    //   return this.handleSubscriptionUpgrade(job.data as any);
+    // }
 
-    if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase) {
-      return this.handleOneTimePurchase(job.data as any);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase) {
+    //   return this.handleOneTimePurchase(job.data as any);
+    // }
 
     throw new Error(`Unknown job: ${job.name}`);
   }

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
+// import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { BullBoardModule } from '@bull-board/nestjs';
-import { ExpressAdapter } from '@bull-board/express';
+// import { BullBoardModule } from '@bull-board/nestjs';
+// import { ExpressAdapter } from '@bull-board/express';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
@@ -31,9 +31,8 @@ import { ProductModule } from './billing/product';
 import { AppController } from './app.controller';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
-import redisConfig from 'config/redis.config';
+import { redisConfig } from 'config/redis.config';
 import { RabbitMQModule } from './rabbitmq';
-// import { validationSchema } from 'config/validation';
 
 @Module({
   imports: [
@@ -44,27 +43,32 @@ import { RabbitMQModule } from './rabbitmq';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: 'apps/api/.env',
-      // validationSchema,
-      load: [appConfig, databaseConfig, redisConfig],
+      load: [appConfig, databaseConfig, () => redisConfig],
     }),
 
-    BullModule.forRoot({
-      connection: { url: process.env.REDIS_URL },
-      defaultJobOptions: {
-        removeOnComplete: {
-          count: 100,
-          age: 24 * 3600,
-        },
-        removeOnFail: {
-          count: 100,
-        },
-      },
-    }),
+    // BullModule.forRoot({
+    //   connection: { url: process.env.REDIS_URL },
+    //   defaultJobOptions: {
+    //     removeOnComplete: {
+    //       count: 100,
+    //       age: 3600,
+    //     },
+    //     removeOnFail: {
+    //       count: 50,
+    //       age: 86400,
+    //     },
+    //     attempts: 1,
+    //     backoff: {
+    //       type: 'exponential',
+    //       delay: 1000,
+    //     },
+    //   },
+    // }),
+    // BullBoardModule.forRoot({
+    //   route: '/admin/queues',
+    //   adapter: ExpressAdapter,
+    // }),
 
-    BullBoardModule.forRoot({
-      route: '/admin/queues',
-      adapter: ExpressAdapter,
-    }),
     PrismaModule,
     CacheModule,
     RedisModule,
@@ -88,8 +92,7 @@ import { RabbitMQModule } from './rabbitmq';
             ),
             maxRetries: configService.get('RABBITMQ_MAX_RETRIES', 5),
           },
-          // ✅ Передаем сервисы
-          emailService: new EmailService(),
+          // emailService: new EmailService(),
           // orderService: new OrderService(),
           // notificationService: new NotificationService(),
           global: true,

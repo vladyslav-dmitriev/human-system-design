@@ -1,4 +1,4 @@
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQProducer } from '../rabbitmq.producers';
 

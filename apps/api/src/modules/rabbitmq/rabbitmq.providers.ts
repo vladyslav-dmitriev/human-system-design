@@ -14,7 +14,7 @@ import {
   RABBITMQ_MODULE_OPTIONS,
 } from './constants/tokens.constants';
 import { loadRabbitMQConfig } from './rabbitmq.config';
-import { RabbitMQConnection } from './connection/connection.manager';
+import { RabbitMQConnection } from './managers/connection.manager';
 import { JsonSerializer } from './serializers/json.serializer';
 import { EmailProducer } from './producers/email.producer';
 import { OrderProducer } from './producers/order.producer';

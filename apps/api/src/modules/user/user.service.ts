@@ -14,7 +14,7 @@ import {
   UserSetTwoFactorBodyDto,
 } from './dto';
 import { SmsService } from 'modules/sender/sms';
-import { RabbitMQService } from 'modules/rabbitmq/services/rabbitmq.service';
+import { RabbitMQService } from 'modules/rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class UserService {
@@ -27,16 +27,12 @@ export class UserService {
   async getUserProfile(userId: string) {
     const emailProducer = this.rabbitMQService.getEmailProducer();
 
-    const message = {
+    await emailProducer.sendEmail({
       to: 'test@example.com',
       subject: 'Тестовое письмо из API',
       body: 'Привет! Это тестовое сообщение из API',
       userId: 'test-user-123',
-    };
-
-    const result = await emailProducer.sendEmail(message);
-
-    console.log('result', result);
+    });
 
     const user = await this.userRepository.getUserById(userId);
 

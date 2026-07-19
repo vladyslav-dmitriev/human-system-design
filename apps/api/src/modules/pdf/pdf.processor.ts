@@ -1,8 +1,8 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
-import { Job, Queue } from 'bullmq';
+// import { Job, Queue } from 'bullmq';
 
-import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { StorageService } from '../storage';
 import { InvoiceRepository } from '../billing/invoice';
 
@@ -17,22 +17,22 @@ type CreatePdfInvoiceJob = {
   date: Date;
 };
 
-@Processor(QUEUE.PdfQueue, { concurrency: 5 })
+// @Processor(QUEUE.PdfQueue, { concurrency: 1 })
 export class PdfProcessor extends WorkerHost {
   constructor(
     @Inject(PdfService) private readonly pdfService: PdfService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(InvoiceRepository)
     private readonly invoiceRepository: InvoiceRepository,
-    @InjectQueue(QUEUE.EmailQueue) private readonly emailQueue: Queue,
+    // @InjectQueue(QUEUE.EmailQueue) private readonly emailQueue: Queue,
   ) {
     super();
   }
 
   async process(job: Job): Promise<any> {
-    if (job.name === QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice) {
-      return this.createPdfInvoice(job.data as CreatePdfInvoiceJob);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice) {
+    //   return this.createPdfInvoice(job.data as CreatePdfInvoiceJob);
+    // }
 
     throw new Error(`Unknown job: ${job.name}`);
   }
@@ -54,14 +54,14 @@ export class PdfProcessor extends WorkerHost {
 
     await this.invoiceRepository.updatePdfUrl(data.invoiceId, pdfUrl);
 
-    await this.emailQueue.add(QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail, {
-      email: data.customerEmail,
-      invoiceNumber: data.invoiceNumber,
-      amount: data.amount,
-      currency: data.currency,
-      pdfUrl,
-      locale: 'en',
-    });
+    // await this.emailQueue.add(QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail, {
+    //   email: data.customerEmail,
+    //   invoiceNumber: data.invoiceNumber,
+    //   amount: data.amount,
+    //   currency: data.currency,
+    //   pdfUrl,
+    //   locale: 'en',
+    // });
 
     return { pdfUrl };
   }

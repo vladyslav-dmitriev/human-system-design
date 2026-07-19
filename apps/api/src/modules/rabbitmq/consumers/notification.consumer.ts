@@ -1,8 +1,8 @@
 import { RabbitMQConsumer } from './rabbitmq.consumer';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
+
 import type { RabbitMQMessage } from '../types/rabbitmq.types';
-import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';
 
 interface NotificationContent {
   userId: string;
@@ -15,15 +15,14 @@ interface NotificationContent {
 }
 
 export class NotificationConsumer extends RabbitMQConsumer {
-  private readonly notificationService: any; // Ваш сервис уведомлений
+  private readonly notificationService: any;
 
   constructor(
     connection: RabbitMQConnection,
     config: RabbitMQConfig,
     notificationService: any,
-    serializer?: IRabbitMQSerializer,
   ) {
-    super(connection, config, serializer);
+    super(connection, config);
     this.notificationService = notificationService;
   }
 
@@ -31,6 +30,7 @@ export class NotificationConsumer extends RabbitMQConsumer {
     await this.register({
       queue: 'notification.queue',
       routingKey: 'notification.*',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       handler: this.handleNotification.bind(this),
     });
   }

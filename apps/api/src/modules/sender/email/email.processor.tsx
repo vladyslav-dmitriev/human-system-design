@@ -4,7 +4,7 @@ import { render } from 'react-email';
 import VerificationEmail from 'emails/templates/verification-email';
 import InvoiceEmail from 'emails/templates/invoice-email';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { t } from 'emails/i18n';
 import { EmailService } from './email.service';
 import { ConfigService } from '@nestjs/config';
@@ -34,7 +34,7 @@ const INVOICE_EMAIL_SUBJECT_MAPPING = {
   en: 'Thank you for payment',
 };
 
-@Processor(QUEUE.EmailQueue)
+// @Processor(QUEUE.EmailQueue)
 @Injectable()
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
@@ -47,13 +47,13 @@ export class EmailProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail) {
-      return this.sendVerificationEmail(job.data as SendVerificationEmailData);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail) {
+    //   return this.sendVerificationEmail(job.data as SendVerificationEmailData);
+    // }
 
-    if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail) {
-      return this.sendInvoiceEmail(job.data as SendInvoiceEmailData);
-    }
+    // if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail) {
+    //   return this.sendInvoiceEmail(job.data as SendInvoiceEmailData);
+    // }
 
     throw new Error(`Unknown job: ${job.name}`);
   }

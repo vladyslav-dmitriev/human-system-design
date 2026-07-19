@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { QUEUE } from 'config/queue.config';
+// import { QUEUE } from 'config/queue.config';
 
 import { FinanceController } from './finance.controller';
 import { WebhookService } from './webhooks/webhook.service';
@@ -8,7 +8,7 @@ import { FinanceService } from './finance.service';
 import { PaymentHandler } from './webhooks/payment.handler';
 import { PdfModule } from '../../pdf';
 import { UserModule } from '../../user';
-import { registerQueue, setupQueue } from 'utils/queue';
+// import { registerQueue, setupQueue } from 'utils/queue';
 import { PaymentProcessor } from './webhooks/payment.processes';
 
 import { InvoiceModule } from '../invoice';
@@ -27,8 +27,8 @@ import { PaymentMethodModule } from '../payment-method';
     FeatureModule,
     SubscriptionModule,
     PaymentMethodModule,
-    ...setupQueue(QUEUE.PaymentQueue),
-    ...registerQueue(QUEUE.PdfQueue),
+    // ...setupQueue(QUEUE.PaymentQueue),
+    // ...registerQueue(QUEUE.PdfQueue),
   ],
   providers: [
     FinanceService,

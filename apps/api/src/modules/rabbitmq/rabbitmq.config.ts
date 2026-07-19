@@ -20,7 +20,7 @@ export interface RabbitMQConfigOptions {
 }
 
 const defaultConfig: RabbitMQConfig = {
-  url: 'amqp://admin:admin123@localhost:5672',
+  url: process.env.RABBITMQ_URL,
   exchange: 'app.exchange',
   exchangeType: 'topic',
   prefetch: 1,
@@ -37,18 +37,18 @@ const defaultConfig: RabbitMQConfig = {
 
 const envConfigs: Record<string, Partial<RabbitMQConfig>> = {
   development: {
-    url: 'amqp://guest:guest@localhost:5672',
+    url: process.env.RABBITMQ_URL,
     prefetch: 1,
     maxRetries: 3,
   },
   production: {
-    url: process.env.RABBITMQ_URL || 'amqp://user:pass@rabbitmq:5672',
+    url: process.env.RABBITMQ_URL,
     prefetch: 5,
     maxRetries: 3,
     reconnectInterval: 10000,
   },
   test: {
-    url: 'amqp://guest:guest@localhost:5672',
+    url: process.env.RABBITMQ_URL,
     prefetch: 1,
     maxRetries: 1,
     reconnectInterval: 1000,

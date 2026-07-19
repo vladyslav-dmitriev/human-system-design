@@ -1,6 +1,6 @@
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQProducer } from '../rabbitmq.producers';
-import { RabbitMQConnection } from '../connection/connection.manager';
+import { RabbitMQConnection } from '../managers/connection.manager';
 
 import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';
 

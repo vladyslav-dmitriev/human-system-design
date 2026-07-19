@@ -1,6 +1,6 @@
 // src/modules/rabbitmq/rabbitmq.producer.ts
 import { Injectable, Inject } from '@nestjs/common';
-import { RabbitMQConnection } from './connection/connection.manager';
+import { RabbitMQConnection } from './managers/connection.manager';
 import { RabbitMQConfig } from './rabbitmq.config';
 import {
   RABBITMQ_CONFIG,

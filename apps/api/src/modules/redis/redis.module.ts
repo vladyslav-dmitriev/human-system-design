@@ -16,7 +16,3 @@ import { redisConfig } from '../../config/redis.config';
   exports: ['REDIS_CLIENT'],
 })
 export class RedisModule {}
-
-// host: process.env.REDIS_HOST || 'localhost',
-// port: parseInt(process.env.REDIS_PORT || '6379'),
-// password: process.env.REDIS_PASSWORD || '',

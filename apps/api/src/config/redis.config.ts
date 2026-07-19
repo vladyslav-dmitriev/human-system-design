@@ -1,10 +1,4 @@
 export const redisConfig = {
-  // @ts-ignore
-  url: process.env.REDIS_URL as string,
-  port: Number(process.env.REDIS_PORT ?? 6379),
+  host: process.env.REDIS_URL,
+  port: Number(process.env.REDIS_PORT),
 };
-
-export default () => ({
-  host: process.env.REDIS_HOST,
-  port: Number(process.env.REDIS_PORT ?? 6379),
-});
