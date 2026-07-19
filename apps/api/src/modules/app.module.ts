@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
@@ -8,7 +8,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
 import { TodoModule } from './todo';
-import { EmailModule } from './sender/email';
+import { EmailModule, EmailService } from './sender/email';
 import { StorageModule } from './storage';
 import { UserModule } from './user';
 import { PdfModule } from './pdf';
@@ -32,6 +32,7 @@ import { AppController } from './app.controller';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
 import redisConfig from 'config/redis.config';
+import { RabbitMQModule } from './rabbitmq';
 // import { validationSchema } from 'config/validation';
 
 @Module({
@@ -67,7 +68,36 @@ import redisConfig from 'config/redis.config';
     PrismaModule,
     CacheModule,
     RedisModule,
+    RabbitMQModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const isDevelopment = configService.get('NODE_ENV') === 'development';
 
+        return {
+          environment: isDevelopment ? 'development' : 'production',
+          config: {
+            url: configService.get(
+              'RABBITMQ_URL',
+              'amqp://admin:admin123@rabbitmq:5672',
+            ),
+            prefetch: 1,
+            // prefetch: configService.get('RABBITMQ_PREFETCH', 1),
+            reconnectInterval: configService.get(
+              'RABBITMQ_RECONNECT_INTERVAL',
+              5000,
+            ),
+            maxRetries: configService.get('RABBITMQ_MAX_RETRIES', 5),
+          },
+          // ✅ Передаем сервисы
+          emailService: new EmailService(),
+          // orderService: new OrderService(),
+          // notificationService: new NotificationService(),
+          global: true,
+        };
+      },
+      inject: [ConfigService],
+      global: true,
+    }),
     AuthModule,
     UserModule,
 

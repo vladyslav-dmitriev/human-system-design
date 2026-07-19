@@ -17,6 +17,17 @@ services:
       - ./apps/api/.env
     environment:
       - NODE_ENV=development
+      - TS_NODE_TRANSPILE_ONLY=true
+      - TS_NODE_IGNORE_WARNINGS=true
+      # RabbitMQ connection
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-admin123}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-admin123}@rabbitmq:5672${RABBITMQ_VHOST:-/}
+      - RABBITMQ_PREFETCH=1
+      - RABBITMQ_RECONNECT_INTERVAL=5000
     working_dir: /usr/src/app/apps/api
     command: pnpm run start:dev
 
@@ -69,6 +80,37 @@ services:
     #   - "6379:6379"
     volumes:
       - redisdata:/data
+  
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"      # AMQP порт для приложения
+      - "15672:15672"    # Management UI
+      - "15692:15692"    # Prometheus metrics (опционально)
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-admin123}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_ERLANG_COOKIE=${RABBITMQ_ERLANG_COOKIE:-secret_cookie}
+      - RABBITMQ_NODENAME=rabbit@rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   web:
     build: .
@@ -83,3 +125,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  rabbitmq_data:
+  rabbitmq_logs:

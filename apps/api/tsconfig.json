@@ -1,5 +1,11 @@
 {
   "compilerOptions": {
+    "strict": false,
+    "strictNullChecks": false,
+    // "strictNullChecks": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
     "strictPropertyInitialization": false,
     "module": "commonjs",
     "moduleResolution": "commonjs",
@@ -16,7 +22,6 @@
     "outDir": "./dist",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,

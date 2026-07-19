@@ -14,15 +14,30 @@ import {
   UserSetTwoFactorBodyDto,
 } from './dto';
 import { SmsService } from 'modules/sender/sms';
+import { RabbitMQService } from 'modules/rabbitmq/services/rabbitmq.service';
 
 @Injectable()
 export class UserService {
   constructor(
+    @Inject(RabbitMQService) private readonly rabbitMQService: RabbitMQService,
     @Inject(SmsService) private readonly smsService: SmsService,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
   ) {}
 
   async getUserProfile(userId: string) {
+    const emailProducer = this.rabbitMQService.getEmailProducer();
+
+    const message = {
+      to: 'test@example.com',
+      subject: 'Тестовое письмо из API',
+      body: 'Привет! Это тестовое сообщение из API',
+      userId: 'test-user-123',
+    };
+
+    const result = await emailProducer.sendEmail(message);
+
+    console.log('result', result);
+
     const user = await this.userRepository.getUserById(userId);
 
     if (!user) {

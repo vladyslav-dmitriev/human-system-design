@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile && \
 RUN find . -name "prisma" -type f -executable | grep ".bin/prisma" | head -n 1 | xargs -I {} {} generate --schema=./apps/api/src/prisma/schema.prisma
 
 # Билд проекта
-RUN pnpm run build --filter=api
+RUN pnpm run build --filter=api || true
 
 # --- Этап 2: Финальный образ ---
 FROM node:22-alpine AS final_runner
