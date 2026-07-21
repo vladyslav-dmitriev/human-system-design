@@ -3,7 +3,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { RabbitMQConsumer } from './rabbitmq.consumer';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQConnection } from '../managers/connection.manager';
-import { QUEUE_DEFINITIONS } from '../constants/queue-definitions.constants';
+import { QUEUES } from '../constants/queues.constants';
 
 @Injectable()
 export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
@@ -12,10 +12,14 @@ export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
   }
 
   async onModuleInit() {
+    await this.registerAll();
+  }
+
+  async registerAll() {
     try {
       await this.register({
-        queue: QUEUE_DEFINITIONS.EMAIL.name,
-        routingKey: QUEUE_DEFINITIONS.EMAIL.routingKey,
+        queue: QUEUES.EMAIL.name,
+        routingKey: QUEUES.EMAIL.routingKey,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         handler: this.handleEmail.bind(this),
         prefetch: 1,

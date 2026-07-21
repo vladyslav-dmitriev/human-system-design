@@ -11,17 +11,19 @@ export interface ExchangeDefinition {
 }
 
 export interface ExchangeConfig extends ExchangeDefinition {
-  bindings?: BindingDefinition[];
+  bindings?: Queue[];
   deadLetterExchange?: string;
   alternateExchange?: string;
 }
 
-export interface BindingDefinition {
-  sourceExchange: string;
-  destinationQueue: string;
+export interface Queue {
+  name: string;
   routingKey: string;
+  exchange: string;
+  durable: boolean;
+  type: string;
+  description: string;
   arguments?: Record<string, any>;
-  description?: string;
 }
 
 export const ExchangeTypes = {

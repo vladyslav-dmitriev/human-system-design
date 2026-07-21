@@ -23,28 +23,28 @@ export const EXCHANGES: Record<string, ExchangeConfig> = {
       'x-queue-type': 'quorum',
     },
   },
-  DELAYED_EXCHANGE: {
-    name: 'app.exchange.delayed',
-    type: 'topic',
-    durable: true,
-    autoDelete: false,
-    description: 'Обменник для отложенных сообщений',
-    arguments: {
-      'x-delayed-type': 'topic',
-    },
-  },
-  EVENTS_EXCHANGE: {
-    name: 'app.exchange.events',
-    type: 'fanout',
-    durable: true,
-    autoDelete: false,
-    description: 'Fanout обменник для широковещательных событий',
-  },
-  RPC_EXCHANGE: {
-    name: 'app.exchange.rpc',
-    type: 'direct',
-    durable: true,
-    autoDelete: false,
-    description: 'Обменник для RPC запросов',
-  },
+  // DELAYED_EXCHANGE: {
+  //   name: 'app.exchange.delayed',
+  //   type: 'topic',
+  //   durable: true,
+  //   autoDelete: false,
+  //   description: 'Обменник для отложенных сообщений',
+  //   arguments: {
+  //     'x-delayed-type': 'topic',
+  //   },
+  // },
+  // EVENTS_EXCHANGE: {
+  //   name: 'app.exchange.events',
+  //   type: 'fanout',
+  //   durable: true,
+  //   autoDelete: false,
+  //   description: 'Fanout обменник для широковещательных событий',
+  // },
+  // RPC_EXCHANGE: {
+  //   name: 'app.exchange.rpc',
+  //   type: 'direct',
+  //   durable: true,
+  //   autoDelete: false,
+  //   description: 'Обменник для RPC запросов',
+  // },
 };

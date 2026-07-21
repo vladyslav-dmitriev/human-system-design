@@ -1,11 +1,9 @@
-// src/modules/rabbitmq/services/rabbitmq.service.ts
 import {
   Injectable,
   Inject,
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
 import {
   RABBITMQ_CONFIG,
   RABBITMQ_CONNECTION,
@@ -22,7 +20,7 @@ import { RabbitMQQueueManager } from './managers/queue.manager';
 import { RabbitMQHealth } from './rabbitmq.health';
 import { RabbitMQLogger } from './utils/rabbitmq.logger';
 import { EXCHANGES } from './constants/exchanges.constants';
-import { DEFAULT_BINDINGS } from './constants/bindings.constants';
+import { QUEUES } from './constants/queues.constants';
 import { RabbitMQQueueBinder } from './bindings/queue-binder';
 import { EmailProducer } from './producers/email.producer';
 import { OrderProducer } from './producers/order.producer';
@@ -50,7 +48,6 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     @Inject(RABBITMQ_ORDER_CONSUMER) private orderConsumer: OrderConsumer,
     @Inject(RABBITMQ_NOTIFICATION_CONSUMER)
     private notificationConsumer: NotificationConsumer,
-    private moduleRef: ModuleRef,
   ) {
     this.logger = new RabbitMQLogger('RabbitMQService');
     this.queueManager = new RabbitMQQueueManager(this.connection);
@@ -89,10 +86,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       await this.queueManager.assertQueues();
 
       // 4. Применяем биндинги
-      await this.queueBinder.applyBindings(
-        DEFAULT_BINDINGS,
-        this.config.exchange,
-      );
+      await this.queueBinder.applyBindings(QUEUES, this.config.exchange);
 
       this.isInitialized = true;
       this.logger.info('✅ RabbitMQ сервис успешно инициализирован');

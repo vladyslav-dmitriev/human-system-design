@@ -5,7 +5,7 @@ import { ConsumeOptions } from '../types/rabbitmq.types';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
-import { QUEUE_DEFINITIONS } from '../constants/queue-definitions.constants';
+import { QUEUES } from '../constants/queues.constants';
 
 export class RabbitMQConsumer extends EventEmitter {
   private consumerTags: Map<string, string> = new Map();
@@ -36,7 +36,7 @@ export class RabbitMQConsumer extends EventEmitter {
       } catch {
         this.logger.warn(`⚠️ Очередь "${queue}" не существует, создаём...`);
 
-        const queueDef = Object.values(QUEUE_DEFINITIONS).find(
+        const queueDef = Object.values(QUEUES).find(
           (def) => def.name === queue,
         );
 

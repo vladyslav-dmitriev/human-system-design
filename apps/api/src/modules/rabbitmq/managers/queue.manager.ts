@@ -3,7 +3,7 @@ import { Channel } from 'amqplib';
 import { RabbitMQConnection } from './connection.manager';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { ExchangeDefinition } from '../types/exchanges.types';
-import { QUEUE_DEFINITIONS } from '../constants/queue-definitions.constants';
+import { QUEUES } from '../constants/queues.constants';
 
 export class RabbitMQQueueManager {
   private readonly logger: RabbitMQLogger;
@@ -22,7 +22,7 @@ export class RabbitMQQueueManager {
   async assertQueues(): Promise<void> {
     this.logger.info('📦 Создание всех очередей из определений...');
 
-    for (const [key, definition] of Object.entries(QUEUE_DEFINITIONS)) {
+    for (const [, definition] of Object.entries(QUEUES)) {
       try {
         await this.assertQueue(definition.name, {
           durable: definition.durable ?? true,
@@ -39,9 +39,7 @@ export class RabbitMQQueueManager {
       }
     }
 
-    this.logger.info(
-      `✅ Создано ${Object.keys(QUEUE_DEFINITIONS).length} очередей`,
-    );
+    this.logger.info(`✅ Создано ${Object.keys(QUEUES).length} очередей`);
   }
 
   async assertQueue(

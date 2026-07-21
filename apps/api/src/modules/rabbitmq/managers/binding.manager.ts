@@ -3,9 +3,9 @@ import { Channel } from 'amqplib';
 import { Binding, BindingCollection } from '../bindings/binding';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { retry } from '../utils/retry';
-import { DEFAULT_BINDINGS } from '../constants/bindings.constants';
+import { QUEUES } from '../constants/queues.constants';
 import { RabbitMQConnection } from './connection.manager';
-import type { BindingDefinition } from '../types/exchanges.types';
+import type { Queue } from '../types/exchanges.types';
 
 export class BindingManager {
   private readonly logger: RabbitMQLogger;
@@ -23,7 +23,7 @@ export class BindingManager {
   /**
    * Загрузка биндингов из определений
    */
-  loadDefinitions(definitions: BindingDefinition[]): void {
+  loadDefinitions(definitions: Queue[]): void {
     const bindings = definitions.map((def) => Binding.fromDefinition(def));
     this.bindings.addMany(bindings);
     this.logger.info(`Загружено ${bindings.length} биндингов из определений`);
@@ -33,7 +33,7 @@ export class BindingManager {
    * Загрузка дефолтных биндингов
    */
   loadDefaultBindings(): void {
-    this.loadDefinitions(DEFAULT_BINDINGS);
+    this.loadDefinitions(QUEUES);
   }
 
   /**
@@ -80,8 +80,8 @@ export class BindingManager {
       await retry(
         async () => {
           await channel.bindQueue(
-            binding.destinationQueue,
-            binding.sourceExchange,
+            binding.name,
+            binding.exchange,
             binding.routingKey,
             binding.arguments,
           );
@@ -119,8 +119,8 @@ export class BindingManager {
       if (this.appliedBindings.has(key)) {
         try {
           await channel.unbindQueue(
-            binding.destinationQueue,
-            binding.sourceExchange,
+            binding.name,
+            binding.exchange,
             binding.routingKey,
             binding.arguments,
           );
@@ -140,7 +140,7 @@ export class BindingManager {
    * Получение ключа для кеширования
    */
   private getBindingKey(binding: Binding): string {
-    return `${binding.sourceExchange}:${binding.destinationQueue}:${binding.routingKey}`;
+    return `${binding.exchange}:${binding.name}:${binding.routingKey}`;
   }
 
   /**

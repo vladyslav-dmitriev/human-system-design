@@ -2,7 +2,7 @@
 import { Channel } from 'amqplib';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
-import { BindingDefinition } from '../types/exchanges.types';
+import { Queue } from '../types/exchanges.types';
 
 export class RabbitMQQueueBinder {
   private readonly logger: RabbitMQLogger;
@@ -23,7 +23,7 @@ export class RabbitMQQueueBinder {
    * Применение массива биндингов
    */
   async applyBindings(
-    bindings: BindingDefinition[],
+    bindings: Queue[],
     defaultExchange: string,
   ): Promise<{ success: number; failed: number }> {
     let success = 0;
@@ -35,10 +35,7 @@ export class RabbitMQQueueBinder {
         success++;
       } catch (error) {
         failed++;
-        this.logger.warn(
-          `⚠️ Ошибка биндинга для "${binding.destinationQueue}":`,
-          error,
-        );
+        this.logger.warn(`⚠️ Ошибка биндинга для "${binding.name}":`, error);
       }
     }
 
@@ -51,15 +48,12 @@ export class RabbitMQQueueBinder {
   /**
    * Применение одного биндинга
    */
-  async applyBinding(
-    binding: BindingDefinition,
-    defaultExchange: string,
-  ): Promise<void> {
-    const exchange = binding.sourceExchange || defaultExchange;
+  async applyBinding(binding: Queue, defaultExchange: string): Promise<void> {
+    const exchange = binding.exchange || defaultExchange;
     const key = this.getBindingKey(binding);
 
     if (this.bindingsApplied.has(key)) {
-      this.logger.debug(`ℹ️ Биндинг уже применен: ${binding.destinationQueue}`);
+      this.logger.debug(`ℹ️ Биндинг уже применен: ${binding.name}`);
       return;
     }
 
@@ -68,7 +62,7 @@ export class RabbitMQQueueBinder {
       const channel = await this.getFreshChannel();
 
       await channel.bindQueue(
-        binding.destinationQueue,
+        binding.name,
         exchange,
         binding.routingKey,
         binding.arguments,
@@ -76,19 +70,19 @@ export class RabbitMQQueueBinder {
 
       this.bindingsApplied.add(key);
       this.logger.debug(
-        `✅ Биндинг применен: ${binding.destinationQueue} -> ${exchange} [${binding.routingKey}]`,
+        `✅ Биндинг применен: ${binding.name} -> ${exchange} [${binding.routingKey}]`,
       );
     } catch (error) {
       this.logger.error(
-        `❌ Ошибка биндинга: ${binding.destinationQueue} -> ${exchange}`,
+        `❌ Ошибка биндинга: ${binding.name} -> ${exchange}`,
         error,
       );
       throw error;
     }
   }
 
-  private getBindingKey(binding: BindingDefinition): string {
-    return `${binding.sourceExchange}:${binding.destinationQueue}:${binding.routingKey}`;
+  private getBindingKey(binding: Queue): string {
+    return `${binding.exchange}:${binding.name}:${binding.routingKey}`;
   }
 
   reset(): void {

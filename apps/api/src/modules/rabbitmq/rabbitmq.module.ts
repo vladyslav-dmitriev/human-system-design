@@ -1,4 +1,3 @@
-// src/modules/rabbitmq/rabbitmq.module.ts
 import {
   Module,
   DynamicModule,
@@ -100,38 +99,27 @@ export class RabbitMQModule implements OnModuleInit, OnModuleDestroy {
       },
       {
         provide: RABBITMQ_EMAIL_CONSUMER,
-        useFactory: (
-          connection: RabbitMQConnection,
-          cfg: RabbitMQConfig,
-          opts: RabbitMQModuleOptions,
-        ) => {
+        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
           return new EmailConsumer(connection, cfg);
         },
         inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG, RABBITMQ_MODULE_OPTIONS],
       },
       {
         provide: RABBITMQ_ORDER_CONSUMER,
-        useFactory: (
-          connection: RabbitMQConnection,
-          cfg: RabbitMQConfig,
-          opts: RabbitMQModuleOptions,
-        ) => {
+        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
           return new OrderConsumer(connection, cfg);
         },
         inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG, RABBITMQ_MODULE_OPTIONS],
       },
       {
         provide: RABBITMQ_NOTIFICATION_CONSUMER,
-        useFactory: (
-          connection: RabbitMQConnection,
-          cfg: RabbitMQConfig,
-          opts: RabbitMQModuleOptions,
-        ) => {
+        useFactory: (connection: RabbitMQConnection, cfg: RabbitMQConfig) => {
           return new NotificationConsumer(connection, cfg);
         },
         inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG, RABBITMQ_MODULE_OPTIONS],
       },
       RabbitMQService,
+      EmailConsumer,
     ];
 
     return {
@@ -139,6 +127,7 @@ export class RabbitMQModule implements OnModuleInit, OnModuleDestroy {
       imports: asyncOptions.imports || [],
       providers,
       exports: [
+        EmailConsumer,
         RabbitMQService,
         RABBITMQ_CONFIG,
         RABBITMQ_CONNECTION,
@@ -165,7 +154,6 @@ export class RabbitMQModule implements OnModuleInit, OnModuleDestroy {
         : loadRabbitMQConfig();
 
       const connection = new RabbitMQConnection(config);
-      const serializer = new JsonSerializer();
 
       const emailProducer = new EmailProducer(connection, config);
       const orderProducer = new OrderProducer(connection, config);

@@ -12,7 +12,7 @@ export class PrismaService
   constructor() {
     super({
       adapter,
-      log: ['query', 'info', 'warn', 'error'],
+      log: ['info', 'warn', 'error'],
     });
   }
 

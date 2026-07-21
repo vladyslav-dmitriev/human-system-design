@@ -1,26 +1,26 @@
-import { BindingDefinition } from '../types/exchanges.types';
+import { Queue } from '../types/exchanges.types';
 
 /**
  * Класс для управления биндингами
  */
 export class Binding {
   constructor(
-    public readonly sourceExchange: string,
-    public readonly destinationQueue: string,
+    public readonly exchange: string,
+    public readonly name: string,
     public readonly routingKey: string,
-    public readonly argumentsArr?: Record<string, any>,
+    public readonly arguments?: Record<string, any>,
     public readonly description?: string,
   ) {}
 
   /**
    * Создание биндинга из определения
    */
-  static fromDefinition(def: BindingDefinition): Binding {
+  static fromDefinition(def: Queue): Binding {
     return new Binding(
-      def.sourceExchange,
-      def.destinationQueue,
+      def.exchange,
+      def.name,
       def.routingKey,
-      def.argumentsArr,
+      def.arguments,
       def.description,
     );
   }
@@ -29,16 +29,16 @@ export class Binding {
    * Создание биндинга для multiple routing keys
    */
   static createMultiple(
-    sourceExchange: string,
-    destinationQueue: string,
+    exchange: string,
+    name: string,
     routingKeys: string[],
     description?: string,
   ): Binding[] {
     return routingKeys.map(
       (key) =>
         new Binding(
-          sourceExchange,
-          destinationQueue,
+          exchange,
+          name,
           key,
           undefined,
           description || `Binding for ${key}`,
@@ -50,13 +50,13 @@ export class Binding {
    * Создание биндинга для fanout обменника
    */
   static createFanout(
-    sourceExchange: string,
-    destinationQueue: string,
+    exchange: string,
+    name: string,
     description?: string,
   ): Binding {
     return new Binding(
-      sourceExchange,
-      destinationQueue,
+      exchange,
+      name,
       '', // Fanout не использует routing key
       undefined,
       description || 'Fanout binding',
@@ -67,33 +67,27 @@ export class Binding {
    * Создание биндинга с аргументами
    */
   static createWithArgs(
-    sourceExchange: string,
-    destinationQueue: string,
+    exchange: string,
+    name: string,
     routingKey: string,
     args: Record<string, any>,
     description?: string,
   ): Binding {
-    return new Binding(
-      sourceExchange,
-      destinationQueue,
-      routingKey,
-      args,
-      description,
-    );
+    return new Binding(exchange, name, routingKey, args, description);
   }
 
   /**
    * Проверка валидности биндинга
    */
   isValid(): boolean {
-    return !!(this.sourceExchange && this.destinationQueue);
+    return !!(this.exchange && this.name);
   }
 
   /**
    * Преобразование в строку для логирования
    */
   toString(): string {
-    return `Binding(${this.sourceExchange} -> ${this.destinationQueue} [${this.routingKey}])`;
+    return `Binding(${this.exchange} -> ${this.name} [${this.routingKey}])`;
   }
 
   /**
@@ -101,10 +95,10 @@ export class Binding {
    */
   clone(): Binding {
     return new Binding(
-      this.sourceExchange,
-      this.destinationQueue,
+      this.exchange,
+      this.name,
       this.routingKey,
-      this.argumentsArr ? { ...this.argumentsArr } : undefined,
+      this.arguments ? { ...this.arguments } : undefined,
       this.description,
     );
   }
@@ -114,8 +108,8 @@ export class Binding {
    */
   equals(other: Binding): boolean {
     return (
-      this.sourceExchange === other.sourceExchange &&
-      this.destinationQueue === other.destinationQueue &&
+      this.exchange === other.exchange &&
+      this.name === other.name &&
       this.routingKey === other.routingKey
     );
   }
@@ -155,11 +149,11 @@ export class BindingCollection {
   }
 
   findByExchange(exchange: string): Binding[] {
-    return this.bindings.filter((b) => b.sourceExchange === exchange);
+    return this.bindings.filter((b) => b.exchange === exchange);
   }
 
   findByQueue(queue: string): Binding[] {
-    return this.bindings.filter((b) => b.destinationQueue === queue);
+    return this.bindings.filter((b) => b.name === queue);
   }
 
   findByRoutingKey(routingKey: string): Binding[] {

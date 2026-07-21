@@ -9,7 +9,7 @@ import { redisConfig } from '../../config/redis.config';
     {
       provide: 'REDIS_CLIENT',
       useFactory: () => {
-        return new Redis(redisConfig.url);
+        return new Redis(redisConfig.host);
       },
     },
   ],
