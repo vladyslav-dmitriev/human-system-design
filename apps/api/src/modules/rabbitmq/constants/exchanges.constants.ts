@@ -10,7 +10,18 @@ export const EXCHANGES: Record<string, ExchangeConfig> = {
     description: 'Главный обменник приложения',
     arguments: {
       'x-queue-type': 'quorum',
-      'alternate-exchange': 'app.exchange.dlx', // ✅ Добавляем!
+      'alternate-exchange': 'app.exchange.dlx',
+    },
+  },
+  EMAIL_EXCHANGE: {
+    name: 'email.exchange',
+    type: 'topic',
+    durable: true,
+    autoDelete: false,
+    description: 'Emails exchange',
+    arguments: {
+      'x-queue-type': 'quorum',
+      'alternate-exchange': 'app.exchange.dlx',
     },
   },
   DLX_EXCHANGE: {

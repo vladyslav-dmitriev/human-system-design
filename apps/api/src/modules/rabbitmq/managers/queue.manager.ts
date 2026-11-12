@@ -26,7 +26,6 @@ export class RabbitMQQueueManager {
       try {
         await this.assertQueue(definition.name, {
           durable: definition.durable ?? true,
-          autoDelete: definition.autoDelete ?? false,
           arguments: definition.arguments || {},
         });
         this.logger.debug(`✅ Очередь "${definition.name}" создана/проверена`);

@@ -1,5 +1,6 @@
-// src/modules/rabbitmq/rabbitmq.producer.ts
 import { Injectable, Inject } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
+
 import { RabbitMQConnection } from './managers/connection.manager';
 import { RabbitMQConfig } from './rabbitmq.config';
 import {
@@ -7,7 +8,6 @@ import {
   RABBITMQ_CONNECTION,
 } from './constants/tokens.constants';
 import { RabbitMQLogger } from './utils/rabbitmq.logger';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class RabbitMQProducer {

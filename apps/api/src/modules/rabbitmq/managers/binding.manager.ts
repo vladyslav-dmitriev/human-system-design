@@ -12,12 +12,9 @@ export class BindingManager {
   private bindings: BindingCollection;
   private appliedBindings: Set<string> = new Set();
 
-  constructor(
-    private readonly connection: RabbitMQConnection,
-    private readonly customBindings?: Binding[],
-  ) {
+  constructor(private readonly connection: RabbitMQConnection) {
     this.logger = new RabbitMQLogger('BindingManager');
-    this.bindings = new BindingCollection(customBindings || []);
+    this.bindings = new BindingCollection([]);
   }
 
   /**
@@ -33,7 +30,7 @@ export class BindingManager {
    * Загрузка дефолтных биндингов
    */
   loadDefaultBindings(): void {
-    this.loadDefinitions(QUEUES);
+    this.loadDefinitions(Object.values(QUEUES));
   }
 
   /**

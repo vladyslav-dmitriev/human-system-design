@@ -29,7 +29,7 @@ export class OrderConsumer extends RabbitMQConsumer {
   async registerAll(): Promise<void> {
     await this.register({
       queue: 'order.queue',
-      routingKey: 'order.*',
+      routingKey: 'order.#',
       handler: this.handleOrder.bind(this),
     });
   }

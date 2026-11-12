@@ -15,7 +15,7 @@ export class RabbitMQConnection
 {
   private connection: Connection | null = null;
   private channel: Channel | null = null;
-  private isConnected: false;
+  public isConnected: () => boolean;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isReconnecting = false;
   private readonly logger: RabbitMQLogger;

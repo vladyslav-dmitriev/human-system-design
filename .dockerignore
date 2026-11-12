@@ -1,8 +1,17 @@
 # prettier-ignore
 node_modules
+**/node_modules
 dist
+**/dist
 .git
 .env
 .next
+**/.next
 .output
+.turbo
+**/.turbo
+coverage
+**/coverage
+test-results
+playwright-report
 npm-debug.log
