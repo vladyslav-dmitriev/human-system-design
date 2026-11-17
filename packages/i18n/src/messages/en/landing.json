@@ -1,0 +1,345 @@
+{
+  "landing": {
+    "meta": {
+      "title": "TaskFlow: the AI task tracker that plans your day",
+      "description": "Tell TaskFlow what is on your plate. AI sorts, prioritises and schedules your tasks so you always know what to work on next. Free forever."
+    },
+    "nav": {
+      "home": "TaskFlow home",
+      "sections": "Sections",
+      "ai": "AI",
+      "features": "Features",
+      "security": "Security",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Log in",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "badge": "Meet TaskFlow AI",
+      "title": "The AI task tracker that plans your day for you",
+      "subtitle": "Just tell TaskFlow what is on your plate. Our AI sorts, prioritises and schedules everything, so you always know exactly what to work on next.",
+      "primaryCta": "Start for free",
+      "secondaryCta": "See AI in action",
+      "ratingLabel": "Rated 4.9 out of 5",
+      "socialLine": "Loved by 12,000+ people. Free forever, no card needed."
+    },
+    "dashboard": {
+      "label": "TaskFlow dashboard with weekly progress, focus time, time saved and an AI suggestion",
+      "weeklyTitle": "Weekly progress",
+      "weeklyBadge": "This week",
+      "weeklyDelta": "+12% vs last week",
+      "weeklyCaption": "43 of 50 AI-planned tasks completed",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "focusTitle": "Focus time",
+      "focusValue": "24h 30m",
+      "focusGoal": "Goal: 34h this week",
+      "savedTitle": "Time saved",
+      "savedPeriod": "this month",
+      "savedValue": "6h 12m",
+      "aiTitle": "TaskFlow AI suggests",
+      "aiText": "Next up: finish the launch brief. Best time today at 10:30, about 45 minutes."
+    },
+    "social": {
+      "eyebrow": "Trusted by 12,000+ teams, freelancers and agencies",
+      "stats": {
+        "tasks": {
+          "value": "250K+",
+          "label": "Tasks planned by AI every week"
+        },
+        "countries": {
+          "value": "38",
+          "label": "Countries and counting"
+        },
+        "rating": {
+          "value": "4.9 / 5",
+          "label": "Average rating from 3,200+ reviews"
+        }
+      }
+    },
+    "ai": {
+      "eyebrow": "TaskFlow AI",
+      "title": "Say what you need to do. AI does the planning.",
+      "description": "Skip the endless sorting and rescheduling. Describe your work in plain language and TaskFlow AI turns it into a clear, prioritised plan you can start on right away.",
+      "bullets": {
+        "organise": "Turns plain-language notes into organised tasks",
+        "prioritise": "Prioritises by deadline and real impact",
+        "schedule": "Builds a realistic schedule around your focus time"
+      },
+      "cta": "Try TaskFlow AI free",
+      "chat": {
+        "label": "A conversation with TaskFlow AI that turns a request into a prioritised weekly plan",
+        "name": "TaskFlow AI",
+        "status": "Planning",
+        "userMessage": "Plan my week: finish the launch brief, review pricing and prep Friday's client call.",
+        "reply": "Done! I prioritised your tasks and scheduled them around your focus time:",
+        "plan": {
+          "brief": {
+            "when": "Mon 10:00",
+            "title": "Finish the launch brief",
+            "priority": "High"
+          },
+          "pricing": {
+            "when": "Wed 14:00",
+            "title": "Review the pricing page",
+            "priority": "Medium"
+          },
+          "call": {
+            "when": "Thu 16:30",
+            "title": "Prep for the client call",
+            "priority": "Medium"
+          }
+        },
+        "summary": "3 tasks · 2h 15m of focus time",
+        "adjust": "Adjust",
+        "accept": "Accept plan",
+        "placeholder": "Ask AI to plan, sort or summarise"
+      }
+    },
+    "capabilities": {
+      "eyebrow": "What AI does for you",
+      "title": "Your personal planner, always on",
+      "description": "TaskFlow AI works in the background so you can work on the work, not on the list.",
+      "items": {
+        "goals": {
+          "title": "Break big goals into steps",
+          "text": "Give AI a goal like “launch the new site”. It splits it into clear, doable tasks with realistic estimates."
+        },
+        "priorities": {
+          "title": "Focus on what matters most",
+          "text": "AI scores every task by deadline and impact, so the most important work is always at the top of your list."
+        },
+        "schedule": {
+          "title": "Plan around your real day",
+          "text": "Smart scheduling fits tasks into your day, protects your focus time and replans the moment things change."
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "Everything you need to finish more, every single day",
+      "description": "Powerful where it counts, simple everywhere else. No training, no setup, no clutter.",
+      "items": {
+        "tasks": {
+          "title": "Never lose a task again",
+          "text": "Create, sort and attach images to every task. AI keeps it all organised, so the context always travels with the work."
+        },
+        "briefing": {
+          "title": "A daily AI briefing, every morning",
+          "text": "Start each day with a short summary of what matters, what is running late and what can safely wait."
+        },
+        "insights": {
+          "title": "Insights that show real progress",
+          "text": "See your weekly progress, focus time and time saved, and learn when you do your best work."
+        },
+        "nudges": {
+          "title": "Nudges at the right moment",
+          "text": "Smart reminders arrive when you are ready to act, not when you are busy. Snooze or reschedule in one tap."
+        },
+        "sync": {
+          "title": "Always in sync",
+          "text": "Your tasks live in the cloud, so your plan follows you from phone to laptop. Cloud storage comes with Premium."
+        },
+        "api": {
+          "title": "An open API for your own tools",
+          "text": "Connect TaskFlow to the tools you already use and automate your workflow. Custom API is included in Pro."
+        }
+      }
+    },
+    "illustrations": {
+      "tasks": { "label": "Task list with an image attachment", "sort": "Sort" },
+      "briefing": {
+        "label": "A morning briefing card with three priorities",
+        "heading": "Today's briefing",
+        "badge": "3 priorities"
+      },
+      "insights": {
+        "label": "A rising progress line with a plus 24 percent badge",
+        "badge": "+24%"
+      },
+      "nudges": {
+        "label": "Two smart reminder notifications",
+        "title": "Time to start",
+        "detail": "Launch brief · 10:30",
+        "snooze": "Snooze"
+      },
+      "sync": { "label": "A cloud syncing a phone, a laptop and a tablet" },
+      "api": { "label": "An API request and a 200 OK response" },
+      "goals": {
+        "label": "A big goal split into smaller tasks",
+        "root": "Launch",
+        "draft": "Draft",
+        "review": "Review",
+        "ship": "Ship"
+      },
+      "priorities": { "label": "Tasks ranked by an AI priority score" },
+      "schedule": {
+        "label": "A day schedule with focus blocks",
+        "deepWork": "Deep work",
+        "clientCall": "Client call",
+        "reviewTasks": "Review tasks"
+      },
+      "signup": { "label": "Sign-up form", "button": "Create account" },
+      "prompt": {
+        "label": "A plain-language message typed to AI",
+        "launch": "Launch brief",
+        "pricing": "Pricing",
+        "call": "Client call"
+      },
+      "plan": { "label": "A day planned by AI with time slots" }
+    },
+    "how": {
+      "eyebrow": "How it works",
+      "title": "From sign-up to a planned day in three steps",
+      "steps": {
+        "signup": {
+          "title": "Create your free account",
+          "text": "Sign up with your email, Google or GitHub in under a minute. No card needed."
+        },
+        "prompt": {
+          "title": "Tell AI what is on your plate",
+          "text": "Type or paste your tasks in plain language. No forms, no fields, no fuss."
+        },
+        "plan": {
+          "title": "Get a plan you can act on",
+          "text": "AI prioritises and schedules your day. Upgrade any time for Advanced AI and more."
+        }
+      }
+    },
+    "security": {
+      "eyebrow": "Security",
+      "title": "Your account, protected from the very first day",
+      "description": "Add a second layer of verification, sign in with the accounts you already use and change your password whenever you want. You stay in control.",
+      "bullets": {
+        "twoFactor": "Two-factor authentication by phone",
+        "oauth": "One-click sign-in with Google or GitHub",
+        "stripe": "Secure card payments powered by Stripe"
+      },
+      "previewLabel": "Preview of the security settings",
+      "twoFactorTitle": "Two-factor authentication",
+      "twoFactorText": "Secure your account with an additional layer of verification",
+      "linkedTitle": "Linked accounts",
+      "linkedText": "Manage access to third party authorization",
+      "notConnected": "Not connected",
+      "connect": "Connect"
+    },
+    "testimonials": {
+      "eyebrow": "Testimonials",
+      "title": "Loved by people who get things done",
+      "ratingLabel": "5 out of 5 stars",
+      "items": {
+        "elena": {
+          "name": "Elena Marchetti",
+          "role": "Product Designer, Lumina Studio",
+          "quote": "I type everything that is on my mind and the AI turns it into a plan in seconds. My Mondays have never been calmer."
+        },
+        "daniel": {
+          "name": "Daniel Okafor",
+          "role": "Founder, Brightly Agency",
+          "quote": "We moved our whole agency over in an afternoon. The AI prioritises client work better than we ever did."
+        },
+        "sofia": {
+          "name": "Sofia Kovalenko",
+          "role": "Operations Lead, Stackform",
+          "quote": "Premium paid for itself in the first week. Advanced AI breaks projects into steps and saves us hours of back-and-forth."
+        }
+      }
+    },
+    "pricing": {
+      "eyebrow": "Choose your plan",
+      "title": "Everything you need to grow",
+      "subtitle": "Start free. Upgrade for Advanced AI when you are ready. Cancel anytime.",
+      "perMonth": "/month",
+      "popular": "Popular",
+      "plans": {
+        "free": {
+          "name": "Free",
+          "description": "Basic package for getting started",
+          "cta": "Start for free",
+          "features": {
+            "tools": "Basic tools",
+            "community": "Community support"
+          }
+        },
+        "premium": {
+          "name": "Premium",
+          "description": "Maximum performance",
+          "cta": "Choose Premium",
+          "features": {
+            "free": "Everything in Free",
+            "ai": "Advanced AI",
+            "storage": "Cloud storage"
+          }
+        },
+        "pro": {
+          "name": "Pro",
+          "description": "Exclusive access",
+          "cta": "Choose Pro",
+          "features": {
+            "premium": "Everything in Premium",
+            "support": "Priority support",
+            "api": "Custom API"
+          }
+        }
+      }
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Questions? We have answers",
+      "items": {
+        "ai": {
+          "q": "What can TaskFlow AI do?",
+          "a": "Tell it what you need to do in plain language. AI turns that into organised tasks, prioritises them, breaks big goals into steps and schedules your day."
+        },
+        "free": {
+          "q": "Is TaskFlow really free?",
+          "a": "Yes. The Free plan costs $0 per month, forever, and includes all the basic tools plus community support. Upgrade only when you need more."
+        },
+        "start": {
+          "q": "How fast can I get started?",
+          "a": "In under a minute. Sign up with your email, Google or GitHub, add your first task and you are off. There is nothing to install or configure."
+        },
+        "cancel": {
+          "q": "Can I cancel any time?",
+          "a": "Of course. Cancel in one click or switch off auto-renew from the Billing page. No contracts, no hidden fees."
+        },
+        "plans": {
+          "q": "What do I get with Premium and Pro?",
+          "a": "Premium adds Advanced AI and cloud storage. Pro includes everything in Premium plus priority support and a custom API."
+        },
+        "payments": {
+          "q": "Is my payment information safe?",
+          "a": "Payments are processed by Stripe, a global leader in secure payments. TaskFlow never sees or stores your full card number."
+        },
+        "language": {
+          "q": "Can I use TaskFlow in my language?",
+          "a": "Yes. TaskFlow is available in English and Ukrainian, in both light and dark themes. Switch any time in Settings."
+        }
+      }
+    },
+    "cta": {
+      "badge": "Upgrade",
+      "title": "Ready to let AI plan your day?",
+      "description": "Unlock Advanced AI and priority access to scale your workflow",
+      "button": "Get started free",
+      "note": "Join 12,000+ people who plan smarter with TaskFlow AI."
+    },
+    "footer": {
+      "tagline": "The AI task tracker. Plan smarter, finish faster.",
+      "product": "Product",
+      "account": "Account",
+      "language": "Language",
+      "createAccount": "Create account",
+      "forgotPassword": "Forgot password",
+      "copyright": "© {year} TaskFlow. All rights reserved."
+    }
+  }
+}
