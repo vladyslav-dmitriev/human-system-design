@@ -77,7 +77,9 @@ constants/         ROUTE / ROUTES, feature-flags
 i18n/              request.ts (загрузка сообщений из @repo/i18n), navigation.ts
 ```
 
+- Направление импортов: `app/[locale]` → `widgets/` → `features/` → `shared/`. Импортировать можно только из нижележащих слоёв.
 - Каждый slice экспортирует публичный API через `index.ts`; импортируйте из slice, а не из внутренних файлов.
+- Вёрстка по макетам Figma: правила и соответствие компонентов Figma → `components/ui` описаны в `apps/web/CLAUDE.md`.
 - Алиас `@/*` → `apps/web/*`.
 - Все URL локализованы: `localePrefix: "always"`, локали `en` (по умолчанию) и `uk`. Тексты — только через `next-intl` и JSON в `packages/i18n/src/messages/<locale>/*.json` (namespace = имя файла: `auth`, `common`, `todo`, `pricing`, `checkout`, `profile`). При добавлении ключа обновляйте **обе** локали (источник для Crowdin — `en`).
 
@@ -96,7 +98,7 @@ i18n/              request.ts (загрузка сообщений из @repo/i1
 - Пути-алиасы (`tsconfig.json`, `baseUrl: ./`): `config/*`, `interceptors/*`, `prisma/*`, `utils/*`, `emails/*`, `modules/*`.
 - Конфигурация: `@nestjs/config`, файлы в `src/config/` (app, database, redis, cache, queue); `.env` читается из `apps/api/.env`.
 - **RabbitMQ** (`src/modules/rabbitmq`): собственный глобальный модуль `RabbitMQModule.forRootAsync` — менеджеры соединения/каналов/очередей/биндингов, продюсеры и консьюмеры (`email`, `order`, `notification`), сериализаторы, ретраи. BullMQ/Bull Board отключены (закомментированы в `app.module.ts`), но зависимости остались.
-- **Prisma:** схема `src/prisma/schema.prisma` (модели `User`, `UserProfile`, `AuthSettings`, `UserBillingProfile`, `Subscription`, `Product`, `UserPurchase`, `UserFeature`, `Invoice`, `Todo`), миграции в `src/prisma/migrations/`. Клиент импортируется из `@prisma/client` — после изменения схемы обязательно выполнить `prisma generate`.
+- **Prisma:** схема `src/prisma/schema.prisma` (модели `User`, `UserProfile`, `AuthSettings`, `UserBillingProfile`, `Subscription`, `Product`, `UserPurchase`, `UserFeature`, `Invoice`, `Todo`), миграции в `src/prisma/migrations/`. Клиент импортируется из `@prisma/client` — после изменения схемы обязательно выполнить `prisma generate`. Каталог `src/prisma/generated/` генерируется, руками не править.
 
 ## Команды
 
@@ -189,7 +191,7 @@ pnpm i18n:download
 
 ## Известное состояние и подводные камни (проверено 2026-11-12)
 
-- **Типы не проходят.** `tsc --noEmit` в `apps/web` — ~42 ошибки; в `apps/api` — ~39 ошибок после `prisma generate` (без генерации — ~71: `Property 'user' does not exist on type 'PrismaService'`). Основные источники в api: модуль `rabbitmq` (несовместимость с типами `amqplib`), `pdf.processor.ts` (ссылка на `Job` из отключённого BullMQ). `next build` при этом проходит, т.к. в `next.config.js` стоит `typescript.ignoreBuildErrors: true`. Не вносите новые ошибки; сверяйтесь с количеством до/после изменения.
+- **Типы не проходят.** `tsc --noEmit` в `apps/web` — ~42 ошибки; в `apps/api` — ~34 ошибки после `prisma generate` (на 2026-11-19) (без генерации — ~71: `Property 'user' does not exist on type 'PrismaService'`). Основные источники в api: модуль `rabbitmq` (несовместимость с типами `amqplib`), `pdf.processor.ts` (ссылка на `Job` из отключённого BullMQ). `next build` при этом проходит, т.к. в `next.config.js` стоит `typescript.ignoreBuildErrors: true`. Не вносите новые ошибки; сверяйтесь с количеством до/после изменения.
 - **`apps/api/tsconfig.json`**: `strict: false`, `strictNullChecks: false`, `noImplicitAny: false`.
 - **Линт web падает** с `ERR_MODULE_NOT_FOUND: Cannot find package 'globals'` — пакету `@repo/eslint-config` не хватает зависимости `globals`. Скрипт `lint` в web заканчивается на `|| true`, поэтому ошибка не видна в turbo.
 - **Линт api** проверяет и сгенерированный Prisma-клиент (`src/prisma/generated/**`) — это ~10 тыс. «ошибок». Без него — ~600. При проверке своих изменений запускайте eslint на конкретных файлах.
@@ -200,6 +202,29 @@ pnpm i18n:download
 - Опечатка в имени каталога `apps/web/features/ouath-connections` (а не `oauth`) — учитывайте при импортах.
 - Встречаются черновые/дублирующие файлы: `login/page copy.tsx`, `todos/todos-list2.tsx`, `.github/workflows copy/`, `apps/api/src/prisma.config.ts` (дубль `src/prisma/prisma.config.ts`), пустой `full_backup.sql`.
 - В репозиторий закоммичены артефакты Playwright (`packages/e2e/playwright-report/`, `test-results/`, `playwright/.auth/user.json`) и файлы в `infra/helm/secrets/`, `api-secret.yaml` — не добавляйте туда реальные секреты.
+
+## Правила
+
+- Перед тем как сказать «готово», прогоняйте `check-types`, `lint` и тесты затронутого пакета. Из-за уже существующих ошибок (см. выше) сравнивайте результат до и после изменения.
+- Контракт между web и api — это эндпоинты Nest (Swagger). Меняете контракт — обновляйте обе стороны и `apps/web/api.ts` в одном изменении, либо явно опишите, что осталось другой стороне.
+- Пользовательские тексты только через i18n (`packages/i18n/src/messages`), без строк, захардкоженных в компонентах.
+- Секреты и токены не коммитить. `.env*` в `.gitignore`.
+- Миграции Prisma: новые только через `prisma migrate dev --name <name>`. Уже применённые миграции не редактировать. `migrate reset` и удаление данных только после подтверждения пользователя.
+
+## Агенты
+
+В `.claude/agents/` лежат четыре агента: `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `qa` (тесты и проверка поведения) и `reviewer` (ревью diff, только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+
+Порядок работы над изменением: автор (`frontend` / `backend`) → `qa` → `reviewer` → исправления делает автор → PR → CI → approve и merge делает человек.
+
+## Безопасность: плагин security-guidance
+
+В `.claude/settings.json` включён плагин `security-guidance@claude-plugins-official`. Сейчас его платные LLM-ревью выключены (`"ENABLE_CODE_SECURITY_REVIEW": "0"` в `env`), чтобы не тратить токены. Работает только бесплатный слой: при каждом `Edit` / `Write` плагин предупреждает об опасных паттернах (секреты в коде, `innerHTML`, небезопасная десериализация и т. п.). Если плагин выдал предупреждение, агент исправляет проблему до того, как сдавать работу.
+
+Выключенные слои: LLM-ревью diff в конце каждого хода и агентное ревью на `git commit` (ищет IDOR, обход авторизации, SSRF). Оба по умолчанию работают на Opus.
+- Включить оба: удалить `ENABLE_CODE_SECURITY_REVIEW` из `env`.
+- Включить только ревью на коммит (дешевле): вместо этого поставить `"ENABLE_STOP_REVIEW": "0"`.
+- Выключить плагин целиком, вместе с предупреждениями: `"SECURITY_GUIDANCE_DISABLE": "1"`.
 
 ## Соглашения
 

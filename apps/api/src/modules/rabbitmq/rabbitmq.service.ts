@@ -86,7 +86,10 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       await this.queueManager.assertQueues();
 
       // 4. Применяем биндинги
-      await this.queueBinder.applyBindings(QUEUES, this.config.exchange);
+      await this.queueBinder.applyBindings(
+        Object.values(QUEUES),
+        this.config.exchange,
+      );
 
       this.isInitialized = true;
       this.logger.info('✅ RabbitMQ сервис успешно инициализирован');

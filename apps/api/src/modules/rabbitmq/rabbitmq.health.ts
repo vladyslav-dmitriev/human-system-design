@@ -5,6 +5,7 @@ import type {
   IRabbitMQHealth,
   IRabbitMQQueueManager,
 } from './types/rabbitmq.interfaces';
+import { QUEUES } from './constants/queues.constants';
 
 export class RabbitMQHealth implements IRabbitMQHealth {
   private readonly logger: RabbitMQLogger;
@@ -59,19 +60,18 @@ export class RabbitMQHealth implements IRabbitMQHealth {
   }
 
   private async checkQueues(): Promise<Record<string, any>> {
-    const queues = ['email.queue', 'order.queue', 'notification.queue'];
     const status: Record<string, any> = {};
 
-    for (const queue of queues) {
+    for (const queue of Object.values(QUEUES)) {
       try {
-        const info = await this.queueManager.getQueueInfo(queue);
-        status[queue] = {
+        const info = await this.queueManager.getQueueInfo(queue.name);
+        status[queue.name] = {
           exists: true,
           messageCount: info.messageCount,
           consumerCount: info.consumerCount,
         };
       } catch (error) {
-        status[queue] = {
+        status[queue.name] = {
           exists: false,
           error: (error as Error).message,
         };
@@ -94,9 +94,8 @@ export class RabbitMQHealth implements IRabbitMQHealth {
 
     if (isConnected) {
       try {
-        const queues = ['email.queue', 'order.queue', 'notification.queue'];
-        for (const queue of queues) {
-          const info = await this.queueManager.getQueueInfo(queue);
+        for (const queue of Object.values(QUEUES)) {
+          const info = await this.queueManager.getQueueInfo(queue.name);
           totalMessages += info.messageCount;
           activeConsumers += info.consumerCount;
         }

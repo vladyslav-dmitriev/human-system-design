@@ -63,12 +63,7 @@ export function createRabbitMQProviders(
     {
       provide: RABBITMQ_EMAIL_CONSUMER,
       useFactory: (connection: RabbitMQConnection) => {
-        return new EmailConsumer(
-          connection,
-          config,
-          options.emailService,
-          new JsonSerializer(),
-        );
+        return new EmailConsumer(connection, config);
       },
       inject: [RABBITMQ_CONNECTION],
     },
@@ -91,7 +86,6 @@ export function createRabbitMQProviders(
           connection,
           config,
           options.notificationService,
-          new JsonSerializer(),
         );
       },
       inject: [RABBITMQ_CONNECTION],

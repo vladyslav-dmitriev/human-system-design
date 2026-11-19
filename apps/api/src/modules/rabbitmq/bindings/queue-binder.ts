@@ -29,7 +29,7 @@ export class RabbitMQQueueBinder {
     let success = 0;
     let failed = 0;
 
-    for (const binding of bindings) {
+    for (const binding of Object.values(bindings)) {
       try {
         await this.applyBinding(binding, defaultExchange);
         success++;

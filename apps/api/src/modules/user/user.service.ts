@@ -27,7 +27,7 @@ export class UserService {
   async getUserProfile(userId: string) {
     const emailProducer = this.rabbitMQService.getEmailProducer();
 
-    await emailProducer.sendEmail({
+    await emailProducer.sendEmailUserCreate({
       to: 'test@example.com',
       subject: 'Тестовое письмо из API',
       body: 'Привет! Это тестовое сообщение из API',

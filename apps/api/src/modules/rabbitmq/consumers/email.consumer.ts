@@ -18,8 +18,16 @@ export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
   async registerAll() {
     try {
       await this.register({
-        queue: QUEUES.EMAIL.name,
-        routingKey: QUEUES.EMAIL.routingKey,
+        queue: QUEUES.EMAIL_HIGH.name,
+        routingKey: QUEUES.EMAIL_HIGH.routingKey,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        handler: this.handleEmail.bind(this),
+        prefetch: 1,
+      });
+
+      await this.register({
+        queue: QUEUES.EMAIL_MEDIUM.name,
+        routingKey: QUEUES.EMAIL_MEDIUM.routingKey,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         handler: this.handleEmail.bind(this),
         prefetch: 1,

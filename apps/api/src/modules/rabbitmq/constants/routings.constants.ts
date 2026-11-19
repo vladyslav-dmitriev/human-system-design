@@ -1,5 +1,6 @@
 export const ROUTING_KEYS = {
-  EMAIL_SEND: 'email.send',
+  EMAIL_USER_CREATE: 'email.medium.user.create',
+  EMAIL_PAYMENT_CREATE: 'email.high.payment.create',
   // EMAIL_WELCOME: 'email.welcome',
   // EMAIL_RESET: 'email.reset.request',
   // ORDER_CREATED: 'order.created',

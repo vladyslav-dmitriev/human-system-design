@@ -29,7 +29,7 @@ export class NotificationConsumer extends RabbitMQConsumer {
   async registerAll(): Promise<void> {
     await this.register({
       queue: 'notification.queue',
-      routingKey: 'notification.*',
+      routingKey: 'notification.#',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       handler: this.handleNotification.bind(this),
     });
