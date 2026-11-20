@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
+import { getErrorMessage } from "@/shared/lib/error";
 
 interface EmailFormInputs {
   email: string;
@@ -69,9 +70,9 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
       });
 
       reset({ email: data.email });
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Ошибка обновления", {
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);

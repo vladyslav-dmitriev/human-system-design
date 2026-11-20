@@ -6,14 +6,18 @@ import { BillingPlan } from "./billing-plan";
 import { ROUTE } from "@/constants";
 import { useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
+import type { BillingProduct } from "@/shared/types/billing";
 
+/** Витринное описание плана; цены подмешиваются из billingProducts по name */
 interface Plan {
-  priceId: string;
   name: string;
   description: string;
-  amount: number;
+  features: string[];
+  priceId?: string;
+  amount?: number;
   saleAmount?: number;
-  currency: string;
+  currency?: string;
+  interval?: string;
 }
 
 const viewedPlans: Plan[] = [
@@ -42,8 +46,8 @@ interface BillingPlansProps {
   userEmail: string;
   currentPriceId: string | null;
   billingProducts: {
-    recurring: Plan[];
-    oneTime: Plan[];
+    recurring: BillingProduct[];
+    oneTime: BillingProduct[];
   };
 }
 

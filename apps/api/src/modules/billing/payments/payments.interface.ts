@@ -1,46 +1,57 @@
+import type { StripeTypes as Stripe } from './stripe.types';
+
+/**
+ * Контракт платёжного провайдера. Сейчас единственная реализация —
+ * StripeProvider, поэтому типы ответов совпадают с типами Stripe SDK.
+ */
 export interface IPaymentProvider {
-  constructEvent(rawBody: any, signature: string): Promise<any>;
-  createPaymentCustomer(email: string): Promise<any>;
+  constructEvent(
+    rawBody: string | Buffer,
+    signature: string,
+  ): Promise<Stripe.Event>;
+  createPaymentCustomer(email: string): Promise<Stripe.Customer>;
   createPaymentIntent(data: {
     stripeCustomerId: string;
     amount: number;
     currency: string;
-    metadata: object;
-  }): Promise<any>;
-  getPaymentMethods(stripeCustomerId: string): Promise<any>;
+    metadata: Stripe.MetadataParam;
+  }): Promise<Stripe.PaymentIntent>;
+  getPaymentMethods(
+    stripeCustomerId: string,
+  ): Promise<Stripe.ApiList<Stripe.PaymentMethod>>;
   addPaymentMethod(
     stripeCustomerId: string,
     paymentMethodId: string,
-  ): Promise<any>;
+  ): Promise<Stripe.PaymentMethod>;
   updateDefaultPaymentMethod(
     stripeCustomerId: string,
     paymentMethodId: string,
-  ): Promise<any>;
+  ): Promise<Stripe.Customer>;
   deletePaymentMethod(
     stripeCustomerId: string,
     paymentMethodId: string,
-  ): Promise<any>;
-  getPrice(priceId: string): Promise<any>;
+  ): Promise<Stripe.PaymentMethod>;
+  getPrice(priceId: string): Promise<Stripe.Price>;
   createSubscription(
     stripeCustomerId: string,
     priceId: string,
     productName: string,
-  ): Promise<any>;
-  getPaymentIntent(paymentIntentId: string): Promise<any>;
+  ): Promise<Stripe.Subscription>;
+  getPaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent>;
   createBillingPortal(
     stripeCustomerId: string,
     frontendUrl: string,
-  ): Promise<any>;
+  ): Promise<Stripe.BillingPortal.Session>;
   updateSubscription(
     stripeSubscriptionId: string,
     autoRenew: boolean,
-  ): Promise<any>;
-  getSubscription(subscriptionId: string): Promise<any>;
+  ): Promise<Stripe.Subscription>;
+  getSubscription(subscriptionId: string): Promise<Stripe.Subscription>;
   createPaymentInvoicePreview(
     stripeCustomerId: string,
     subscriptionId: string,
     newPriceId: string,
     id: string,
-  ): Promise<any>;
-  getPricesList(): Promise<any>;
+  ): Promise<Stripe.Invoice>;
+  getPricesList(): Promise<Stripe.ApiList<Stripe.Price>>;
 }

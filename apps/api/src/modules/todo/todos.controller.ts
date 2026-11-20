@@ -13,6 +13,8 @@ import {
   BadRequestException,
   Inject,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+
 import { TodoService } from './todo.service';
 import { TodoCreateBodyDto } from './dto/request/body/todo-create.body.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -75,12 +77,7 @@ export class TodosController {
         );
       }
 
-      // @ts-ignore
-      imageUrl = await this.storageService.upload({
-        // @ts-ignore
-        file,
-        folder: 'todos',
-      });
+      imageUrl = await this.storageService.upload(toImageUpload(file, 'todos'));
     }
 
     return this.service.createTodo(userId, body, imageUrl);
@@ -154,10 +151,9 @@ export class TodosController {
       );
     }
 
-    const imageUrl = await this.storageService.upload({
-      file,
-      folder: 'todos',
-    });
+    const imageUrl = await this.storageService.upload(
+      toImageUpload(file, 'todos'),
+    );
 
     await this.service.updateTodoImage(userId, imageUrl, body);
 
@@ -166,4 +162,19 @@ export class TodosController {
       imageUrl,
     };
   }
+}
+
+/**
+ * Параметры загрузки в S3: тело — буфер файла, имя — уникальное, расширение
+ * берём из уже проверенного mimetype (а не из имени файла от клиента).
+ */
+function toImageUpload(file: Express.Multer.File, folder: string) {
+  const extension = file.mimetype.split('/')[1];
+
+  return {
+    file: file.buffer,
+    fileName: `${randomUUID()}.${extension}`,
+    folder,
+    contentType: file.mimetype,
+  };
 }

@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckIcon, SquareCheckIcon, TrashIcon } from "lucide-react";
 
@@ -15,7 +14,7 @@ interface Todo {
 
 interface TodoItemProps {
   todo: Todo;
-  onEdit: (completed: boolean) => void;
+  onEdit: () => void;
   onRemove: () => void;
 }
 
@@ -33,6 +32,8 @@ export function TodoItem({ todo, onEdit, onRemove }: TodoItemProps) {
               <Skeleton className="absolute inset-0 w-full h-full animate-pulse" />
             )}
 
+            {/* Картинка из S3: для next/image нужен remotePatterns на бакет */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={todo.imageUrl}
               alt={todo.title}
@@ -59,7 +60,7 @@ export function TodoItem({ todo, onEdit, onRemove }: TodoItemProps) {
               <SquareCheckIcon
                 size="18"
                 className="text-gray-500 hover:text-gray-700"
-                onClick={onEdit}
+                onClick={() => onEdit()}
               />
             )}
 

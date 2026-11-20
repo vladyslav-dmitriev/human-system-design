@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
+import { getErrorMessage } from "@/shared/lib/error";
 
 interface PasswordFormInputs {
   currentPassword: string;
@@ -69,9 +70,9 @@ export function ChangePasswordForm() {
 
       // Полностью очищаем форму
       reset({ currentPassword: "", newPassword: "" });
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Ошибка обновления", {
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);

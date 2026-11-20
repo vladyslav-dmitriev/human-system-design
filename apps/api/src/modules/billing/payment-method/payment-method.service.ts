@@ -98,7 +98,7 @@ export class PaymentMethodService {
 
         if (nextPaymentMethodId) {
           await this.updateDefaultPaymentMethod(
-            user.userId,
+            userId,
             user.userBillingProfile.stripeCustomerId,
             nextPaymentMethodId,
           );

@@ -76,6 +76,8 @@ export function TodoImageUpload({ todoId }: { todoId: string }) {
       {/* Маленькое превью выбранной картинки */}
       {previewUrl && (
         <div className="relative w-full h-40 rounded-lg overflow-hidden border bg-muted">
+          {/* blob: URL локального превью, next/image его не оптимизирует */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
             alt="Preview"

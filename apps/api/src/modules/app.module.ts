@@ -8,7 +8,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
 import { TodoModule } from './todo';
-import { EmailModule, EmailService } from './sender/email';
+import { EmailModule } from './sender/email';
 import { StorageModule } from './storage';
 import { UserModule } from './user';
 import { PdfModule } from './pdf';

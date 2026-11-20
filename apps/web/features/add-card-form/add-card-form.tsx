@@ -10,7 +10,7 @@ import {
   CardCvcElement,
 } from "@stripe/react-stripe-js";
 
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StripeCardElementOptions } from "@stripe/stripe-js";
 import { useTranslations } from "next-intl";
@@ -50,7 +50,7 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
     e.preventDefault();
 
     // Защита: если Stripe еще не загрузился, ничего не делаем
-    if (!stripe) return;
+    if (!stripe || !elements) return;
 
     setIsProcessing(true);
     setError(null);
@@ -90,7 +90,9 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
 
       onSuccess();
     } catch (err) {
-      setError(err.message || "Ошибка при отправке данных");
+      setError(
+        (err instanceof Error && err.message) || "Ошибка при отправке данных",
+      );
     } finally {
       setIsProcessing(false);
     }

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { IPaymentProvider } from './payments.interface';
+import type { StripeTypes } from './stripe.types';
 
 @Injectable()
 export class PaymentsService {
@@ -25,7 +26,7 @@ export class PaymentsService {
     stripeCustomerId: string;
     amount: number;
     currency: string;
-    metadata: any;
+    metadata: StripeTypes.MetadataParam;
   }) {
     return this.provider.createPaymentIntent({
       stripeCustomerId,

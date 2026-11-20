@@ -58,7 +58,7 @@ export const createExtendedProxy = <T extends object>(
   return new Proxy(target, {
     get: (_t, prop) => {
       const source = OWN_MEMBERS.has(prop) ? target : extended;
-      const value = Reflect.get(source, prop, source);
+      const value: unknown = Reflect.get(source, prop, source);
 
       if (typeof value !== 'function') return value;
 
@@ -87,7 +87,7 @@ export class PrismaService
 
     // $extends returns a new client, but Nest must keep calling lifecycle
     // hooks on this instance, hence the proxy.
-    const extended = this.$extends(createQueryDurationExtension(db) as never);
+    const extended = this.$extends(createQueryDurationExtension(db));
 
     return createExtendedProxy(this, extended as object);
   }

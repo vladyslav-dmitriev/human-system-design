@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import SendGrid from '@sendgrid/mail';
 
-import type { IEmailService } from '../email.interface';
+import type { EmailMessage, IEmailService } from '../email.interface';
 
 @Injectable()
 export class SendGridService implements IEmailService {
@@ -22,7 +22,8 @@ export class SendGridService implements IEmailService {
     SendGrid.setApiKey(apiKey);
   }
 
-  async sendEmail({ from, to, subject, html }) {
+  // Отправитель пока зашит в провайдере, поле from из сообщения не используется
+  async sendEmail({ to, subject, html }: EmailMessage) {
     try {
       await SendGrid.send({
         from: 'vladyslav.dmitriev@gmail.com',

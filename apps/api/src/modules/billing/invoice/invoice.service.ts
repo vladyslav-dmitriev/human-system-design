@@ -5,7 +5,17 @@ import { Inject, Injectable } from '@nestjs/common';
 // import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { Nullable } from 'types';
 
+import type { Invoice } from './invoice.interface';
 import { InvoiceRepository } from './invoice.repository';
+
+type PdfInvoiceJobData = {
+  invoiceId: string;
+  invoiceNumber: string;
+  amount: number;
+  currency: string;
+  customerEmail: string;
+  date: Date;
+};
 
 @Injectable()
 export class InvoiceService {
@@ -34,7 +44,7 @@ export class InvoiceService {
     customerEmail: string;
     amount: number;
     currency: string;
-    metadata: Nullable<any>;
+    metadata: Nullable<Invoice['metadata']>;
   }) {
     const invoiceNumber = await this.generateUniqueInvoiceNumber();
 
@@ -47,7 +57,7 @@ export class InvoiceService {
       currency,
       status: 'paid',
       pdfUrl: null,
-      metadata: metadata!,
+      metadata: metadata,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -62,21 +72,8 @@ export class InvoiceService {
     });
   }
 
-  private async requestPdfInvoiceGeneration({
-    invoiceId,
-    invoiceNumber,
-    amount,
-    currency,
-    customerEmail,
-    date,
-  }: {
-    invoiceId: string;
-    invoiceNumber: string;
-    amount: number;
-    currency: string;
-    customerEmail: string;
-    date: Date;
-  }) {
+  // Очередь PDF (BullMQ) отключена — генерация счёта пока не запускается
+  private requestPdfInvoiceGeneration(_data: PdfInvoiceJobData): Promise<void> {
     // await this.pdfQueue.add(QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice, {
     //   invoiceId,
     //   invoiceNumber,
@@ -85,6 +82,7 @@ export class InvoiceService {
     //   customerEmail,
     //   date,
     // });
+    return Promise.resolve();
   }
 
   private async generateUniqueInvoiceNumber(): Promise<string> {

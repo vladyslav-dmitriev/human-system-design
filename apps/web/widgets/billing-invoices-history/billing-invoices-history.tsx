@@ -90,7 +90,6 @@ export function BillingInvoicesHistory() {
                 month: "short",
                 day: "numeric",
               });
-              const currencySign = invoice.currency === "USD" ? "$" : "₴";
               const isPaid = invoice.status === "paid";
 
               return (

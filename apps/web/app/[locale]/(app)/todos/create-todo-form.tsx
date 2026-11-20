@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, UploadCloud, X } from "lucide-react";
-import Cookies from "js-cookie";
+import { useLocale } from "next-intl";
 import { API_URL } from "@/api";
 
 interface TodoFormProps {
@@ -16,6 +16,7 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const currentLocale = useLocale();
 
   // Хэндлер выбора картинки
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,9 +51,6 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
     }
 
     try {
-      // Подтягиваем текущую локаль из куки next-intl
-      const currentLocale = Cookies.get("NEXT_LOCALE") || "en";
-
       const response = await fetch(API_URL.todos.create(), {
         method: "POST",
         credentials: "include",
@@ -117,6 +115,8 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       {/* Блок локального превью изображения */}
       {previewUrl && (
         <div className="relative w-full h-48 rounded-lg overflow-hidden border bg-muted group">
+          {/* blob: URL локального превью, next/image его не оптимизирует */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
             alt="Preview"

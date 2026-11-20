@@ -2,8 +2,6 @@ import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQProducer } from '../rabbitmq.producers';
 
-import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';
-
 export interface NotificationMessage {
   userId: string;
   title: string;
@@ -13,13 +11,17 @@ export interface NotificationMessage {
   priority?: 'high' | 'normal' | 'low';
 }
 
+export type SmsNotificationMessage = Omit<
+  NotificationMessage,
+  'userId' | 'title' | 'type'
+> & {
+  phone: string;
+  type: 'sms';
+};
+
 export class NotificationProducer extends RabbitMQProducer {
-  constructor(
-    connection: RabbitMQConnection,
-    config: RabbitMQConfig,
-    serializer?: IRabbitMQSerializer,
-  ) {
-    super(connection, config, serializer);
+  constructor(connection: RabbitMQConnection, config: RabbitMQConfig) {
+    super(connection, config);
   }
 
   async sendPushNotification(
@@ -37,7 +39,7 @@ export class NotificationProducer extends RabbitMQProducer {
         type: 'push',
         data,
         priority: 'high',
-      } as NotificationMessage,
+      },
       {
         type: 'notification.push',
         headers: {
@@ -56,7 +58,7 @@ export class NotificationProducer extends RabbitMQProducer {
         body: text,
         type: 'sms',
         priority: 'normal',
-      } as NotificationMessage,
+      } satisfies SmsNotificationMessage,
       {
         type: 'notification.sms',
         headers: {
@@ -82,7 +84,7 @@ export class NotificationProducer extends RabbitMQProducer {
         type: 'in_app',
         data,
         priority: 'normal',
-      } as NotificationMessage,
+      } satisfies NotificationMessage,
       {
         type: 'notification.in_app',
         headers: {

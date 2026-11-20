@@ -1,7 +1,11 @@
 import { Message } from 'amqplib';
 import { EventEmitter } from 'events';
 
-import { ConsumeOptions } from '../types/rabbitmq.types';
+import type {
+  ConsumeOptions,
+  MessageHandler,
+  ConsumedMessageMetadata,
+} from '../types/rabbitmq.types';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
@@ -65,9 +69,9 @@ export class RabbitMQConsumer extends EventEmitter {
 
       const consumerTag = await channel.consume(
         queue,
-        async (msg: Message | null) => {
+        (msg: Message | null) => {
           if (!msg) return;
-          await this.processMessage(msg, handler, queue, noAck);
+          void this.processMessage(msg, handler, queue, noAck);
         },
         { noAck },
       );
@@ -89,17 +93,19 @@ export class RabbitMQConsumer extends EventEmitter {
     }
   }
 
-  async registerAll(): Promise<void> {
+  registerAll(): Promise<void> {
     this.logger.info('📌 Регистрация всех консьюмеров...');
+    return Promise.resolve();
   }
 
   private async processMessage(
     msg: Message,
-    handler: (message: any, metadata: any) => Promise<void>,
+    handler: MessageHandler,
     queue: string,
     noAck: boolean,
   ): Promise<void> {
     const channel = await this.connection.getChannel();
+    const messageId = msg.properties.messageId as string | undefined;
 
     try {
       // Проверяем, не приостановлена ли очередь
@@ -109,18 +115,19 @@ export class RabbitMQConsumer extends EventEmitter {
       }
 
       // Парсим содержимое
-      const content = JSON.parse(msg.content.toString());
+      const content: unknown = JSON.parse(msg.content.toString());
 
       // Формируем метаданные
-      const metadata = {
+      const metadata: ConsumedMessageMetadata = {
         queue,
         routingKey: msg.fields.routingKey,
         exchange: msg.fields.exchange,
-        messageId: msg.properties.messageId,
-        correlationId: msg.properties.correlationId,
+        messageId,
+        correlationId: msg.properties.correlationId as string | undefined,
         deliveryTag: msg.fields.deliveryTag,
         redelivered: msg.fields.redelivered,
-        timestamp: msg.properties.timestamp || Date.now(),
+        timestamp:
+          (msg.properties.timestamp as number | undefined) || Date.now(),
         consumerTag: msg.fields.consumerTag,
         retryCount: (msg.properties.headers?.retryCount as number) || 0,
       };
@@ -134,14 +141,14 @@ export class RabbitMQConsumer extends EventEmitter {
       }
 
       this.logger.debug(`✅ Сообщение обработано из "${queue}"`);
-      this.emit('processed', { queue, messageId: msg.properties.messageId });
-    } catch (error) {
+      this.emit('processed', { queue, messageId });
+    } catch (error: unknown) {
       this.logger.error(`❌ Ошибка обработки сообщения из "${queue}":`, error);
       if (!noAck) {
         // Отклоняем и возвращаем в очередь
         channel.nack(msg, false, true);
       }
-      this.emit('error', { queue, error, messageId: msg.properties.messageId });
+      this.emit('error', { queue, error, messageId });
     }
   }
 
@@ -175,14 +182,16 @@ export class RabbitMQConsumer extends EventEmitter {
     this.logger.info('✅ Все консьюмеры остановлены');
   }
 
-  async pause(queue: string): Promise<void> {
+  pause(queue: string): Promise<void> {
     this.pausedQueues.add(queue);
     this.logger.info(`⏸️ Очередь "${queue}" приостановлена`);
+    return Promise.resolve();
   }
 
-  async resume(queue: string): Promise<void> {
+  resume(queue: string): Promise<void> {
     this.pausedQueues.delete(queue);
     this.logger.info(`▶️ Очередь "${queue}" возобновлена`);
+    return Promise.resolve();
   }
 
   getActiveConsumers(): string[] {

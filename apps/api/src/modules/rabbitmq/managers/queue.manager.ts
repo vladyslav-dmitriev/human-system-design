@@ -108,8 +108,28 @@ export class RabbitMQQueueManager {
     }
   }
 
-  async close(): Promise<void> {
+  async bindQueue(
+    queueName: string,
+    exchange: string,
+    routingKey: string,
+  ): Promise<void> {
+    const channel = await this.getFreshChannel();
+    await channel.bindQueue(queueName, exchange, routingKey);
+  }
+
+  async deleteQueue(queueName: string): Promise<void> {
+    const channel = await this.getFreshChannel();
+    await channel.deleteQueue(queueName);
+  }
+
+  async purgeQueue(queueName: string): Promise<void> {
+    const channel = await this.getFreshChannel();
+    await channel.purgeQueue(queueName);
+  }
+
+  close(): Promise<void> {
     // Каналы закрываются автоматически через connection
     this.logger.info('QueueManager закрыт');
+    return Promise.resolve();
   }
 }

@@ -8,7 +8,7 @@ export class Binding {
     public readonly exchange: string,
     public readonly name: string,
     public readonly routingKey: string,
-    public readonly arguments?: Record<string, any>,
+    public readonly args?: Record<string, any>,
     public readonly description?: string,
   ) {}
 
@@ -98,7 +98,7 @@ export class Binding {
       this.exchange,
       this.name,
       this.routingKey,
-      this.arguments ? { ...this.arguments } : undefined,
+      this.args ? { ...this.args } : undefined,
       this.description,
     );
   }

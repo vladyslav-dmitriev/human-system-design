@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
-import type { IEmailService } from '../email.interface';
+import type { EmailMessage, IEmailService } from '../email.interface';
 
 @Injectable()
 export class RecendService implements IEmailService {
@@ -24,7 +24,8 @@ export class RecendService implements IEmailService {
     this.resend = new Resend(apiKey);
   }
 
-  async sendEmail({ from, to, subject, html }) {
+  // Отправитель пока зашит в провайдере, поле from из сообщения не используется
+  async sendEmail({ to, subject, html }: EmailMessage) {
     try {
       await this.resend.emails.send({
         from: 'onboarding@resend.dev',

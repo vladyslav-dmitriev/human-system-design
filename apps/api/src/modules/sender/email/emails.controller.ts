@@ -25,7 +25,7 @@ export class EmailsController {
   }
 
   @Get('verify-email')
-  async verifyEmail(@Query('token') token: string) {
+  verifyEmail(@Query('token') _token: string) {
     // const user = await this.service.findUnique({
     //   where: { verifiedToken: token },
     // });

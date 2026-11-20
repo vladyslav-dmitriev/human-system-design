@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { render } from 'react-email';
 import VerificationEmail from 'emails/templates/verification-email';
@@ -46,7 +46,7 @@ export class EmailProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  process(job: Job): Promise<void> {
     // if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail) {
     //   return this.sendVerificationEmail(job.data as SendVerificationEmailData);
     // }
@@ -55,7 +55,7 @@ export class EmailProcessor extends WorkerHost {
     //   return this.sendInvoiceEmail(job.data as SendInvoiceEmailData);
     // }
 
-    throw new Error(`Unknown job: ${job.name}`);
+    return Promise.reject(new Error(`Unknown job: ${job.name}`));
   }
 
   async sendVerificationEmail({

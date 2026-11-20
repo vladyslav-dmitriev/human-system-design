@@ -4,6 +4,7 @@ import { RabbitMQConsumer } from './rabbitmq.consumer';
 import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { QUEUES } from '../constants/queues.constants';
+import type { ConsumedMessageMetadata } from '../types/rabbitmq.types';
 
 @Injectable()
 export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
@@ -20,16 +21,14 @@ export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
       await this.register({
         queue: QUEUES.EMAIL_HIGH.name,
         routingKey: QUEUES.EMAIL_HIGH.routingKey,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        handler: this.handleEmail.bind(this),
+        handler: (content, metadata) => this.handleEmail(content, metadata),
         prefetch: 1,
       });
 
       await this.register({
         queue: QUEUES.EMAIL_MEDIUM.name,
         routingKey: QUEUES.EMAIL_MEDIUM.routingKey,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        handler: this.handleEmail.bind(this),
+        handler: (content, metadata) => this.handleEmail(content, metadata),
         prefetch: 1,
       });
 
@@ -39,7 +38,7 @@ export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
     }
   }
 
-  private handleEmail(message: any, metadata: any) {
+  private handleEmail(message: unknown, metadata: ConsumedMessageMetadata) {
     this.logger.info('📨 Получено email сообщение:');
     console.log('📋 Content:', JSON.stringify(message, null, 2));
     console.log('🔑 Metadata:', metadata);

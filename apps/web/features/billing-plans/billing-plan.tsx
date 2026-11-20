@@ -12,7 +12,15 @@ import { useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 
 type BillingPlanProps = {
-  plan: any;
+  plan: {
+    priceId?: string;
+    name: string;
+    description: string;
+    features: string[];
+    amount?: number | null;
+    currency?: string;
+    interval?: string;
+  };
   isCurrent: boolean;
   isPopular: boolean;
   isUnactive: boolean;
@@ -50,9 +58,11 @@ export const BillingPlan = ({
         <div className="mt-4 text-3xl font-bold">
           <span>{getFormattedPrice(plan.amount, plan.currency)}</span>
 
-          <span className="text-sm font-normal text-muted-foreground">
-            / {t(plan.interval)}
-          </span>
+          {plan.interval && (
+            <span className="text-sm font-normal text-muted-foreground">
+              / {t(plan.interval)}
+            </span>
+          )}
         </div>
       </CardHeader>
 
@@ -69,8 +79,8 @@ export const BillingPlan = ({
           <Button
             className="w-full"
             variant={isCurrent ? "outline" : "default"}
-            disabled={isDisabled}
-            onClick={() => onClickPlan(plan.priceId)}
+            disabled={isDisabled || !plan.priceId}
+            onClick={() => plan.priceId && onClickPlan(plan.priceId)}
           >
             {buttonText}
           </Button>

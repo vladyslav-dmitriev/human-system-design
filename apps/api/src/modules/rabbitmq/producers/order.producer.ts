@@ -2,8 +2,6 @@ import { RabbitMQConfig } from '../rabbitmq.config';
 import { RabbitMQProducer } from '../rabbitmq.producers';
 import { RabbitMQConnection } from '../managers/connection.manager';
 
-import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';
-
 export interface OrderItem {
   productId: string;
   quantity: number;
@@ -20,12 +18,8 @@ export interface OrderMessage {
 }
 
 export class OrderProducer extends RabbitMQProducer {
-  constructor(
-    connection: RabbitMQConnection,
-    config: RabbitMQConfig,
-    serializer?: IRabbitMQSerializer,
-  ) {
-    super(connection, config, serializer);
+  constructor(connection: RabbitMQConnection, config: RabbitMQConfig) {
+    super(connection, config);
   }
 
   async orderCreated(order: OrderMessage): Promise<boolean> {

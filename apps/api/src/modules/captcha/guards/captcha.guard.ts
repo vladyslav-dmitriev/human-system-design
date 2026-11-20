@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { CaptchaService } from '../captcha.service';
 
@@ -15,10 +16,13 @@ export class CaptchaGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
+    const body = request.body as { captchaToken?: string } | undefined;
+    const headerToken = request.headers['x-captcha-token'];
 
     const token =
-      request.body?.captchaToken || request.headers['x-captcha-token'];
+      body?.captchaToken ||
+      (Array.isArray(headerToken) ? headerToken[0] : headerToken);
 
     if (!token) {
       throw new ForbiddenException('Captcha token is missing');

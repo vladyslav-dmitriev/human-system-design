@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { routing } from "@repo/i18n";
 import { getToken } from "next-auth/jwt";
@@ -14,13 +14,10 @@ function normalize(pathname: string) {
   return pathname;
 }
 
-export default async function middleware(req: any) {
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const path = normalize(pathname);
-
-  const allCookies = req.cookies.toString();
-  console.log("cookies", allCookies);
 
   const token = await getToken({
     req,
@@ -31,8 +28,6 @@ export default async function middleware(req: any) {
         ? "__Secure-next-auth.session-token"
         : "next-auth.session-token",
   });
-
-  console.log("token", token);
 
   const isLoggedIn = !!token;
 

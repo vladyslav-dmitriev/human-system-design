@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  CreditCard,
-  Loader2,
-  ArrowRight,
-  ShieldCheck,
-  AlertCircle,
-} from "lucide-react";
-import { toast } from "sonner";
+import { CreditCard, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +14,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { API_URL } from "@/api";
 
 interface CurrentSubscriptionProps {
-  planName?: "string";
+  planName?: string;
   status: string | null; // 'active', 'past_due', 'canceled', null
   currentPeriodEnd: string | null;
 }

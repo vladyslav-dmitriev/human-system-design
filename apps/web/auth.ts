@@ -79,6 +79,7 @@ export const result = NextAuth({
           };
         } catch (error) {
           console.error(error);
+          return null;
         }
       },
     }),

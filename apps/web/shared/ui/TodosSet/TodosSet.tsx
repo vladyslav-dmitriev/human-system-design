@@ -32,7 +32,7 @@ export const TodosSet = ({ title, todoKey, defaultTodos }: TodosSetProps) => {
 
   useLayoutEffect(() => {
     ls.set(todoKey, JSON.stringify(todos));
-  }, [todos]);
+  }, [todoKey, todos]);
 
   return (
     <div className="p-4 rounded-lg border border-lightgray-600 inline-block min-w-3xs">

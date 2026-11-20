@@ -70,12 +70,7 @@ export function createRabbitMQProviders(
     {
       provide: RABBITMQ_ORDER_CONSUMER,
       useFactory: (connection: RabbitMQConnection) => {
-        return new OrderConsumer(
-          connection,
-          config,
-          options.orderService,
-          new JsonSerializer(),
-        );
+        return new OrderConsumer(connection, config, options.orderService);
       },
       inject: [RABBITMQ_CONNECTION],
     },

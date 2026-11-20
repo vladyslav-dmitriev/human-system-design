@@ -1,10 +1,9 @@
 import { RabbitMQConsumer } from './rabbitmq.consumer';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
-import type { RabbitMQMessage } from '../types/rabbitmq.types';
-import type { IRabbitMQSerializer } from '../types/rabbitmq.interfaces';
+import type { ConsumedMessageMetadata } from '../types/rabbitmq.types';
 
-interface OrderContent {
+export interface OrderContent {
   orderId: string;
   userId: string;
   items: Array<{ productId: string; quantity: number; price: number }>;
@@ -13,16 +12,23 @@ interface OrderContent {
   createdAt: string;
 }
 
+/** Сервис, который обрабатывает события заказов (передаётся снаружи) */
+export interface OrderEventsHandler {
+  processNewOrder(order: OrderContent): Promise<void>;
+  processPaidOrder(orderId: string): Promise<void>;
+  processShippedOrder(orderId: string): Promise<void>;
+  processCancelledOrder(orderId: string): Promise<void>;
+}
+
 export class OrderConsumer extends RabbitMQConsumer {
-  private readonly orderService: any; // Ваш сервис заказов
+  private readonly orderService: OrderEventsHandler | undefined;
 
   constructor(
     connection: RabbitMQConnection,
     config: RabbitMQConfig,
-    orderService: any,
-    serializer?: IRabbitMQSerializer,
+    orderService?: OrderEventsHandler,
   ) {
-    super(connection, config, serializer);
+    super(connection, config);
     this.orderService = orderService;
   }
 
@@ -30,20 +36,21 @@ export class OrderConsumer extends RabbitMQConsumer {
     await this.register({
       queue: 'order.queue',
       routingKey: 'order.#',
-      handler: this.handleOrder.bind(this),
+      handler: (content, metadata) =>
+        this.handleOrder(content as OrderContent, metadata),
     });
   }
 
   private async handleOrder(
-    message: RabbitMQMessage<OrderContent>,
+    content: OrderContent,
+    metadata: ConsumedMessageMetadata,
   ): Promise<void> {
-    const { routingKey } = message.fields;
-    const content = message.content;
+    const { routingKey } = metadata;
 
     this.logger.info(`📦 Обработка заказа: ${routingKey}`, {
       orderId: content.orderId,
       userId: content.userId,
-      messageId: message.properties.messageId,
+      messageId: metadata.messageId,
     });
 
     try {

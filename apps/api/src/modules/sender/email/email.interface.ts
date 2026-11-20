@@ -1,3 +1,10 @@
+export type EmailMessage = {
+  from?: string;
+  to: string;
+  subject: string;
+  html: string;
+};
+
 export interface IEmailService {
-  sendEmail({ from, to, subject, html }): Promise<void>;
+  sendEmail(message: EmailMessage): Promise<void>;
 }

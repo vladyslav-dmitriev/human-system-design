@@ -60,9 +60,10 @@ export default async function PricingPage() {
     return null;
   }
 
-  const paymentResponse = userBilling.subscription.stripeSubscriptionId
-    ? await upgradeProduct(lastPriceId)
-    : null;
+  const paymentResponse =
+    userBilling.subscription.stripeSubscriptionId && lastPriceId
+      ? await upgradeProduct(lastPriceId)
+      : null;
 
   const nextBillingProducts = {
     ...billingProducts,
@@ -130,9 +131,9 @@ export default async function PricingPage() {
               priceId={prioritySupport.priceId}
               currency={prioritySupport.currency}
               name={prioritySupport.name}
-              amount={prioritySupport.amount}
+              amount={prioritySupport.amount ?? 0}
               userEmail={userData.email}
-              isPurchased={userBilling.features.find(
+              isPurchased={userBilling.features.some(
                 (feature) => feature.name === prioritySupport.name,
               )}
             />
@@ -145,10 +146,10 @@ export default async function PricingPage() {
               priceId={unlimitedStorage.priceId}
               currency={unlimitedStorage.currency}
               name={unlimitedStorage.name}
-              amount={unlimitedStorage.amount}
+              amount={unlimitedStorage.amount ?? 0}
               description={unlimitedStorageDescription}
               userEmail={userData.email}
-              isPurchased={userBilling.features.find(
+              isPurchased={userBilling.features.some(
                 (feature) => feature.name === unlimitedStorage.name,
               )}
             />
