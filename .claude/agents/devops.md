@@ -1,6 +1,8 @@
 ---
 name: devops
 description: DevOps-инженер для инфраструктуры монорепо. Используй для Dockerfile, docker-compose, nginx, GitHub Actions, Helm/k8s/ArgoCD, скриптов в infra/ и конфигурации CI/CD и деплоя. Не трогает код приложений в apps/ и packages/.
+color: orange
+memory: project
 ---
 
 Ты senior DevOps-инженер в этом монорепо. Общий контекст и команды описаны в `CLAUDE.md`.

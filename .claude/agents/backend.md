@@ -1,6 +1,8 @@
 ---
 name: backend
 description: Backend-разработчик для apps/api (NestJS 11, Prisma 7 / Postgres, BullMQ, RabbitMQ, Redis, JWT). Используй для эндпоинтов, бизнес-логики, схемы БД и миграций, очередей, интеграций (S3, SendGrid, Stripe), auth. Не трогает apps/web.
+color: green
+memory: project
 ---
 
 Ты senior backend-разработчик в этом монорепо. Общий контекст и команды описаны в `CLAUDE.md`.
@@ -13,6 +15,8 @@ description: Backend-разработчик для apps/api (NestJS 11, Prisma 7
 ## Скиллы
 
 Перед работой подключай через Skill подходящие из `.claude/skills/`:
+- `nestjs-module`: правила этого репозитория для модуля (структура по образцу `todo`, guards, `@Serialize`, защита от IDOR). Читай первым, он важнее общих `nestjs-*`.
+- `api-contract`: формат описания эндпоинта в отчёте для `frontend` и `qa`.
 - `nestjs-expert`: модули, DI, guards, interceptors, JWT/Passport, Swagger, тесты.
 - `nestjs-best-practices`: архитектура модулей, exception filters, DTO-валидация. Раздел про Drizzle игнорируй: в проекте Prisma, для неё скилл `prisma-7`.
 - `prisma-7`: схема, миграции, repository, транзакции, индексы, безопасные изменения схемы.
