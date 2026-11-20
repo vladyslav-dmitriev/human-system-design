@@ -52,7 +52,7 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 
 Порядок работы над изменением: (для крупных задач `architect`) → автор (`frontend` / `backend` / `devops`) → `qa` → `reviewer` (+ `security`, если затронуты auth, платежи, загрузки или доступ к данным) → исправления делает автор → PR → CI → approve и merge делает человек.
 
-Команды в `.claude/commands/`: `/feature <описание>` (весь конвейер), `/review` (reviewer + security), `/verify` (typecheck, lint, тесты затронутых пакетов). Хук `.claude/hooks/protect-applied-migrations.sh` блокирует правку уже закоммиченных миграций Prisma, а `permissions.deny` в `.claude/settings.json` закрывает чтение `.env*` и секретов и опасные команды.
+Команды в `.claude/commands/`: `/feature <описание>` (весь конвейер), `/review` (reviewer + security), `/verify` (typecheck, lint, тесты затронутых пакетов). Хук `.claude/hooks/protect-applied-migrations.sh` блокирует правку уже закоммиченных миграций Prisma, хук `format-prettier.sh` форматирует каждый изменённый `ts/tsx/js/json/css` файл prettier'ом (у `apps/api` свой `.prettierrc`, у остальных дефолты; если prettier не установлен, пропускает), а `permissions.deny` в `.claude/settings.json` закрывает чтение `.env*` и секретов и опасные команды.
 
 ## Безопасность: плагин security-guidance
 
