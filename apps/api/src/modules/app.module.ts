@@ -12,7 +12,9 @@ import { EmailModule, EmailService } from './sender/email';
 import { StorageModule } from './storage';
 import { UserModule } from './user';
 import { PdfModule } from './pdf';
+import Redis from 'ioredis';
 import { RedisModule } from './redis';
+import { REDIS_CLIENT } from './redis/redis.module';
 import { MetricsController, MetricsModule } from './metrics';
 import { CacheModule } from './cache';
 import { FinanceModule } from './billing/finance';
@@ -31,19 +33,22 @@ import { ProductModule } from './billing/product';
 import { AppController } from './app.controller';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
-import { redisConfig } from 'config/redis.config';
 import { RabbitMQModule } from './rabbitmq';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot({
-      throttlers: [{ limit: 10, ttl: 60000 }],
-      storage: new ThrottlerStorageRedisService(process.env.REDIS_URL),
-    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: 'apps/api/.env',
-      load: [appConfig, databaseConfig, () => redisConfig],
+      load: [appConfig, databaseConfig],
+    }),
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [REDIS_CLIENT],
+      useFactory: (redis: Redis) => ({
+        throttlers: [{ limit: 10, ttl: 60000 }],
+        storage: new ThrottlerStorageRedisService(redis),
+      }),
     }),
 
     // BullModule.forRoot({

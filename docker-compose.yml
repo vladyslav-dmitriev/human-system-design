@@ -30,6 +30,9 @@ services:
       - RABBITMQ_RECONNECT_INTERVAL=5000
     working_dir: /usr/src/app/apps/api
     command: pnpm run start:dev
+    depends_on:
+      redis:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
@@ -80,6 +83,11 @@ services:
     #   - "6379:6379"
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
