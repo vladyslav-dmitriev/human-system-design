@@ -5,7 +5,7 @@ description: Tailwind 4, shadcn/ui и Radix в apps/web: токены вмест
 
 # Tailwind 4 + shadcn/ui + Radix
 
-Приоритет у правил репозитория: `apps/web/CLAUDE.md` (маппинг Figma → компоненты и токены) и `CLAUDE.md`. Этот скилл дополняет их общими практиками.
+Приоритет у правил репозитория: `apps/web/CLAUDE.md` (правила UI, компоненты и токены) и `CLAUDE.md`. Этот скилл дополняет их общими практиками.
 
 ## Компоненты
 

@@ -21,7 +21,6 @@
     ".next/types/**/*.ts"
 , "constants", "../../packages/e2e/playwright.config.ts"  ],
   "exclude": [
-    "node_modules",
-    "**/*.figma.ts"
+    "node_modules"
   ]
 }

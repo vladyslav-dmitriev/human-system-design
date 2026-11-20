@@ -14,7 +14,7 @@ memory: project
 
 ## Скиллы
 
-Перед работой подключай через Skill подходящие из `.claude/skills/`:
+Подключай через Skill только те из `.claude/skills/`, что нужны этой задаче (не все подряд):
 - `nestjs-module`: правила этого репозитория для модуля (структура по образцу `todo`, guards, `@Serialize`, защита от IDOR). Читай первым, он важнее общих `nestjs-*`.
 - `api-contract`: формат описания эндпоинта в отчёте для `frontend` и `qa`.
 - `nestjs-expert`: модули, DI, DTO, guards, JWT/Passport, exception filters, Swagger, тесты (Prisma вместо TypeORM/Drizzle из примеров).

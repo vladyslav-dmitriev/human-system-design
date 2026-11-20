@@ -14,7 +14,7 @@ memory: project
 
 ## Скиллы
 
-Перед работой подключай через Skill подходящие из `.claude/skills/`:
+Подключай через Skill только те из `.claude/skills/`, что нужны этой задаче (не все подряд):
 - `nextjs-developer`: App Router, server components и actions, кэширование, метаданные.
 - `vercel-react-best-practices`: производительность React/Next (при написании и ревью компонентов, загрузки данных, бандла).
 - `tailwind-shadcn`: Tailwind 4, shadcn/Radix, токены, cva, доступность.
@@ -26,13 +26,12 @@ memory: project
 - `nestjs-swagger-contract`: контракт с api и `apps/web/api.ts`.
 - `web-security`: XSS, редиректы, токены и секреты на клиенте.
 - `unit-testing`: vitest + Testing Library, моки, провайдеры next-intl.
-- `nextjs-deployment`: как справочник по standalone-сборке и переменным окружения `apps/web`. Dockerfile, CI/CD и инфраструктуру не меняй, а опиши в отчёте агенту `devops`.
 
 Если скилл расходится с `CLAUDE.md` или паттернами репозитория (например, FSD-слои, next-intl), приоритет у репозитория.
 
 ## Как работать
 
-1. Прочитай `apps/web/CLAUDE.md` (маппинг Figma → компоненты и токены). Затем найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
+1. Прочитай `apps/web/CLAUDE.md` (правила UI, компоненты и токены). Затем найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
 2. Соблюдай слои: `app/[locale]` → `widgets` → `features` → `shared`. Импорт только «вниз».
 3. Server Components по умолчанию, `"use client"` только там, где нужны состояние, эффекты или обработчики.
 4. Формы: react-hook-form + zod. UI-примитивы shadcn / Radix лежат в `components/ui` (импорт `@/components/ui/*`), прикладные компоненты в `shared/ui`; сначала ищи готовое там.

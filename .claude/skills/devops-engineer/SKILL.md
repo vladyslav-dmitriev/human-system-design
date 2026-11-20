@@ -1,146 +1,34 @@
 ---
 name: devops-engineer
-description: Dockerfile, GitHub Actions, Kubernetes/Helm/ArgoCD, стратегии деплоя, релизы и разбор инцидентов для этого монорепо. Используй при правке Dockerfile, compose, nginx, workflows, infra/, выкатке, откатах и продакшн-инцидентах.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  company: https://synergetic.solutions
-  version: "1.2.0"
-  domain: devops
-  triggers: DevOps, CI/CD, deployment, Docker, Kubernetes, Helm, ArgoCD, GitHub Actions, incident response
-  role: engineer
-  scope: implementation
-  output-format: code
-  related-skills: kubernetes-specialist, sre-engineer, monitoring-expert, security-reviewer
+description: Docker, docker-compose, GitHub Actions, Kubernetes/Helm/ArgoCD, стратегии выката и откат, сборка Next.js standalone. Используй при правке инфраструктуры, CI/CD и деплоя.
 ---
 
-# DevOps Engineer
+# DevOps
 
-Senior DevOps engineer specializing in CI/CD pipelines, infrastructure as code, and deployment automation.
+Приоритет у правил репозитория (`CLAUDE.md`). В репо: `Dockerfile`, `nginx.Dockerfile`, `docker-compose.yml`, `.github/workflows/*`, `infra/{argocd,helm,k8s,scripts}`. Читай только нужный файл из `references/`.
 
-## Role Definition
+## Порядок работы
 
-You are a senior DevOps engineer with 10+ years of experience. You operate with three perspectives:
-- **Build Hat**: Automating build, test, and packaging
-- **Deploy Hat**: Orchestrating deployments across environments
-- **Ops Hat**: Ensuring reliability, monitoring, and incident response
+1. **Понять:** приложение, окружения, что именно меняется.
+2. **Реализовать:** IaC, Dockerfile, CI/CD-конфиги; без ручных изменений в окружениях.
+3. **Проверить:** lint конфигов (`docker compose config`, `helm lint`, `helm template`, `actionlint`, если есть), сборка образа; убедиться, что нет разрушительных изменений.
+4. **Выкат:** перед production-деплоем покажи сводку и команду отката, дождись явного согласия пользователя. Без согласия деплой не запускать.
+5. **После:** smoke-тест, health check, команда отката записана в PR.
 
-## When to Use This Skill
+## Правила
 
-- Setting up CI/CD pipelines (GitHub Actions)
-- Containerizing applications (Docker, Docker Compose)
-- Kubernetes deployments and configurations
-- Cloud platform configuration (AWS, GCP, Azure)
-- Deployment strategies (blue-green, canary, rolling)
-- Incident response, on-call, and production troubleshooting
-- Release automation and artifact management
+- Секреты только в secret manager / GitHub Secrets / k8s Secret, не в коде, образах и `.env` в git.
+- Health и readiness probes у каждого сервиса; лимиты ресурсов у контейнеров.
+- Не использовать тег `latest` в production; образ запускать не от root; сканировать образы в CI.
+- Не пропускать staging; миграции БД выкатывать отдельно и обратимо.
+- Для Kubernetes через GitOps (ArgoCD), не `kubectl apply` руками.
 
-## Core Workflow
+## Справочники
 
-1. **Assess** - Understand application, environments, requirements
-2. **Design** - Pipeline structure, deployment strategy
-3. **Implement** - IaC, Dockerfiles, CI/CD configs
-4. **Validate** - Run `helm lint` / `helm template` / `actionlint`, lint configs, execute unit/integration tests; confirm no destructive changes before proceeding
-5. **Plan rollout** - Determine the target environment; prepare the deployment summary, rollback command, and validation plan
-6. **Approve and deploy** - If the target is production or customer-facing, present the deployment summary and rollback plan and ask for explicit user approval; only run deployment commands after confirmation, and stop with a blocked verdict if approval is withheld. Roll out with verification; run smoke tests post-deployment
-7. **Monitor** - Set up observability, alerts; confirm rollback procedure is ready before going live
-
-## Reference Guide
-
-Load detailed guidance based on context:
-
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| GitHub Actions | `references/github-actions.md` | Setting up CI/CD pipelines, GitHub workflows |
-| Docker | `references/docker-patterns.md` | Containerizing applications, writing Dockerfiles |
-| Kubernetes | `references/kubernetes.md` | K8s deployments, services, ingress, pods |
-| Deployment | `references/deployment-strategies.md` | Blue-green, canary, rolling updates, rollback |
-| Release | `references/release-automation.md` | Artifact management, feature flags, multi-platform CI/CD |
-| Incidents | `references/incident-response.md` | Production outages, on-call, MTTR, postmortems, runbooks |
-
-## Constraints
-
-### MUST DO
-- Use infrastructure as code (never manual changes)
-- Implement health checks and readiness probes
-- Store secrets in secret managers (not env files)
-- Enable container scanning in CI/CD
-- Document rollback procedures
-- Use GitOps for Kubernetes (ArgoCD, Flux)
-
-### MUST NOT DO
-- Deploy to production without explicit approval
-- Store secrets in code or CI/CD variables
-- Skip staging environment testing
-- Ignore resource limits in containers
-- Use `latest` tag in production
-- Deploy on Fridays without monitoring
-
-## Output Templates
-
-Provide: CI/CD pipeline config, Dockerfile, K8s/Helm files, deployment verification, rollback procedure
-
-### Minimal GitHub Actions Example
-
-```yaml
-name: CI
-on:
-  push:
-    branches: [main]
-jobs:
-  build-test-push:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: docker build -t myapp:${{ github.sha }} .
-      - name: Run tests
-        run: docker run --rm myapp:${{ github.sha }} pytest
-      - name: Scan image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: myapp:${{ github.sha }}
-      - name: Push to registry
-        run: |
-          docker tag myapp:${{ github.sha }} ghcr.io/org/myapp:${{ github.sha }}
-          docker push ghcr.io/org/myapp:${{ github.sha }}
-```
-
-### Minimal Dockerfile Example
-
-```dockerfile
-FROM python:3.12-slim AS builder
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-FROM python:3.12-slim
-WORKDIR /app
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY . .
-USER nonroot
-HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://localhost:8080/health || exit 1
-CMD ["python", "main.py"]
-```
-
-### Rollback Procedure Example
-
-```bash
-# Kubernetes: roll back to previous deployment revision
-kubectl rollout undo deployment/myapp -n production
-kubectl rollout status deployment/myapp -n production
-
-# Verify rollback succeeded
-kubectl get pods -n production -l app=myapp
-curl -f https://myapp.example.com/health
-```
-
-Always document the rollback command and verification step in the PR or change ticket before deploying.
-
-## Knowledge Reference
-
-GitHub Actions, Docker, Kubernetes, Helm, ArgoCD, Prometheus, Grafana
-
-Maintained by [@jeffallan](https://github.com/jeffallan), Principal Consultant at [Synergetic Solutions](https://synergetic.solutions)
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/devops/devops-engineer/)
+| Тема | Файл | Когда читать |
+|---|---|---|
+| GitHub Actions | `references/github-actions.md` | workflows, кэш, матрицы, деплой |
+| Docker | `references/docker-patterns.md` | Dockerfile, multi-stage, compose |
+| Next.js | `references/nextjs.md` | standalone-сборка, env, health, ключ server actions |
+| Kubernetes | `references/kubernetes.md` | deployments, services, ingress, probes |
+| Выкат | `references/deployment-strategies.md` | blue-green, canary, rolling, откат |
