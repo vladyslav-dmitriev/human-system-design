@@ -1,27 +1,25 @@
 import { Injectable, Inject } from '@nestjs/common';
 import Redis from 'ioredis';
-// import { Counter } from 'prom-client';
 
-// const cacheCounter = new Counter({
-//   name: 'redis_cache_hits_misses',
-//   help: 'Count of cache hits and misses',
-//   labelNames: ['result'],
-// });
+import { RedisMetrics } from '../metrics/collectors/redis.metrics';
 
 @Injectable()
 export class CacheService {
-  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+  constructor(
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(RedisMetrics) private readonly metrics: RedisMetrics,
+  ) {}
 
   async get<T>(key: string): Promise<T | null> {
     const data = await this.redis.get(key);
 
     if (data) {
-      // cacheCounter.inc({ result: 'hit' });
+      this.metrics.hit();
 
       return JSON.parse(data);
     }
 
-    // cacheCounter.inc({ result: 'miss' });
+    this.metrics.miss();
 
     return null;
   }

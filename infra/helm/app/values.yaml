@@ -159,3 +159,10 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Prometheus: ServiceMonitor (нужны CRD monitoring.coreos.com из приложения monitoring)
+metrics:
+  serviceMonitor:
+    enabled: true
+    path: /metrics
+    interval: 30s

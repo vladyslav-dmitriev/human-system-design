@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: api-alerts
+  labels:
+    app.kubernetes.io/part-of: human-system-design
+  annotations:
+    # CRD ставятся тем же чартом/приложением: не падать на dry-run, пока CRD не появились
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: api
+      rules:
+        - alert: ApiHighErrorRate
+          # при нулевом трафике деление даёт NaN и алерт не срабатывает
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+              / sum(rate(http_requests_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "API: доля 5xx выше 5% (5 минут)"
+        - alert: ApiHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "API: p95 латентности выше 1 с (10 минут)"
+        - alert: ApiMetricsTargetDown
+          # absent() ловит и случай, когда ServiceMonitor/Service не создан вовсе
+          expr: |
+            up{namespace="{{ .Values.apiMonitoring.namespace }}", job="{{ .Values.apiMonitoring.job }}"} == 0
+            or absent(up{namespace="{{ .Values.apiMonitoring.namespace }}", job="{{ .Values.apiMonitoring.job }}"})
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Prometheus не может собрать /metrics с API"

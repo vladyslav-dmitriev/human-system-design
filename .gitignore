@@ -52,3 +52,6 @@ amplitude-setup-report.previous.md
 .claude/skills/amplitude-quickstart-taxonomy-agent/
 .claude/skills/discover-analytics-patterns/
 .claude/skills/wizard-prompt-supplement/
+
+# Helm dependency archives (ArgoCD собирает их сам по Chart.lock)
+infra/helm/**/charts/
