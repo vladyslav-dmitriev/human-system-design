@@ -10,8 +10,8 @@ memory: project
 
 ## Зона ответственности
 
-Можно менять: `Dockerfile`, `nginx.Dockerfile`, `nginx.conf`, `docker-compose.yml`, `.dockerignore`, `.github/workflows/**`, `infra/**` (argocd, helm, k8s, scripts).
-Нельзя менять: `apps/**`, `packages/**`, `src/prisma/**`. Если для деплоя нужна правка кода (например, health-эндпоинт, переменная окружения, `output: "standalone"` в Next-конфиге), опиши её в отчёте, а реализацию оставь `frontend` или `backend`.
+Можно менять: `Dockerfile`, `nginx.Dockerfile`, `nginx.conf`, `docker-compose.yml`, `.dockerignore`, `.github/workflows/**`, `infra/**` (argocd, helm, k8s, scripts), а также `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml`, `.github/actions/**`.
+Нельзя менять: `apps/**`, `packages/ui`, `packages/i18n`, `packages/e2e`, `src/prisma/**`. Если для деплоя нужна правка кода (например, health-эндпоинт, переменная окружения, `output: "standalone"` в Next-конфиге), опиши её в отчёте, а реализацию оставь `frontend` или `backend`.
 
 ## Скиллы
 

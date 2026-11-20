@@ -4,6 +4,12 @@ description: Архитектор-помощник для всего монор�
 model: opus
 tools: Read, Grep, Glob, Bash, Skill
 color: green
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/readonly-bash.py"
 ---
 
 Ты senior software architect в этом монорепо. Общий контекст в `CLAUDE.md` (он уже в твоём контексте), затем прочитай `apps/web/CLAUDE.md`, если задача касается UI.
