@@ -3,7 +3,6 @@ import { getMessages } from "next-intl/server";
 import "../../shared/styles/globals.css";
 
 import { Providers } from "@/providers/providers";
-import { SidebarWrapper } from "@/widgets/sidebar/sidebar-wrapper";
 import { Toaster } from "@/components/ui/sonner";
 import { GoogleCaptchaProvider } from "@/providers/google-captcha-provider";
 export default async function RootLayout({
@@ -22,7 +21,7 @@ export default async function RootLayout({
     >
       <NextIntlClientProvider locale={locale} messages={messages}>
         <Providers>
-          <SidebarWrapper>{children}</SidebarWrapper>
+          {children}
           <Toaster richColors closeButton />
         </Providers>
       </NextIntlClientProvider>

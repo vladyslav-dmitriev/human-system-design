@@ -1,0 +1,13 @@
+export { LandingNav } from "./landing-nav";
+export { LandingFooter } from "./landing-footer";
+export { LandingHero } from "./landing-hero";
+export { LandingSocialProof } from "./social-proof";
+export { LandingAiAssistant } from "./ai-assistant";
+export { LandingAiCapabilities } from "./ai-capabilities";
+export { LandingFeatures } from "./landing-features";
+export { LandingHowItWorks } from "./how-it-works";
+export { LandingSecurity } from "./landing-security";
+export { LandingTestimonials } from "./landing-testimonials";
+export { LandingPricing } from "./landing-pricing";
+export { LandingFaq } from "./landing-faq";
+export { LandingCta } from "./landing-cta";

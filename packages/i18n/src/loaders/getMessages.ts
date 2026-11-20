@@ -6,6 +6,7 @@ export async function getMessages(locale: string) {
   const pricing = (await import(`../messages/${locale}/pricing.json`)).default;
   const checkout = (await import(`../messages/${locale}/checkout.json`))
     .default;
+  const landing = (await import(`../messages/${locale}/landing.json`)).default;
 
   return {
     ...common,
@@ -14,5 +15,6 @@ export async function getMessages(locale: string) {
     ...todo,
     ...pricing,
     ...checkout,
+    ...landing,
   };
 }
