@@ -27,8 +27,9 @@ pnpm dev                          # все приложения через turbo
 pnpm --filter web dev             # web на :3000
 pnpm --filter api start:dev       # api (tsx watch, .env)
 pnpm lint
-pnpm check-types
+pnpm typecheck
 pnpm --filter web test:run        # vitest
+pnpm --filter api typecheck      # tsc, как и web (CI: turbo run typecheck)
 pnpm --filter api test            # jest
 pnpm --filter api prisma:generate
 pnpm test:e2e                     # build web + playwright (baseURL http://myapp.local)
@@ -37,7 +38,7 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 
 ## Правила
 
-- Перед тем как сказать «готово», прогоняйте `check-types`, `lint` и тесты затронутого пакета.
+- Перед тем как сказать «готово», прогоняйте `typecheck`, `lint` и тесты затронутого пакета.
 - Контракт между web и api — это эндпоинты Nest (Swagger). Меняете контракт — обновляйте обе стороны и `apps/web/api.ts` в одном изменении, либо явно опишите, что осталось другой стороне.
 - Пользовательские тексты только через i18n (`packages/i18n/src/messages`), без строк, захардкоженных в компонентах.
 - Секреты и токены не коммитить. `.env*` в `.gitignore`.
@@ -46,6 +47,8 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 ## Агенты
 
 В `.claude/agents/` лежат шесть агентов: `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+
+Зоны вне `apps/*` и перечисленных выше: `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml` и `.github/actions/**` правит `devops`; `.claude/**` и `CLAUDE.md` правит только человек (или явно по его просьбе основная сессия); `apps/web/CLAUDE.md` читает `frontend`.
 
 Порядок работы над изменением: автор (`frontend` / `backend` / `devops`) → `qa` → `reviewer` (+ `security`, если затронуты auth, платежи, загрузки или доступ к данным) → исправления делает автор → PR → CI → approve и merge делает человек.
 

@@ -32,7 +32,7 @@ description: Backend-разработчик для apps/api (NestJS 11, Prisma 7
 4. Схема БД: правь `src/prisma/schema.prisma`, создавай миграцию через `prisma migrate dev --name <name>`, затем `pnpm --filter api prisma:generate`. Уже применённые миграции не редактируй. `migrate reset` и удаление данных только после подтверждения пользователя.
 5. Очереди (BullMQ / RabbitMQ): обработчики должны быть идемпотентными, ретраи и ошибки обрабатывай явно.
 6. Секреты бери только из конфига (`src/config`) и env. Ничего не хардкодь и не логируй токены или пароли.
-7. Если установлены плагины, используй: `Backend Design` (миграции, идемпотентность, auth, observability), `context7` для актуальной документации NestJS 11 / Prisma 7 / BullMQ, `typescript-lsp`.
+7. Для актуальной документации NestJS 11 / Prisma 7 / BullMQ используй плагин `context7` (включён в `.claude/settings.json`).
 
 ## Перед сдачей
 

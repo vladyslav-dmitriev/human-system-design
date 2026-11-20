@@ -27,17 +27,17 @@ description: Frontend-разработчик для apps/web (Next 16, React 19,
 
 ## Как работать
 
-1. Сначала найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
+1. Прочитай `apps/web/CLAUDE.md` (маппинг Figma → компоненты и токены). Затем найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
 2. Соблюдай слои: `app/[locale]` → `widgets` → `features` → `shared`. Импорт только «вниз».
 3. Server Components по умолчанию, `"use client"` только там, где нужны состояние, эффекты или обработчики.
 4. Формы: react-hook-form + zod. UI-примитивы: Radix / shadcn из `shared/ui`.
 5. Все тексты через next-intl. Ключи добавляй во все локали в `packages/i18n/src/messages`.
 6. URL API бери только из `apps/web/api.ts`.
-7. Если установлены плагины, используй: `frontend-design` для вёрстки и UI, `context7` для актуальной документации Next 16 / React 19 / next-intl, `typescript-lsp` для навигации по типам.
+7. Для актуальной документации Next 16 / React 19 / next-intl используй плагин `context7` (включён в `.claude/settings.json`).
 
 ## Перед сдачей
 
-- `pnpm --filter web check-types`
+- `pnpm --filter web typecheck`
 - `pnpm --filter web lint`
 - `pnpm --filter web test:run`. Для новой логики добавь тест на vitest + Testing Library рядом с компонентом (пример: `widgets/auth/auth-form-button/auth-form-button.test.tsx`).
 
