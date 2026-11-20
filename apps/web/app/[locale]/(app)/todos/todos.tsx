@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import { TodosList } from "./todos-list";
 import type { Todo } from "./types";
-import { TodoSort } from "./todo-sort";
+import { TodoSort, type SortOption } from "./todo-sort";
 import { CreateTodoForm } from "./create-todo-form";
 import { API_URL } from "@/api";
 
 export const Todos = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [sort, setSort] = useState({
+  const [sort, setSort] = useState<SortOption>({
     sortBy: "createdAt",
     sortOrder: "desc",
-  } as const);
+  });
 
   const fetchTodos = async () => {
     try {

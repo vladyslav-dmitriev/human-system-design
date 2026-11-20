@@ -3,7 +3,7 @@ import { Todo } from "./types";
 
 interface TodosListPageProps {
   todos: Todo[];
-  makeHandleEditTodo(id: string): (completed: boolean) => void;
+  makeHandleEditTodo(id: string): () => void;
   makeHandleRemoveTodo: (id: string) => () => void;
 }
 

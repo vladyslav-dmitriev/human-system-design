@@ -15,7 +15,7 @@ interface Todo {
 
 interface TodoItemProps {
   todo: Todo;
-  onEdit: (completed: boolean) => void;
+  onEdit: () => void;
   onRemove: () => void;
 }
 
@@ -59,7 +59,7 @@ export function TodoItem({ todo, onEdit, onRemove }: TodoItemProps) {
               <SquareCheckIcon
                 size="18"
                 className="text-gray-500 hover:text-gray-700"
-                onClick={onEdit}
+                onClick={() => onEdit()}
               />
             )}
 

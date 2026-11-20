@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 
-import { PaymentMethod } from "@/shared/types/billing";
+import type {
+  BillingProducts,
+  PaymentMethod,
+  UserBilling,
+} from "@/shared/types/billing";
+import type { UserProfile } from "@/shared/types/user";
 import { API_URL } from "@/api";
 
-interface UserBillingInfo {
-  subscriptionStatus: "active" | "canceled" | "past_due" | null;
-  stripePriceId: string | null;
-  autoRenew: boolean;
-  cancelAtPeriodEnd: string;
-}
+const EMPTY_PRODUCTS: BillingProducts = { recurring: [], oneTime: [] };
 
-export async function getUserBilling(): Promise<UserBillingInfo | null> {
+export async function getUserBilling(): Promise<UserBilling | null> {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
@@ -33,7 +33,7 @@ export async function getUserBilling(): Promise<UserBillingInfo | null> {
   }
 }
 
-export async function getUserData(): Promise<UserBillingInfo | null> {
+export async function getUserData(): Promise<UserProfile | null> {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
@@ -99,7 +99,7 @@ export async function syncBillingProducts() {
   }
 }
 
-export async function getBillingProducts() {
+export async function getBillingProducts(): Promise<BillingProducts> {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
@@ -112,11 +112,12 @@ export async function getBillingProducts() {
     });
 
     if (!res.ok) {
-      return [];
+      return EMPTY_PRODUCTS;
     }
 
     return await res.json();
   } catch (err) {
     console.error("Failed to load plans:", err);
+    return EMPTY_PRODUCTS;
   }
 }

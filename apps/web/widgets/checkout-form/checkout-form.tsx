@@ -3,11 +3,13 @@
 import React from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { CheckoutFormContent } from "./checkout-form-content";
+import type { StripeElementsOptions } from "@stripe/stripe-js";
 import { stripePromise } from "@/shared/lib/stripe";
 
-const options = {
+// stripe-js поддерживает темы stripe | night | flat; "none" не входит в их число
+const options: StripeElementsOptions = {
   appearance: {
-    theme: "none" as const,
+    theme: "stripe",
   },
 };
 

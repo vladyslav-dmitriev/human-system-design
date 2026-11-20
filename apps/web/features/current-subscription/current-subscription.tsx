@@ -21,7 +21,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { API_URL } from "@/api";
 
 interface CurrentSubscriptionProps {
-  planName?: "string";
+  planName?: string;
   status: string | null; // 'active', 'past_due', 'canceled', null
   currentPeriodEnd: string | null;
 }

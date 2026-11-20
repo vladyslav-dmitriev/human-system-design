@@ -5,11 +5,15 @@ import { CurrentSubscription } from "@/features/current-subscription";
 import { SubscriptionRenew } from "@/features/subscription-renew";
 import { BillingInvoicesHistory } from "@/widgets/billing-invoices-history";
 import { PaymentCards } from "@/widgets/payment-cards";
-import { PaymentMethod } from "@/shared/types/billing";
+import type {
+  BillingProducts,
+  PaymentMethod,
+  UserSubscription,
+} from "@/shared/types/billing";
 
 interface BillingSettingsClientProps {
-  billingProducts: any;
-  subscription: any;
+  billingProducts: BillingProducts;
+  subscription: UserSubscription;
   paymentMethods: PaymentMethod[];
 }
 
@@ -36,18 +40,18 @@ export const BillingSettings = ({
     <div className="space-y-3">
       <CurrentSubscription
         planName={planName}
-        status={subscriptionData.subscriptionStatus}
+        status={subscriptionData.status}
         currentPeriodEnd={subscriptionData.currentPeriodEnd}
       />
 
       <SubscriptionRenew
         status={subscriptionData.status}
-        autoRenew={subscriptionData.autoRenew}
+        autoRenew={subscriptionData.autoRenew ?? false}
         onSuccessChange={onSuccessChangeRenew}
       />
 
       <PaymentCards
-        autoRenew={subscriptionData.autoRenew}
+        autoRenew={subscriptionData.autoRenew ?? false}
         paymentMethods={paymentMethods}
       />
 

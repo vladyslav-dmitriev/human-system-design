@@ -15,7 +15,8 @@ import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
 
 interface SubscriptionRenewBlockProps {
-  status: "active" | "canceled" | "past_due" | null | undefined;
+  // Stripe subscription status: active, past_due, canceled, trialing, ...
+  status: string | null | undefined;
   autoRenew: boolean;
   onSuccessChange(autoRenew: boolean): void;
 }

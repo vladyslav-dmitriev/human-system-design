@@ -151,7 +151,6 @@ export const PaymentCards = ({
           <div className="pt-2 border-t border-muted/30 animate-in fade-in-50 duration-200">
             <Elements stripe={stripePromise}>
               <AddCardForm
-                stripe={stripePromise}
                 onSuccess={async () => {
                   // setIsLoading(true);
 
