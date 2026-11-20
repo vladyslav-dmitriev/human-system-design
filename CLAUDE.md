@@ -56,7 +56,7 @@ pnpm --filter api exec prisma migrate dev --name <name>   # новая мигр�
 
 ## Агенты
 
-В `.claude/agents/` лежат семь агентов: `architect` (план и контракт до начала работы, только чтение), `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+В `.claude/agents/` лежат семь агентов: `architect` (план и контракт до начала работы, только чтение), `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Модели заданы в frontmatter: `architect` и `security` на `opus` (планирование и поиск уязвимостей), `reviewer` и `qa` на `sonnet`, остальные наследуют модель сессии. Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
 
 Зоны вне `apps/*` и перечисленных выше: `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml` и `.github/actions/**` правит `devops`; `.claude/**` и `CLAUDE.md` правит только человек (или явно по его просьбе основная сессия); `apps/web/CLAUDE.md` читает `frontend`.
 
