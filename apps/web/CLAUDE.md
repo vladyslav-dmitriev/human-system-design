@@ -1,36 +1,36 @@
-# apps/web: UI rules
+# apps/web: правила UI
 
-Stack: Next.js (App Router), Tailwind v4, shadcn/ui (neutral theme), Geist font. Tokens live in `shared/styles/globals.css`.
+Стек: Next.js (App Router), Tailwind v4, shadcn/ui (тема neutral), шрифт Geist. Токены лежат в `shared/styles/globals.css`.
 
-## Rules when implementing a design
+## Правила при реализации дизайна
 
-1. Use the components from `@/components/ui/*` for everything in the table below. Never re-create them with raw Tailwind.
-2. Create a new component only if nothing in `components/ui` fits. Put it next to similar ones and follow the same style (cva variants, `cn()`).
-3. Never hardcode colors, radii or fonts. Use token classes (`bg-primary`, `text-muted-foreground`, `border-input`, `rounded-md`, ...).
-4. Screens are composed from `features/` and `widgets/` (FSD-like), pages in `app/[locale]/...` stay thin.
-5. User-facing strings go through `next-intl` (`t("key")`), not hardcoded.
-6. Light/dark comes from the `.dark` class. Check every screen in both themes.
-7. Icons: `lucide-react`.
+1. Для всего из таблицы ниже используй компоненты из `@/components/ui/*`. Не пересоздавай их на голом Tailwind.
+2. Новый компонент создавай, только если в `components/ui` ничего не подходит. Клади его рядом с похожими и держи тот же стиль (cva-варианты, `cn()`).
+3. Никаких захардкоженных цветов, радиусов и шрифтов. Только классы токенов (`bg-primary`, `text-muted-foreground`, `border-input`, `rounded-md`, ...).
+4. Экраны собираются из `features/` и `widgets/` (FSD-подобно), страницы в `app/[locale]/...` остаются тонкими.
+5. Пользовательские тексты только через `next-intl` (`t("key")`), без хардкода.
+6. Светлая и тёмная тема задаётся классом `.dark`. Проверяй каждый экран в обеих темах.
+7. Иконки: `lucide-react`.
 
-## Components
+## Компоненты
 
-| Component | Code | Props |
+| Компонент | Код | Props |
 |---|---|---|
-| `Button` | `Button` from `@/components/ui/button` | `variant="default\|destructive\|outline\|secondary\|ghost\|link"`; `size="default\|sm\|lg"` (`default` is omitted) |
-| `Badge` | `Badge` from `@/components/ui/badge` | `variant="default\|secondary\|destructive\|outline"` |
-| `Input` | `Input` from `@/components/ui/input` | `placeholder`, `value` / `defaultValue`, `disabled` |
-| `Switch` | `Switch` from `@/components/ui/switch` | `checked` / `defaultChecked` |
-| `Card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from `@/components/ui/card` | header -> `CardHeader` (+ title/description), content -> `CardContent` |
-| Language select | `Select` from `@/components/ui/select` | |
-| Nav items, header, logo | existing app shell (`sidebar.tsx`, `shared/ui/Navigation`) | do not rebuild |
+| `Button` | `Button` из `@/components/ui/button` | `variant="default\|destructive\|outline\|secondary\|ghost\|link"`; `size="default\|sm\|lg"` (`default` опускается) |
+| `Badge` | `Badge` из `@/components/ui/badge` | `variant="default\|secondary\|destructive\|outline"` |
+| `Input` | `Input` из `@/components/ui/input` | `placeholder`, `value` / `defaultValue`, `disabled` |
+| `Switch` | `Switch` из `@/components/ui/switch` | `checked` / `defaultChecked` |
+| `Card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` из `@/components/ui/card` | шапка → `CardHeader` (+ title/description), содержимое → `CardContent` |
+| Выбор языка | `Select` из `@/components/ui/select` | |
+| Пункты меню, шапка, логотип | существующий каркас приложения (`sidebar.tsx`, `shared/ui/Navigation`) | не пересобирай |
 
-Other components already exist in `components/ui` (Select, Alert, Table, Separator, Label, Skeleton, Sheet, Tooltip, Dropdown, Carousel, Chart). Use them directly.
+Другие компоненты уже есть в `components/ui` (Select, Alert, Table, Separator, Label, Skeleton, Sheet, Tooltip, Dropdown, Carousel, Chart). Используй их напрямую.
 
-## Tokens
+## Токены
 
-Colors are CSS variables `--<name>` with matching Tailwind classes:
+Цвета это CSS-переменные `--<name>` с одноимёнными классами Tailwind:
 
 `background`, `foreground`, `card`, `card-foreground`, `popover`, `primary`, `primary-foreground`, `secondary`, `muted`, `muted-foreground`, `accent`, `destructive`, `border`, `input`, `ring`, `sidebar*`.
-Example: `--muted-foreground` -> `text-muted-foreground`; `--border` -> `border-border`.
+Пример: `--muted-foreground` → `text-muted-foreground`; `--border` → `border-border`.
 
-Radius: `rounded-sm|md|lg|xl` (base `--radius` = 0.625rem).
+Радиус: `rounded-sm|md|lg|xl` (базовый `--radius` = 0.625rem).

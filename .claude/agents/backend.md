@@ -1,6 +1,7 @@
 ---
 name: backend
 description: Backend-разработчик для apps/api (NestJS 11, Prisma 7 / Postgres, BullMQ, RabbitMQ, Redis, JWT). Используй для эндпоинтов, бизнес-логики, схемы БД и миграций, очередей, интеграций (S3, SendGrid, Stripe), auth. Не трогает apps/web.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, mcp__context7
 color: green
 memory: project

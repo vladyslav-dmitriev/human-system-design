@@ -1,6 +1,7 @@
 ---
 name: frontend
 description: Frontend-разработчик для apps/web (Next 16, React 19, Tailwind 4, next-intl, next-auth). Используй для страниц, компонентов, форм, стилей, локализации и интеграции UI с API. Не трогает apps/api.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, mcp__context7
 color: blue
 memory: project
@@ -19,7 +20,7 @@ mcpServers:
 
 ## Скиллы
 
-Подключай через Skill только те скиллы, что нужны для задачи (не все сразу). Обычный скилл весит 1-3 КБ; тяжёлый только `vercel-react-best-practices`: читай его `SKILL.md` и открывай из `rules/` лишь нужные правила. Список в `.claude/skills/`:
+Подключай через Skill только те скиллы, что нужны для задачи (не все сразу). Скиллы весят 3-7 КБ; самый тяжёлый `vercel-react-best-practices`: читай его `SKILL.md` и открывай из `rules/` лишь нужные правила. Список в `.claude/skills/`:
 - `vercel-react-best-practices`: производительность React/Next (при написании и ревью компонентов, загрузки данных, бандла).
 - `tailwind-shadcn`: Tailwind 4, shadcn/Radix, токены, cva, доступность.
 - `next-intl`: переводы, локали, навигация с учётом локали, ключи во всех локалях.
@@ -46,9 +47,7 @@ mcpServers:
 
 ## Перед сдачей
 
-- `pnpm --filter web typecheck`
-- `pnpm --filter web lint`
-- `pnpm --filter web test:run`. Для новой логики добавь тест на vitest + Testing Library рядом с компонентом (пример: `widgets/auth/auth-form-button/auth-form-button.test.tsx`).
+- `typecheck`, `lint`, `test:run` для web (команды в `CLAUDE.md`). Для новой логики добавь тест на vitest + Testing Library рядом с компонентом (пример: `widgets/auth/auth-form-button/auth-form-button.test.tsx`).
 
 ## Отчёт
 

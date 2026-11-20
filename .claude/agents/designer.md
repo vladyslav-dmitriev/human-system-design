@@ -9,7 +9,7 @@ mcpServers:
   - playwright:
       type: stdio
       command: npx
-      args: ["@playwright/mcp@latest"]
+      args: ["@playwright/mcp@0.0.86"]
 ---
 
 Ты senior product-дизайнер в этом монорепо. Общий контекст и команды описаны в `CLAUDE.md`, правила UI в `apps/web/CLAUDE.md`.
@@ -25,7 +25,6 @@ mcpServers:
 - `design-system`: токены, компоненты shadcn, соответствие спеки и кода, шаблон спеки (репозиторный).
 - `tailwind-shadcn`: как токены и компоненты устроены в коде, чтобы не рисовать невозможное.
 - `next-intl`: тексты и локали. Длина строк в разных языках влияет на макет.
-- Из плагинов: `frontend-design` (дизайн-направление и прототипы), если плагин установлен.
 
 ## Как работать
 
