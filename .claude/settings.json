@@ -1,7 +1,4 @@
 {
-  "env": {
-    "ENABLE_CODE_SECURITY_REVIEW": "0"
-  },
   "permissions": {
     "deny": [
       "Read(./.env)",
@@ -27,6 +24,31 @@
       "Bash(terraform apply:*)",
       "Bash(terraform destroy:*)",
       "Bash(cat *.env:*)",
+      "Bash(cat *.env.local:*)",
+      "Bash(cat *.env.production:*)",
+      "Bash(cat */.env:*)",
+      "Bash(cat */.env.local:*)",
+      "Bash(cat */.env.production:*)",
+      "Read(./**/.env.preview)",
+      "Read(./**/.env.ci)",
+      "Read(./**/.env.e2e)",
+      "Read(./**/.env.docker)",
+      "Edit(./**/.env)",
+      "Edit(./**/.env.local)",
+      "Edit(./**/.env.production)",
+      "Write(./**/.env)",
+      "Write(./**/.env.local)",
+      "Write(./**/.env.production)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -r -f:*)",
+      "Bash(rm -f -r:*)",
+      "Bash(rm --recursive --force:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git clean -f:*)",
+      "Bash(docker volume rm:*)",
+      "Bash(docker volume prune:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker-compose down -v:*)",
       "Bash(cat *.env.*:*)",
       "Bash(head *.env:*)",
       "Bash(head *.env.*:*)",
@@ -63,9 +85,6 @@
     }
   },
   "enabledPlugins": {
-    "security-guidance@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true
   },
   "hooks": {
@@ -76,6 +95,15 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-applied-migrations.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Read|Grep|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard.py"
           }
         ]
       }

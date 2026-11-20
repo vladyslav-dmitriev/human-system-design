@@ -56,30 +56,20 @@ pnpm --filter api exec prisma migrate dev --name <name>   # новая мигр�
 
 ## Агенты
 
-В `.claude/agents/` лежат восемь агентов (роли в их `description`): `designer`, `architect` (необязательный, только черновик плана), `frontend`, `backend`, `devops`, `qa`, `reviewer`, `security`. Модели в frontmatter: `architect` и `security` на `opus`, `reviewer`, `qa`, `designer` и `devops` на `sonnet`, `frontend` и `backend` наследуют модель сессии. Каждый правит только свою зону; изменения в чужой зоне агент не делает, а описывает в отчёте. Зоны: `frontend` — `apps/web`, `packages/ui`, `packages/i18n`; `backend` — `apps/api`; `devops` — Dockerfile, compose, nginx, `.github/workflows`, `infra/`; `designer` — `docs/design/`; `qa` — тесты; `reviewer` и `security` только читают.
+В `.claude/agents/` восемь агентов (роли и зоны в их `description` и теле): `designer`, `architect` (необязательный, только черновик плана), `frontend`, `backend`, `devops`, `qa`, `reviewer`, `security`. Каждый правит только свою зону, чужие изменения описывает в отчёте; `reviewer` и `security` только читают. Вне `apps/*`: `packages/e2e` и тесты правит `qa`, `docs/design/` правит `designer`, остальные `packages/*`, корневые конфиги (`package.json`, `turbo.json`, `pnpm-workspace.yaml`) и `.github/**` правит `devops`. `.claude/**` и `CLAUDE.md` правит только человек (или основная сессия по его явной просьбе).
 
-Зоны вне `apps/*` и перечисленных выше: `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml` и `.github/actions/**` правит `devops`; `.claude/**` и `CLAUDE.md` правит только человек (или явно по его просьбе основная сессия); `apps/web/CLAUDE.md` читает `frontend`.
+Скиллы в `.claude/skills/` агенты подключают через Skill по необходимости, список в теле агента (репозиторные: `nestjs-module`, `api-contract`, `design-system`). У `designer`, `frontend`, `backend`, `qa`, `devops` включена `memory: project` (`.claude/agent-memory/<агент>/`, коммитится).
 
-Навыки лежат в `.claude/skills/`, агенты подключают их через Skill по необходимости (список в теле каждого агента, брать только нужные по задаче: каждый скилл стоит контекста). Репозиторные: `api-contract` (контракт web ↔ api: формат, правила изменения, чек-лист) и `design-system`; остальные взяты из сторонних наборов и адаптированы. Плагины: `context7`, `playwright`, `security-guidance` и для `designer` `frontend-design` (`.claude/settings.json`). У `designer`, `frontend`, `backend`, `qa` и `devops` включена `memory: project`: заметки в `.claude/agent-memory/<агент>/` коммитятся вместе с репозиторием.
+### Новая крупная фича
 
-### Архитектура и новая крупная фича
+Решения принимает основная сессия вместе с пользователем в plan mode; сабагенты не ведут диалог и не вызывают друг друга, `architect` даёт только черновик. Порядок:
 
-Архитектурные решения принимает основная сессия вместе с пользователем в plan mode, а не сабагенты: они не ведут диалог и не вызывают друг друга. Агент `architect` можно вызвать из основной сессии только для чернового плана, обсуждает и утверждает его всё равно основная сессия. Порядок:
-
-1. Требования и обсуждение в основной сессии (для фич с UI `designer` готовит спеку в `docs/design/<feature>.md` до реализации) (`Explore` по необходимости, чтобы изучить код).
-2. План и архитектура. Результат записывается в файл (например `docs/<feature>.md`): решения, структура, модель данных, контракт API по образцу навыка `api-contract`, критерии приёмки, что нужно от `devops`, если меняются инфраструктура или окружение.
+1. Требования; для фич с UI `designer` готовит `docs/design/<feature>.md`.
+2. План в `docs/<feature>.md`: решения, модель данных, контракт API (образец в `api-contract`), критерии приёмки, нужды `devops`.
 3. Пользователь утверждает план.
-4. Реализация по файлу плана: `backend` и `frontend` параллельно по контракту, `devops` при необходимости, `qa` пишет сценарии по критериям приёмки.
-5. `qa` проверяет, `reviewer` ревьюит diff (+ `security` для auth, платежей, загрузок, доступа к данным), автор исправляет замечания.
+4. `backend` и `frontend` параллельно по контракту, `devops` при необходимости, `qa` пишет сценарии по критериям приёмки.
+5. `qa` проверяет → `reviewer` (+ `security` для auth, платежей, загрузок, доступа к данным) → автор исправляет → PR → CI → approve и merge делает человек.
 
-Сабагент не помнит обсуждения: в задаче ссылайся на файл плана, а не пересказывай словами.
+Сабагент не помнит обсуждения: ссылайся на файл плана. Не зови агентов на мелочи (правка файла, вопрос по коду); `reviewer` и `security` запускай один раз на готовый diff; параллельно только независимые задачи.
 
-### Экономия токенов
-
-Сабагент стартует с чистого контекста, поэтому не зови агентов на мелочи (правка одного файла, текста, вопрос по коду): это делает основная сессия. `reviewer` и `security` запускай один раз на готовый diff, `security` только если затронуты auth, платежи, загрузки или доступ к данным. Параллельно запускай только независимые задачи. В контекст всегда попадают только `description` скиллов и агентов, поэтому держи их короткими, а тяжёлые справочники в `references/`.
-
-### Порядок работы над изменением
-
-Автор (`frontend` / `backend` / `devops`) → `qa` → `reviewer` (+ `security`, если затронуты auth, платежи, загрузки или доступ к данным) → исправления делает автор → PR → CI → approve и merge делает человек.
-
-Команды в `.claude/commands/`: `/feature <описание>` (весь конвейер), `/review` (reviewer + security), `/verify` (typecheck, lint, тесты затронутых пакетов). Хук `.claude/hooks/protect-applied-migrations.sh` блокирует правку уже закоммиченных миграций Prisma, хук `format-prettier.sh` форматирует каждый изменённый `ts/tsx/js/json/css` файл prettier'ом (у `apps/api` свой `.prettierrc`, у остальных дефолты; если prettier не установлен, пропускает), а `permissions.deny` в `.claude/settings.json` закрывает чтение `.env*` и секретов и опасные команды.
+Команды: `/feature <описание>` (весь конвейер), `/review`, `/verify`. Хуки (`.claude/hooks/`): `guard.py` блокирует `.env*`, `rm -rf` в любой записи, force-push, `migrate reset`, `kubectl apply` и правку миграций через shell; `readonly-bash.py` ограничивает Bash у `reviewer`, `security`, `architect` белым списком; ещё защита применённых миграций и prettier. Плюс `permissions.deny` в `.claude/settings.json`.
