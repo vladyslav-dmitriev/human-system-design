@@ -15,6 +15,12 @@ description: Frontend-разработчик для apps/web (Next 16, React 19,
 Перед работой подключай через Skill подходящие из `.claude/skills/`:
 - `nextjs-developer`: App Router, server components и actions, кэширование, метаданные.
 - `vercel-react-best-practices`: производительность React/Next (при написании и ревью компонентов, загрузки данных, бандла).
+- `tailwind-shadcn`: Tailwind 4, shadcn/Radix, токены, cva, доступность.
+- `next-intl`: переводы, локали, навигация с учётом локали, ключи во всех локалях.
+- `next-auth-5`: сессии, защита маршрутов, токены API, редиректы.
+- `stripe-payments`: клиентская часть Stripe (Elements, Checkout), состояния оплаты.
+- `web-security`: XSS, редиректы, токены и секреты на клиенте.
+- `playwright-testing`: как справочник по vitest + Testing Library.
 - `nextjs-deployment`: как справочник по standalone-сборке и переменным окружения `apps/web`. Dockerfile, CI/CD и инфраструктуру не меняй, а опиши в отчёте агенту `devops`.
 
 Если скилл расходится с `CLAUDE.md` или паттернами репозитория (например, FSD-слои, next-intl), приоритет у репозитория.
