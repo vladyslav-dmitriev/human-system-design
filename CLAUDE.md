@@ -36,6 +36,16 @@ pnpm test:e2e                     # build web + playwright (baseURL http://myapp
 docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 ```
 
+## Прочие команды и окружение
+
+```bash
+pnpm format                                      # prettier по всему монорепо
+pnpm i18n:sync                                   # Crowdin: выгрузка и загрузка переводов
+pnpm --filter api exec prisma migrate dev --name <name>   # новая миграция
+```
+
+`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Примера `.env.example` в репозитории нет: список переменных смотри в `apps/api/src/config` и в `docker-compose.yml`. Скиллы лежат в `.claude/skills/` и подключаются агентами сами (список в каждом `.claude/agents/*.md`).
+
 ## Правила
 
 - Перед тем как сказать «готово», прогоняйте `typecheck`, `lint` и тесты затронутого пакета.

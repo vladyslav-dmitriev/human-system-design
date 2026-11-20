@@ -55,3 +55,7 @@ amplitude-setup-report.previous.md
 
 # Helm dependency archives (ArgoCD собирает их сам по Chart.lock)
 infra/helm/**/charts/
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/worktrees/

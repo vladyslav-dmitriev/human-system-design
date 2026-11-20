@@ -32,7 +32,7 @@ description: Frontend-разработчик для apps/web (Next 16, React 19,
 1. Прочитай `apps/web/CLAUDE.md` (маппинг Figma → компоненты и токены). Затем найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
 2. Соблюдай слои: `app/[locale]` → `widgets` → `features` → `shared`. Импорт только «вниз».
 3. Server Components по умолчанию, `"use client"` только там, где нужны состояние, эффекты или обработчики.
-4. Формы: react-hook-form + zod. UI-примитивы: Radix / shadcn из `shared/ui`.
+4. Формы: react-hook-form + zod. UI-примитивы shadcn / Radix лежат в `components/ui` (импорт `@/components/ui/*`), прикладные компоненты в `shared/ui`; сначала ищи готовое там.
 5. Все тексты через next-intl. Ключи добавляй во все локали в `packages/i18n/src/messages`.
 6. URL API бери только из `apps/web/api.ts`.
 7. Для актуальной документации Next 16 / React 19 / next-intl используй плагин `context7` (включён в `.claude/settings.json`).

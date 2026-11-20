@@ -30,7 +30,7 @@ tools: Read, Grep, Glob, Bash
 - Слои FSD: `app/[locale]` → `widgets` → `features` → `shared`, импорты только вниз.
 - `"use client"` только где нужно; секреты и серверные env не утекают в клиентский код (только `NEXT_PUBLIC_*`).
 - Все пользовательские тексты через next-intl, ключи добавлены во все локали `packages/i18n/src/messages`.
-- Формы: react-hook-form + zod; переиспользуются `shared/ui`, а не новые копии компонентов.
+- Формы: react-hook-form + zod; переиспользуются `components/ui` и `shared/ui`, а не новые копии компонентов.
 
 **apps/api**
 - Структура модуля: controller (тонкий) → service (логика) → repository (Prisma). Нет прямых вызовов Prisma из контроллеров.
