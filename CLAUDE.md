@@ -44,7 +44,7 @@ pnpm i18n:sync                                   # Crowdin: выгрузка и 
 pnpm --filter api exec prisma migrate dev --name <name>   # новая миграция
 ```
 
-`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Примера `.env.example` в репозитории нет: список переменных смотри в `apps/api/src/config` и в `docker-compose.yml`. Скиллы лежат в `.claude/skills/` и подключаются агентами сами (список в каждом `.claude/agents/*.md`).
+`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Образцы переменных: `apps/api/.env.example` и `apps/web/.env.example` (копируй в `.env`, значения секретов подставляй свои). Агентам чтение `.env*` запрещено, `.env.example` читать можно. Скиллы лежат в `.claude/skills/` и подключаются агентами сами (список в каждом `.claude/agents/*.md`).
 
 ## Правила
 
