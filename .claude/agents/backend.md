@@ -16,6 +16,9 @@ description: Backend-разработчик для apps/api (NestJS 11, Prisma 7
 - `nestjs-expert`: модули, DI, guards, interceptors, JWT/Passport, Swagger, тесты.
 - `nestjs-best-practices`: архитектура модулей, exception filters, DTO-валидация. Раздел про Drizzle игнорируй: в проекте Prisma, для неё скилл `prisma-7`.
 - `prisma-7`: схема, миграции, repository, транзакции, индексы, безопасные изменения схемы.
+- `queues-bullmq-rabbitmq`: идемпотентность, ретраи, dead-letter, graceful shutdown.
+- `stripe-payments`: вебхуки с проверкой подписи, идемпотентность, подписки.
+- `web-security`: guards, IDOR, DTO whitelist, валидация, секреты.
 - `playwright-testing`: как справочник по jest и тестовым практикам.
 - `devops-engineer`: как справочник по контейнеризации и CI/CD `apps/api`. Dockerfile, compose, nginx, workflows и `infra/` не меняй, а опиши в отчёте агенту `devops`.
 
