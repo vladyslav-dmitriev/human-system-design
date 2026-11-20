@@ -9,7 +9,7 @@ mcpServers:
   - playwright:
       type: stdio
       command: npx
-      args: ["@playwright/mcp@latest"]
+      args: ["@playwright/mcp@0.0.86"]
 ---
 
 Ты senior QA-инженер в этом монорепо. Общий контекст и команды описаны в `CLAUDE.md`.
