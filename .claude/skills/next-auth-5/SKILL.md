@@ -1,6 +1,6 @@
 ---
 name: next-auth-5
-description: next-auth 5 (Auth.js, beta) в apps/web: конфиг, провайдеры, JWT-сессии, защита маршрутов в proxy, server actions, интеграция с токенами Nest API. Используй при изменении логина, регистрации, сессий и защищённых страниц.
+description: next-auth 5 (beta) в apps/web: провайдеры, JWT-сессии, защита маршрутов, токены Nest API. Используй при правке логина, сессий и защищённых страниц.
 ---
 
 # next-auth 5 (Auth.js)

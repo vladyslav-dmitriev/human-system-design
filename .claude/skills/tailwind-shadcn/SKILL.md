@@ -1,6 +1,6 @@
 ---
 name: tailwind-shadcn
-description: Tailwind 4, shadcn/ui и Radix в apps/web: токены вместо хардкода цветов, cva-варианты, cn(), доступность, тёмная тема. Используй при вёрстке, создании и изменении UI-компонентов и стилей.
+description: Tailwind 4, shadcn/ui и Radix: токены, cva-варианты, доступность, тёмная тема. Используй при вёрстке и правке UI-компонентов.
 ---
 
 # Tailwind 4 + shadcn/ui + Radix

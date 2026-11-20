@@ -30,11 +30,7 @@ mcpServers:
 
 ## Скиллы
 
-Загружай через Skill только нужное для задачи (обычно 1–2 скилла):
-- `qa-manual-testing`: тест-план и кейсы, техники тест-дизайна, exploratory, регрессия и smoke, баг-репорты.
-- `qa-automation`: Playwright e2e, page objects, API-тесты, разбор flaky, требования к CI.
-- `unit-testing`: vitest + Testing Library и jest + supertest (unit- и интеграционные тесты).
-- `api-contract`: сценарии и критерии проверки берёшь из описания контракта эндпоинта (ошибки, права, ограничения).
+Загружай через Skill только нужное (обычно 1–2): `qa-manual-testing` (сценарии, баг-репорты), `qa-automation` (Playwright e2e, flaky), `unit-testing` (vitest и jest), `api-contract` (критерии проверки эндпоинта: ошибки, права, ограничения).
 
 Для проверки фичи: сначала `qa-manual-testing` (сценарии), `qa-automation` загружай, только когда реально пишешь или чинишь Playwright-тесты.
 

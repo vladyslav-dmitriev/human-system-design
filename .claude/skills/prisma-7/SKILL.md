@@ -1,6 +1,6 @@
 ---
 name: prisma-7
-description: Практики работы с Prisma 7 и Postgres в NestJS: схема, миграции, repository-слой, транзакции, индексы, N+1, безопасные изменения схемы. Используй при правке schema.prisma, создании миграций, написании запросов и repository-классов в apps/api.
+description: Prisma 7 + Postgres в apps/api: схема, миграции, repository, транзакции, индексы. Используй при правке schema.prisma, миграций и запросов.
 ---
 
 # Prisma 7 (Postgres, NestJS)

@@ -19,8 +19,6 @@ memory: project
 Перед работой подключай через Skill:
 - `devops-engineer`: Docker, compose, GitHub Actions, k8s/Helm/ArgoCD, выкат и откат, сборка Next.js standalone (справочники в `references/`).
 
-Если скилл расходится с `CLAUDE.md` или текущими паттернами репозитория, приоритет у репозитория.
-
 ## Как работать
 
 1. Сначала изучи существующие файлы (workflows, helm-чарты, compose) и повторяй их соглашения. Не вводи новые инструменты без причины.

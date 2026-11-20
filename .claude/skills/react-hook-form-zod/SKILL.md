@@ -1,6 +1,6 @@
 ---
 name: react-hook-form-zod
-description: Формы в apps/web на react-hook-form + zod: схемы, zodResolver, ошибки с i18n, состояния отправки, серверные ошибки Nest API, доступность. Используй при создании и правке любых форм (логин, регистрация, смена email и пароля, оплата).
+description: Формы на react-hook-form + zod: схемы, ошибки с i18n, серверные ошибки Nest. Используй при создании и правке форм.
 ---
 
 # react-hook-form + zod

@@ -1,6 +1,6 @@
 ---
 name: qa-automation
-description: Автоматизация тестирования уровня senior QA / SDET. Используй для написания и починки Playwright e2e-тестов (packages/e2e), page objects, фикстур, API-тестов, стабилизации flaky-тестов, настройки CI-прогона, отчётов и трассировок. Включает правила селекторов, изоляции данных, моков, пирамиды тестов и разбор падений.
+description: Playwright e2e в packages/e2e: page objects, фикстуры, селекторы, flaky-тесты, CI. Для unit-тестов есть unit-testing. Используй при написании и починке e2e.
 ---
 
 # Автоматизация тестирования (senior QA / SDET)

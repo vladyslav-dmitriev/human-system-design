@@ -1,6 +1,6 @@
 ---
 name: queues-bullmq-rabbitmq
-description: Очереди и сообщения в apps/api: BullMQ (@nestjs/bullmq) и RabbitMQ (amqplib): идемпотентность, ретраи, backoff, dead-letter, prefetch, graceful shutdown, мониторинг. Используй при написании продюсеров, консьюмеров, процессоров и фоновых задач.
+description: BullMQ и RabbitMQ в apps/api: идемпотентность, ретраи, dead-letter, graceful shutdown. Используй при написании продюсеров, консьюмеров и фоновых задач.
 ---
 
 # BullMQ и RabbitMQ

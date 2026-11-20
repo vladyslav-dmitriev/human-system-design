@@ -1,6 +1,6 @@
 ---
 name: nestjs-module
-description: Как создавать и менять модуль NestJS в apps/api по образцу src/modules/todo (module → controller → service → repository, DTO, Swagger, guards). Используй при добавлении эндпоинтов или новых модулей.
+description: Модуль NestJS в apps/api по образцу modules/todo (controller → service → repository, DTO, Swagger, guards). Используй при добавлении эндпоинтов и модулей.
 ---
 
 # Модуль NestJS в apps/api

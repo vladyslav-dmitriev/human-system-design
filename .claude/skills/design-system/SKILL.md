@@ -1,6 +1,6 @@
 ---
 name: design-system
-description: Дизайн-система проекта (shadcn new-york, neutral, Tailwind 4, Geist, lucide) и шаблон дизайн-спеки для frontend. Используй при проектировании экранов, добавлении компонентов в UI-кит и ревью макетов.
+description: Дизайн-система (shadcn new-york, Tailwind 4, Geist, lucide) и шаблон дизайн-спеки. Используй при проектировании экранов и добавлении компонентов UI-кита.
 ---
 
 # Дизайн-система проекта

@@ -34,13 +34,8 @@ pnpm --filter api test            # jest
 pnpm --filter api prisma:generate
 pnpm test:e2e                     # build web + playwright (baseURL http://myapp.local)
 docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
-```
-
-## Прочие команды и окружение
-
-```bash
-pnpm format                                      # prettier по всему монорепо
-pnpm i18n:sync                                   # Crowdin: выгрузка и загрузка переводов
+pnpm format                       # prettier по всему монорепо
+pnpm i18n:sync                    # Crowdin: выгрузка и загрузка переводов
 pnpm --filter api exec prisma migrate dev --name <name>   # новая миграция
 ```
 
@@ -56,9 +51,9 @@ pnpm --filter api exec prisma migrate dev --name <name>   # новая мигр�
 
 ## Агенты
 
-В `.claude/agents/` восемь агентов (роли и зоны в их `description` и теле): `designer`, `architect` (необязательный, только черновик плана), `frontend`, `backend`, `devops`, `qa`, `reviewer`, `security`. Каждый правит только свою зону, чужие изменения описывает в отчёте; `reviewer` и `security` только читают. Вне `apps/*`: `packages/e2e` и тесты правит `qa`, `docs/design/` правит `designer`, остальные `packages/*`, корневые конфиги (`package.json`, `turbo.json`, `pnpm-workspace.yaml`) и `.github/**` правит `devops`. `.claude/**` и `CLAUDE.md` правит только человек (или основная сессия по его явной просьбе).
+Агенты лежат в `.claude/agents/` (зоны и роли в их теле; `architect` необязателен и даёт только черновик плана). Каждый правит только свою зону, чужие изменения описывает в отчёте; `reviewer`, `security` и `architect` только читают. Вне `apps/*`: `packages/e2e` и тесты правит `qa`, `docs/design/` правит `designer`, остальные `packages/*`, корневые конфиги (`package.json`, `turbo.json`, `pnpm-workspace.yaml`) и `.github/**` правит `devops`. `.claude/**` и `CLAUDE.md` правит только человек (или основная сессия по его явной просьбе).
 
-Скиллы в `.claude/skills/` агенты подключают через Skill по необходимости, список в теле агента (репозиторные: `nestjs-module`, `api-contract`, `design-system`). У `designer`, `frontend`, `backend`, `qa`, `devops` включена `memory: project` (`.claude/agent-memory/<агент>/`, коммитится).
+Скиллы из `.claude/skills/` подключаются через Skill по необходимости, список в теле агента. У `designer`, `frontend`, `backend`, `qa`, `devops` включена `memory: project` (`.claude/agent-memory/<агент>/`, коммитится).
 
 ### Новая крупная фича
 
@@ -72,4 +67,4 @@ pnpm --filter api exec prisma migrate dev --name <name>   # новая мигр�
 
 Сабагент не помнит обсуждения: ссылайся на файл плана. Не зови агентов на мелочи (правка файла, вопрос по коду); `reviewer` и `security` запускай один раз на готовый diff; параллельно только независимые задачи.
 
-Команды: `/feature <описание>` (весь конвейер), `/review`, `/verify`. Хуки (`.claude/hooks/`): `guard.py` блокирует `.env*`, `rm -rf` в любой записи, force-push, `migrate reset`, `kubectl apply` и правку миграций через shell; `readonly-bash.py` ограничивает Bash у `reviewer`, `security`, `architect` белым списком; ещё защита применённых миграций и prettier. Плюс `permissions.deny` в `.claude/settings.json`.
+Команды: `/feature <описание>` (весь конвейер), `/review`, `/verify`. Защита настроена в `.claude/settings.json`: `permissions.deny` (короткое ядро) и хуки из `.claude/hooks/` (`guard.py` разбирает команды по токенам и ловит обходы вроде `rm -fr` или `head .env`; `readonly-bash.py` даёт `reviewer`, `security`, `architect` только белый список Bash; защита применённых миграций; prettier). Детали в самих файлах.
