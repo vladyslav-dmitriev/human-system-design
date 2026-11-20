@@ -1,18 +1,39 @@
-import { Module, Global } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Logger,
+  Module,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 
-import { redisConfig } from '../../config/redis.config';
+import { getRedisUrl } from '../../config/redis.config';
+
+export const REDIS_CLIENT = 'REDIS_CLIENT';
 
 @Global()
 @Module({
   providers: [
     {
-      provide: 'REDIS_CLIENT',
+      provide: REDIS_CLIENT,
       useFactory: () => {
-        return new Redis(redisConfig.host);
+        const logger = new Logger('Redis');
+        const client = new Redis(getRedisUrl());
+
+        client.on('connect', () => logger.log('Connected'));
+        client.on('reconnecting', () => logger.warn('Reconnecting...'));
+        client.on('error', (error) => logger.error(error.message));
+
+        return client;
       },
     },
   ],
-  exports: ['REDIS_CLIENT'],
+  exports: [REDIS_CLIENT],
 })
-export class RedisModule {}
+export class RedisModule implements OnApplicationShutdown {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+
+  async onApplicationShutdown() {
+    await this.redis.quit().catch(() => this.redis.disconnect());
+  }
+}

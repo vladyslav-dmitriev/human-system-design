@@ -7,6 +7,11 @@ import { ProductMapper } from './product.mapper';
 import { PaymentsService } from '../payments';
 import { ProductRepository } from './product.repository';
 
+type ProductsResult = {
+  recurring: ReturnType<typeof ProductMapper.toDomain>[];
+  oneTime: ReturnType<typeof ProductMapper.toDomain>[];
+};
+
 export class ProductService {
   constructor(
     @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
@@ -16,12 +21,15 @@ export class ProductService {
   ) {}
 
   async getProducts() {
-    // const cached = await this.cacheService.get(CACHE.AvailablePlans);
-    // if (cached) return cached;
+    const cached = await this.cacheService.get<ProductsResult>(
+      CACHE.AvailablePlans,
+    );
+
+    if (cached) return cached;
 
     const allPrices = await this.paymentsService.getPricesList();
 
-    const result = {
+    const result: ProductsResult = {
       recurring: allPrices.data
         .filter((p) => p.type === 'recurring')
         .map(ProductMapper.toDomain),
@@ -30,7 +38,7 @@ export class ProductService {
         .map(ProductMapper.toDomain),
     };
 
-    // await this.cacheService.set(CACHE.AvailablePlans, result, 3600);
+    await this.cacheService.set(CACHE.AvailablePlans, result, 3600);
 
     return result;
   }
@@ -38,13 +46,18 @@ export class ProductService {
   async syncProducts() {
     const allPrices = await this.paymentsService.getPricesList();
 
-    allPrices.data.forEach(async (price) => {
-      return await this.productRepository.upsertProduct({
-        stripePriceId: price.id,
-        name: price.product.name,
-        price: price.unit_amount ?? 0,
-        isActive: !!price.active,
-      });
-    });
+    await Promise.all(
+      allPrices.data.map((price) =>
+        this.productRepository.upsertProduct({
+          stripePriceId: price.id,
+          name: price.product.name,
+          price: price.unit_amount ?? 0,
+          isActive: !!price.active,
+        }),
+      ),
+    );
+
+    // Цены изменились — сбрасываем кэш списка планов.
+    await this.cacheService.del(CACHE.AvailablePlans);
   }
 }
