@@ -24,3 +24,4 @@ mcpServers:
 - `nestjs-module`: правила этого репозитория для модуля (структура по образцу `todo`, guards, `@Serialize`, защита от IDOR). Читай первым.
 - `api-contract`: формат описания эндпоинта в отчёте для `frontend` и `qa`.
 - `unit-testing`: jest + supertest, тестовые модули Nest, моки репозитория.
+- По теме задачи: `prisma-7` (схема, миграции, запросы), `queues-bullmq-rabbitmq`, `redis-caching`, `stripe-payments`, `web-security` (новые эндпоинты и auth).

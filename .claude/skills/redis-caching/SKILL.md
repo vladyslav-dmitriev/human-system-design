@@ -1,6 +1,6 @@
 ---
 name: redis-caching
-description: Кэширование и Redis в apps/api: CacheService, ключи и TTL, инвалидация, отказоустойчивость при недоступном Redis, метрики hit/miss, rate limiting. Используй при добавлении кэша, ключей Redis, throttling и при расследовании проблем с Redis.
+description: Redis и кэш в apps/api: CacheService, ключи, TTL, инвалидация, rate limiting. Используй при добавлении кэша и работе с Redis.
 ---
 
 # Redis и кэш (apps/api)

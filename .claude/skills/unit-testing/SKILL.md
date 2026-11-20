@@ -1,6 +1,6 @@
 ---
 name: unit-testing
-description: Unit- и интеграционные тесты в монорепо: vitest + Testing Library (apps/web) и jest + supertest (apps/api). Моки, провайдеры next-intl, тестовые модули Nest, что покрывать в первую очередь. Используй при написании и ревью unit-тестов. Для Playwright e2e есть скилл qa-automation.
+description: Unit- и интеграционные тесты: vitest + Testing Library (web), jest + supertest (api). Для Playwright есть qa-automation. Используй при написании unit-тестов.
 ---
 
 # Unit-тесты: vitest и jest

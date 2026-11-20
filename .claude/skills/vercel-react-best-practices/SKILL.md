@@ -1,6 +1,6 @@
 ---
 name: vercel-react-best-practices
-description: Правила производительности React/Next от Vercel (waterfalls, бандл, server, re-render). Используй при написании и ревью компонентов, загрузки данных и бандла.
+description: Правила производительности React/Next от Vercel (waterfalls, бандл, server, re-render). Используй при написании и ревью компонентов и загрузки данных.
 license: MIT
 metadata:
   author: vercel

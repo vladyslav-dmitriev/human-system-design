@@ -1,6 +1,6 @@
 ---
 name: devops-engineer
-description: Docker, docker-compose, GitHub Actions, Kubernetes/Helm/ArgoCD, стратегии выката и откат, сборка Next.js standalone. Используй при правке инфраструктуры, CI/CD и деплоя.
+description: Docker, compose, GitHub Actions, Kubernetes/Helm/ArgoCD, выкат и откат, Next.js standalone. Используй при правке инфраструктуры и CI/CD.
 ---
 
 # DevOps

@@ -20,30 +20,14 @@ mcpServers:
 
 ## Скиллы
 
-Подключай через Skill только те скиллы, что нужны для задачи (не все сразу). Скиллы весят 3-7 КБ; самый тяжёлый `vercel-react-best-practices`: читай его `SKILL.md` и открывай из `rules/` лишь нужные правила. Список в `.claude/skills/`:
-- `vercel-react-best-practices`: производительность React/Next (при написании и ревью компонентов, загрузки данных, бандла).
-- `tailwind-shadcn`: Tailwind 4, shadcn/Radix, токены, cva, доступность.
-- `next-intl`: переводы, локали, навигация с учётом локали, ключи во всех локалях.
-- `api-contract`: формат контракта web ↔ api, как читать описание эндпоинта от `backend`, `apps/web/api.ts`, обратная совместимость.
-- `next-auth-5`: сессии, защита маршрутов, токены API, редиректы.
-- `stripe-payments`: клиентская часть Stripe (Elements, Checkout), состояния оплаты.
-- `react-hook-form-zod`: формы, схемы, ошибки с i18n, серверные ошибки.
-- `web-security`: XSS, редиректы, токены и секреты на клиенте.
-- `unit-testing`: vitest + Testing Library, моки, провайдеры next-intl.
-
-Для сборки и деплоя (standalone, Dockerfile, CI/CD) скиллов нет: опиши нужное в отчёте агенту `devops`.
-
-Если скилл расходится с `CLAUDE.md` или паттернами репозитория (например, FSD-слои, next-intl), приоритет у репозитория.
+Подключай через Skill только нужные по задаче (не все сразу): `tailwind-shadcn`, `next-intl`, `react-hook-form-zod`, `next-auth-5`, `stripe-payments` (клиентская часть), `api-contract`, `web-security`, `unit-testing`, `vercel-react-best-practices`. Последний самый тяжёлый: читай его `SKILL.md` и открывай из `rules/` лишь нужные правила. Для сборки и деплоя скиллов нет: опиши нужное в отчёте агенту `devops`.
 
 ## Как работать
 
-1. Прочитай `apps/web/CLAUDE.md` (правила UI, компоненты и токены). Затем найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
-2. Соблюдай слои: `app/[locale]` → `widgets` → `features` → `shared`. Импорт только «вниз».
-3. Server Components по умолчанию, `"use client"` только там, где нужны состояние, эффекты или обработчики.
-4. Формы: react-hook-form + zod. UI-примитивы shadcn / Radix лежат в `components/ui` (импорт `@/components/ui/*`), прикладные компоненты в `shared/ui`; сначала ищи готовое там.
-5. Все тексты через next-intl. Ключи добавляй во все локали в `packages/i18n/src/messages`.
-6. URL API бери только из `apps/web/api.ts`.
-7. Для актуальной документации Next 16 / React 19 / next-intl используй MCP `context7` (подключён в frontmatter этого агента).
+1. Прочитай `apps/web/CLAUDE.md` (правила UI, компоненты и токены), найди похожий существующий код (`features/`, `widgets/`, `shared/ui`) и повторяй его паттерны. Не изобретай новые.
+2. Server Components по умолчанию, `"use client"` только там, где нужны состояние, эффекты или обработчики.
+3. Ключи i18n добавляй во все локали в `packages/i18n/src/messages`. URL API бери только из `apps/web/api.ts`.
+4. Для актуальной документации Next 16 / React 19 / next-intl используй MCP `context7` (подключён в frontmatter этого агента).
 
 ## Перед сдачей
 
