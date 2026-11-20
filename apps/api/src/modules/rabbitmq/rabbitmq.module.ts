@@ -6,6 +6,8 @@ import {
   OnModuleDestroy,
   Inject,
   Provider,
+  type FactoryProvider,
+  type ModuleMetadata,
 } from '@nestjs/common';
 
 import { RabbitMQService } from './rabbitmq.service';
@@ -14,8 +16,14 @@ import { EmailProducer } from './producers/email.producer';
 import { OrderProducer } from './producers/order.producer';
 import { NotificationProducer } from './producers/notification.producer';
 import { EmailConsumer } from './consumers/email.consumer';
-import { OrderConsumer } from './consumers/order.consumer';
-import { NotificationConsumer } from './consumers/notification.consumer';
+import {
+  OrderConsumer,
+  type OrderEventsHandler,
+} from './consumers/order.consumer';
+import {
+  NotificationConsumer,
+  type NotificationSender,
+} from './consumers/notification.consumer';
 import { JsonSerializer } from './serializers/json.serializer';
 import { loadRabbitMQConfig, RabbitMQConfig } from './rabbitmq.config';
 import {
@@ -34,18 +42,18 @@ import {
 export interface RabbitMQModuleOptions {
   config?: Partial<RabbitMQConfig>;
   environment?: 'development' | 'production' | 'test';
-  emailService?: any;
-  orderService?: any;
-  notificationService?: any;
+  emailService?: unknown;
+  orderService?: OrderEventsHandler;
+  notificationService?: NotificationSender;
   global?: boolean;
 }
 
 export interface RabbitMQModuleAsyncOptions {
-  imports?: any[];
+  imports?: ModuleMetadata['imports'];
   useFactory?: (
     ...args: any[]
   ) => Promise<RabbitMQModuleOptions> | RabbitMQModuleOptions;
-  inject?: any[];
+  inject?: FactoryProvider['inject'];
   global?: boolean;
 }
 

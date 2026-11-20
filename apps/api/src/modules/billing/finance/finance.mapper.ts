@@ -1,5 +1,11 @@
+import type { FinanceRepository } from './finance.repository';
+
+type UserBillingRaw = NonNullable<
+  Awaited<ReturnType<FinanceRepository['getUserBilling']>>
+>;
+
 export class FinanceMapper {
-  static toResponse(user: any) {
+  static toResponse(user: UserBillingRaw) {
     return {
       billing: {
         stripeCustomerId: user.userBillingProfile?.stripeCustomerId,

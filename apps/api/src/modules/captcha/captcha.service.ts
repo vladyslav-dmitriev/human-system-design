@@ -38,11 +38,17 @@ export class CaptchaService {
         body: params.toString(),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        success: boolean;
+        score?: number;
+      };
 
-      return data.success && data.score >= THRESHOLD;
+      return data.success && (data.score ?? 0) >= THRESHOLD;
     } catch (error) {
-      this.logger.error('Error connecting to Cloudflare API', error.stack);
+      this.logger.error(
+        'Error connecting to reCAPTCHA API',
+        error instanceof Error ? error.stack : String(error),
+      );
       return false;
     }
   }

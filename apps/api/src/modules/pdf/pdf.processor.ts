@@ -1,6 +1,6 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
-// import { Job, Queue } from 'bullmq';
+import type { Job } from 'bullmq';
 
 // import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { StorageService } from '../storage';
@@ -29,12 +29,12 @@ export class PdfProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<any> {
+  process(job: Job): Promise<void> {
     // if (job.name === QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice) {
     //   return this.createPdfInvoice(job.data as CreatePdfInvoiceJob);
     // }
 
-    throw new Error(`Unknown job: ${job.name}`);
+    return Promise.reject(new Error(`Unknown job: ${job.name}`));
   }
 
   async createPdfInvoice(data: CreatePdfInvoiceJob): Promise<any> {

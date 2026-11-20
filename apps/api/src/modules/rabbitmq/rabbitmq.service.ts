@@ -105,6 +105,10 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    await this.shutdown();
+  }
+
+  async shutdown(): Promise<void> {
     if (this.isInitialized) {
       this.logger.info('🛑 Остановка RabbitMQ...');
       await this.connection.close();

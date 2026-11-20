@@ -32,7 +32,9 @@ export class MetricsInterceptor implements NestInterceptor {
     const res = context.switchToHttp().getResponse<Response>();
 
     // Skip the scrape endpoint itself.
-    if (req.route?.path === METRICS_ROUTE || req.path === METRICS_ROUTE) {
+    const routePath = (req.route as { path?: string } | undefined)?.path;
+
+    if (routePath === METRICS_ROUTE || req.path === METRICS_ROUTE) {
       return next.handle();
     }
 
@@ -44,8 +46,7 @@ export class MetricsInterceptor implements NestInterceptor {
       recorded = true;
 
       // Never use req.url: it contains ids/query strings (unbounded cardinality).
-      const route: string =
-        (req.route?.path as string | undefined) || 'unknown';
+      const route: string = routePath || 'unknown';
       const method: string = req.method;
       const statusLabel = String(status);
 
@@ -55,7 +56,7 @@ export class MetricsInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({ next: () => record(res.statusCode) }),
-      catchError((error) => {
+      catchError((error: unknown) => {
         // Exception filters run after interceptors, so res.statusCode is not
         // yet set for errors: derive it from the exception.
         const status = error instanceof HttpException ? error.getStatus() : 500;

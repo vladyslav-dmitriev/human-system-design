@@ -80,7 +80,7 @@ export class BindingManager {
             binding.name,
             binding.exchange,
             binding.routingKey,
-            binding.arguments,
+            binding.args,
           );
         },
         {
@@ -119,7 +119,7 @@ export class BindingManager {
             binding.name,
             binding.exchange,
             binding.routingKey,
-            binding.arguments,
+            binding.args,
           );
           this.appliedBindings.delete(key);
           this.logger.debug(`🗑️ Удален биндинг: ${binding.toString()}`);

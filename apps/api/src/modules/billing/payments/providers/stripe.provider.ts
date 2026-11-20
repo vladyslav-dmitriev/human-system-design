@@ -1,12 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import type { StripeTypes } from '../stripe.types';
 
 import { IPaymentProvider } from '../payments.interface';
 
 @Injectable()
 export class StripeProvider implements IPaymentProvider {
-  private stripe: any;
+  private readonly stripe: Stripe.Stripe;
 
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
@@ -22,7 +23,7 @@ export class StripeProvider implements IPaymentProvider {
     });
   }
 
-  async constructEvent(rawBody: any, signature: string) {
+  constructEvent(rawBody: string | Buffer, signature: string) {
     const stripeWebhookSecret = this.configService.get<string>(
       'STRIPE_WEBHOOK_SECRET',
     );
@@ -31,20 +32,20 @@ export class StripeProvider implements IPaymentProvider {
       throw new Error('STRIPE_WEBHOOK_SECRET is missing');
     }
 
-    return this.stripe.webhooks.constructEvent(
+    return this.stripe.webhooks.constructEventAsync(
       rawBody,
       signature,
       stripeWebhookSecret,
     );
   }
 
-  async createPaymentCustomer(email: string) {
+  createPaymentCustomer(email: string) {
     return this.stripe.customers.create({
       email,
     });
   }
 
-  async createPaymentIntent({
+  createPaymentIntent({
     stripeCustomerId,
     amount,
     currency,
@@ -53,8 +54,8 @@ export class StripeProvider implements IPaymentProvider {
     stripeCustomerId: string;
     amount: number;
     currency: string;
-    metadata: any;
-  }): Promise<any> {
+    metadata: StripeTypes.MetadataParam;
+  }) {
     return this.stripe.paymentIntents.create({
       amount,
       currency,
@@ -65,20 +66,20 @@ export class StripeProvider implements IPaymentProvider {
     });
   }
 
-  async getPaymentMethods(stripeCustomerId: string) {
+  getPaymentMethods(stripeCustomerId: string) {
     return this.stripe.paymentMethods.list({
       customer: stripeCustomerId,
       type: 'card',
     });
   }
 
-  async addPaymentMethod(stripeCustomerId: string, paymentMethodId: string) {
+  addPaymentMethod(stripeCustomerId: string, paymentMethodId: string) {
     return this.stripe.paymentMethods.attach(paymentMethodId, {
       customer: stripeCustomerId,
     });
   }
 
-  async updateDefaultPaymentMethod(
+  updateDefaultPaymentMethod(
     stripeCustomerId: string,
     paymentMethodId: string,
   ) {
@@ -89,20 +90,17 @@ export class StripeProvider implements IPaymentProvider {
     });
   }
 
-  async deletePaymentMethod(
-    _stripeCustomerId: string,
-    paymentMethodId: string,
-  ) {
+  deletePaymentMethod(_stripeCustomerId: string, paymentMethodId: string) {
     return this.stripe.paymentMethods.detach(paymentMethodId);
   }
 
-  async getPrice(priceId: string) {
+  getPrice(priceId: string) {
     return this.stripe.prices.retrieve(priceId, {
       expand: ['product'],
     });
   }
 
-  async createSubscription(
+  createSubscription(
     stripeCustomerId: string,
     priceId: string,
     productName: string,
@@ -119,28 +117,28 @@ export class StripeProvider implements IPaymentProvider {
     });
   }
 
-  async getPaymentIntent(paymentIntentId: string) {
+  getPaymentIntent(paymentIntentId: string) {
     return this.stripe.paymentIntents.retrieve(paymentIntentId);
   }
 
-  async createBillingPortal(stripeCustomerId: string, frontendUrl: string) {
+  createBillingPortal(stripeCustomerId: string, frontendUrl: string) {
     return this.stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: `${frontendUrl}/billing`,
     });
   }
 
-  async updateSubscription(stripeSubscriptionId: string, autoRenew: boolean) {
+  updateSubscription(stripeSubscriptionId: string, autoRenew: boolean) {
     return this.stripe.subscriptions.update(stripeSubscriptionId, {
       cancel_at_period_end: !autoRenew,
     });
   }
 
-  async getSubscription(subscriptionId: string) {
+  getSubscription(subscriptionId: string) {
     return this.stripe.subscriptions.retrieve(subscriptionId);
   }
 
-  async createPaymentInvoicePreview(
+  createPaymentInvoicePreview(
     stripeCustomerId: string,
     subscriptionId: string,
     newPriceId: string,
@@ -161,7 +159,7 @@ export class StripeProvider implements IPaymentProvider {
     });
   }
 
-  async getPricesList() {
+  getPricesList() {
     return this.stripe.prices.list({
       active: true,
       expand: ['data.product'],

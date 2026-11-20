@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { UserRepository } from '../../user';
-import { PaymentsService } from '../payments';
+import { PaymentsService, type StripeTypes } from '../payments';
 import { SubscriptionRenewBodyDto, SubscriptionUpgradeBodyDto } from './dto';
 import { SubscriptionRepository } from './subscription.repository';
 
@@ -71,7 +71,8 @@ export class SubscriptionService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as any).name;
+    // getPrice запрашивает price с expand: ['product']
+    const productName = (price.product as StripeTypes.Product).name;
 
     const id = subscription.items.data[0].id;
 

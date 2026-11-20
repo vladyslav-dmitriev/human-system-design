@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+
 export type Invoice = {
   id: string;
   number: string;
@@ -8,7 +10,7 @@ export type Invoice = {
   currency: string;
   status: string;
   pdfUrl: string | null;
-  metadata: any;
+  metadata: Prisma.JsonValue;
   createdAt: Date;
   updatedAt: Date;
 };

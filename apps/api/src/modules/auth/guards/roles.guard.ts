@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import type { AuthenticatedRequest } from '../decorators/get-user.decorator';
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(@Inject(Reflector) private reflector: Reflector) {} // Рефлектор нужен, чтобы читать метки @Roles
@@ -21,7 +23,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const { user } = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const hasRole = requiredRoles.includes(user?.role);
 

@@ -2,7 +2,7 @@ import { RabbitMQConsumer } from './rabbitmq.consumer';
 import { RabbitMQConnection } from '../managers/connection.manager';
 import { RabbitMQConfig } from '../rabbitmq.config';
 
-import type { RabbitMQMessage } from '../types/rabbitmq.types';
+import type { ConsumedMessageMetadata } from '../types/rabbitmq.types';
 
 interface NotificationContent {
   userId: string;
@@ -14,13 +14,30 @@ interface NotificationContent {
   phone?: string;
 }
 
+/** Сервис доставки уведомлений (передаётся снаружи) */
+export interface NotificationSender {
+  sendPushNotification(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void>;
+  sendSms(phone: string, body: string): Promise<void>;
+  sendInAppNotification(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void>;
+}
+
 export class NotificationConsumer extends RabbitMQConsumer {
-  private readonly notificationService: any;
+  private readonly notificationService: NotificationSender | undefined;
 
   constructor(
     connection: RabbitMQConnection,
     config: RabbitMQConfig,
-    notificationService: any,
+    notificationService?: NotificationSender,
   ) {
     super(connection, config);
     this.notificationService = notificationService;
@@ -30,21 +47,21 @@ export class NotificationConsumer extends RabbitMQConsumer {
     await this.register({
       queue: 'notification.queue',
       routingKey: 'notification.#',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      handler: this.handleNotification.bind(this),
+      handler: (content, metadata) =>
+        this.handleNotification(content as NotificationContent, metadata),
     });
   }
 
   private async handleNotification(
-    message: RabbitMQMessage<NotificationContent>,
+    content: NotificationContent,
+    metadata: ConsumedMessageMetadata,
   ): Promise<void> {
-    const { routingKey } = message.fields;
-    const content = message.content;
+    const { routingKey } = metadata;
 
     this.logger.info(`🔔 Обработка уведомления: ${routingKey}`, {
       userId: content.userId,
       type: content.type,
-      messageId: message.properties.messageId,
+      messageId: metadata.messageId,
     });
 
     try {

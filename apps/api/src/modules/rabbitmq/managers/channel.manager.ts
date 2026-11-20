@@ -12,7 +12,7 @@ export interface ChannelPoolOptions {
 }
 
 export class ChannelManager extends EventEmitter {
-  private channels: Map<number, Channel> = new Map();
+  private channels: Set<Channel> = new Set();
   private channelPool: Channel[] = [];
   private readonly logger: RabbitMQLogger;
   private isShuttingDown = false;
@@ -65,11 +65,11 @@ export class ChannelManager extends EventEmitter {
 
     channel.on('close', () => {
       this.logger.warn('Канал закрыт');
-      this.channels.delete(channel.channel);
+      this.channels.delete(channel);
       this.emit('channelClosed', { channel });
     });
 
-    this.channels.set(channel.channel, channel);
+    this.channels.add(channel);
     this.emit('channelCreated', { channel });
 
     return channel;
@@ -85,7 +85,7 @@ export class ChannelManager extends EventEmitter {
 
     // Если есть свободный канал в пуле
     if (this.channelPool.length > 0) {
-      return this.channelPool.pop()!;
+      return this.channelPool.pop();
     }
 
     // Если не превышен максимум, создаем новый
@@ -115,13 +115,13 @@ export class ChannelManager extends EventEmitter {
    */
   releaseChannel(channel: Channel): void {
     if (this.isShuttingDown) {
-      this.closeChannel(channel);
+      void this.closeChannel(channel);
       return;
     }
 
     // Проверяем, что канал все еще открыт
     if (!this.isChannelOpen(channel)) {
-      this.channels.delete(channel.channel);
+      this.channels.delete(channel);
       this.emit('channelRemoved', { channel });
       return;
     }
@@ -136,7 +136,8 @@ export class ChannelManager extends EventEmitter {
    */
   private isChannelOpen(channel: Channel): boolean {
     try {
-      return !!(channel && channel.channel !== undefined);
+      // канал удаляется из набора по событию 'close'
+      return !!channel && this.channels.has(channel);
     } catch {
       return false;
     }
@@ -148,7 +149,7 @@ export class ChannelManager extends EventEmitter {
   async closeChannel(channel: Channel): Promise<void> {
     try {
       await channel.close();
-      this.channels.delete(channel.channel);
+      this.channels.delete(channel);
     } catch (error) {
       this.logger.warn('Ошибка закрытия канала:', error);
     }
@@ -157,7 +158,7 @@ export class ChannelManager extends EventEmitter {
   /**
    * Получение канала для конкретной очереди
    */
-  async getChannelForQueue(queue: string): Promise<Channel> {
+  async getChannelForQueue(_queue: string): Promise<Channel> {
     // В простой реализации просто возвращаем любой канал
     // В более сложной можно использовать привязку каналов к очередям
     return this.getChannel();
@@ -204,7 +205,7 @@ export class ChannelManager extends EventEmitter {
     this.channelPool = [];
 
     // Закрываем все остальные каналы
-    for (const [id, channel] of this.channels) {
+    for (const channel of [...this.channels]) {
       await this.closeChannel(channel);
     }
     this.channels.clear();

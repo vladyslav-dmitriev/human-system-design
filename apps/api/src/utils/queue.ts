@@ -3,7 +3,7 @@
 // import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 // import { QUEUE } from 'config/queue.config';
 
-export const setupQueue = (name: (typeof QUEUE)[keyof typeof QUEUE]) => {
+export const setupQueue = (_name: string): unknown[] => {
   return [];
 
   // return [
@@ -15,7 +15,7 @@ export const setupQueue = (name: (typeof QUEUE)[keyof typeof QUEUE]) => {
   // ];
 };
 
-export const registerQueue = (name: (typeof QUEUE)[keyof typeof QUEUE]) => {
+export const registerQueue = (_name: string): unknown[] => {
   return [];
 
   // return [

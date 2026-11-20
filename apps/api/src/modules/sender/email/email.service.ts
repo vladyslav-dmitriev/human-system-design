@@ -2,8 +2,25 @@ import { Inject, Injectable } from '@nestjs/common';
 // import { InjectQueue } from '@nestjs/bullmq';
 // import { Queue } from 'bullmq';
 // import { QUEUE, QUEUE_JOB } from 'config/queue.config';
-import type { IEmailService } from './email.interface';
+import type { EmailMessage, IEmailService } from './email.interface';
 
+type Locale = 'uk' | 'en';
+
+export type SendVerificationEmailParams = { email: string; token: string };
+
+export type SendInvoiceEmailParams = {
+  email: string;
+  invoiceNumber: string;
+  amount: number;
+  currency: string;
+  pdfUrl: string;
+  locale: Locale;
+};
+
+/**
+ * Очередь писем (BullMQ) сейчас отключена, поэтому методы — заглушки,
+ * которые ничего не отправляют. Код постановки в очередь оставлен в комментариях.
+ */
 @Injectable()
 export class EmailService implements IEmailService {
   constructor(
@@ -11,54 +28,26 @@ export class EmailService implements IEmailService {
     // @InjectQueue(QUEUE.EmailQueue) private readonly emailQueue: Queue,
   ) {}
 
-  async sendEmail({ from, to, subject, html }) {
-    // await this.emailProvider.sendEmail({
-    //   from,
-    //   to,
-    //   subject,
-    //   html,
-    // });
+  sendEmail(_message: EmailMessage): Promise<void> {
+    // await this.emailProvider.sendEmail(message);
+    return Promise.resolve();
   }
 
-  async sendVerificationEmail(dto: any, locale: 'uk' | 'en'): Promise<void> {
-    const { email, token } = dto;
-
+  sendVerificationEmail(
+    _params: SendVerificationEmailParams,
+    _locale: Locale,
+  ): Promise<void> {
     // await this.emailQueue.add(
     //   QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail,
-    //   {
-    //     data: {
-    //       email,
-    //       token,
-    //       locale,
-    //     },
-    //   },
+    //   { data: { email, token, locale } },
     // );
+    return Promise.resolve();
   }
 
-  async sendInvoiceEmail({
-    email,
-    locale,
-    invoiceNumber,
-    amount,
-    currency,
-    pdfUrl,
-  }: {
-    email: string;
-    invoiceNumber: string;
-    amount: number;
-    currency: string;
-    pdfUrl: string;
-    locale: 'uk' | 'en';
-  }): Promise<void> {
+  sendInvoiceEmail(_params: SendInvoiceEmailParams): Promise<void> {
     // await this.emailQueue.add(QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail, {
-    //   data: {
-    //     email,
-    //     invoiceNumber,
-    //     amount,
-    //     currency,
-    //     pdfUrl,
-    //     locale,
-    //   },
+    //   data: { email, invoiceNumber, amount, currency, pdfUrl, locale },
     // });
+    return Promise.resolve();
   }
 }

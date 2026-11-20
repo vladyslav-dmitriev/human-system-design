@@ -6,18 +6,24 @@ import {
 } from '@nestjs/common';
 import { decode } from '@auth/core/jwt';
 
+import type { AuthenticatedRequest } from '../decorators/get-user.decorator';
+
 @Injectable()
 export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const cookies = (request.cookies ?? {}) as Record<
+      string,
+      string | undefined
+    >;
 
-    const cookieName = request.cookies['authjs.session-token']
+    const cookieName = cookies['authjs.session-token']
       ? 'authjs.session-token'
-      : request.cookies['__Secure-authjs.session-token']
+      : cookies['__Secure-authjs.session-token']
         ? '__Secure-authjs.session-token'
-        : request.cookies['next-auth.session-token']
+        : cookies['next-auth.session-token']
           ? 'next-auth.session-token'
-          : request.cookies['__Secure-next-auth.session-token']
+          : cookies['__Secure-next-auth.session-token']
             ? '__Secure-next-auth.session-token'
             : null;
 
@@ -27,7 +33,7 @@ export class AuthGuard implements CanActivate {
       );
     }
 
-    const sessionToken = request.cookies[cookieName];
+    const sessionToken = cookies[cookieName];
 
     try {
       const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -51,10 +57,10 @@ export class AuthGuard implements CanActivate {
       }
 
       request.user = {
-        id: payload.id || payload.sub,
+        id: (payload.id as string | undefined) || payload.sub,
         email: payload.email,
         name: payload.name,
-        role: payload.role,
+        role: payload.role as string | undefined,
       };
 
       return true;

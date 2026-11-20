@@ -1,5 +1,5 @@
 export interface ISMSService {
-  sendSmsCode(dto: { phoneNumber: string }): Promise<void>;
+  sendSmsCode(dto: { phoneNumber: string }): Promise<boolean>;
   verifySmsCode({
     phoneNumber,
     code,

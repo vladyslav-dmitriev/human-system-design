@@ -48,10 +48,30 @@ export interface PublishOptions {
   type?: string;
 }
 
+/** Метаданные, которые RabbitMQConsumer передаёт обработчику вторым аргументом */
+export interface ConsumedMessageMetadata {
+  queue: string;
+  routingKey: string;
+  exchange: string;
+  messageId?: string;
+  correlationId?: string;
+  deliveryTag: number;
+  redelivered: boolean;
+  timestamp: number;
+  consumerTag: string;
+  retryCount: number;
+}
+
+/** Обработчик получает уже распарсенный JSON-контент и метаданные */
+export type MessageHandler<T = unknown> = (
+  content: T,
+  metadata: ConsumedMessageMetadata,
+) => Promise<void> | void;
+
 export interface ConsumeOptions {
   queue: string;
   routingKey: string;
-  handler: (message: RabbitMQMessage) => Promise<void>;
+  handler: MessageHandler;
   noAck?: boolean;
   prefetch?: number;
 }

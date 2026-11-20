@@ -1,6 +1,6 @@
 export interface IFileStorage {
   upload(params: {
-    file: any;
+    file: Buffer;
     fileName?: string;
     folder: string;
     contentType?: string;

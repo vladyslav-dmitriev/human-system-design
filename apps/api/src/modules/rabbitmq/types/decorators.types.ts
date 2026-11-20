@@ -40,7 +40,7 @@ export interface HandlerMetadata {
   target: any;
   methodName: string;
   config: MessageHandlerConfig;
-  method: Function;
+  method: (...args: any[]) => unknown;
 }
 
 /**
@@ -58,5 +58,5 @@ export interface ProducerMetadata {
 export interface MethodMetadata {
   methodName: string;
   config: MethodConfig;
-  method: Function;
+  method: (...args: any[]) => unknown;
 }

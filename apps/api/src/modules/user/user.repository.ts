@@ -1,21 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import { Prisma } from '@prisma/client';
+
 import { PrismaService } from 'prisma/prisma.service';
 
-export interface IUserRepository {
-  getUserById(userId: string): Promise<any>;
-  getUserByEmail(email: string): Promise<any>;
-  getUserByStripeCustomerId(stripeCustomerId: string): Promise<any>;
-  createUser(data: {
-    name: string;
-    email: string;
-    password: string;
-    verifiedToken: string;
-    isVerified: boolean;
-  }): Promise<any>;
-  checkUserEmailExist(userId: string, email: string): Promise<any>;
-  updateUser(where: object, data: object): Promise<any>;
-}
+export type UpdateBillingSubscriptionData = {
+  userId: string;
+  stripeSubscriptionId: string;
+  stripePriceId: string;
+  status: string;
+  autoRenew: boolean;
+  currentPeriodEnd: Date | null;
+};
 
 const selectUser = {
   id: true,
@@ -35,12 +31,10 @@ const selectUser = {
 };
 
 @Injectable()
-export class UserRepository implements IUserRepository {
+export class UserRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getUserById(
-    userId: string,
-  ): ReturnType<IUserRepository['getUserById']> {
+  async getUserById(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -87,9 +81,7 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
-  async getUserByEmail(
-    email: string,
-  ): ReturnType<IUserRepository['getUserByEmail']> {
+  async getUserByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
       select: {
@@ -99,9 +91,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async getUserByStripeCustomerId(
-    stripeCustomerId: string,
-  ): ReturnType<IUserRepository['getUserById']> {
+  async getUserByStripeCustomerId(stripeCustomerId: string) {
     return this.prisma.userBillingProfile.findUnique({
       where: { stripeCustomerId },
       include: {
@@ -110,10 +100,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async checkUserEmailExist(
-    userId: string | undefined,
-    email: string,
-  ): ReturnType<IUserRepository['checkUserEmailExist']> {
+  async checkUserEmailExist(userId: string | undefined, email: string) {
     return this.prisma.user.findFirst({
       where: {
         email,
@@ -122,15 +109,25 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async updateUser(where: object, data: object) {
+  async updateUser(
+    where: Prisma.UserWhereUniqueInput,
+    data: Prisma.UserUpdateInput,
+  ) {
     await this.prisma.user.update({
-      // @ts-ignore
       where,
       data,
     });
   }
 
-  async updateUserTwoFactor({ userId, phone, twoFactorEnabled }) {
+  async updateUserTwoFactor({
+    userId,
+    phone,
+    twoFactorEnabled,
+  }: {
+    userId: string;
+    phone: string;
+    twoFactorEnabled: boolean;
+  }) {
     await this.prisma.userProfile.update({
       where: {
         userId,
@@ -184,7 +181,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async updateBillingSubscription(data: any) {
+  async updateBillingSubscription(data: UpdateBillingSubscriptionData) {
     const existingSubscription = await this.prisma.subscription.findUnique({
       where: { userId: data.userId },
     });

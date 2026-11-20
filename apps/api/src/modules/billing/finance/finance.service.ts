@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { PaymentsService } from '../payments';
+import { PaymentsService, type StripeTypes } from '../payments';
 import { UserRepository } from '../../user';
 import { CheckoutCreateBodyDto, PaymentIntentGetParamsDto } from './dto';
 import { FinanceRepository } from './finance.repository';
@@ -77,7 +77,9 @@ export class FinanceService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as any).name;
+    // getPrice запрашивает price с expand: ['product']
+    const product = price.product as StripeTypes.Product;
+    const productName = product.name;
 
     const subscription = await this.paymentsService.createSubscription(
       stripeCustomerId,
@@ -118,7 +120,9 @@ export class FinanceService {
 
     const price = await this.paymentsService.getPrice(priceId);
 
-    const productName = (price.product as any).name;
+    // getPrice запрашивает price с expand: ['product']
+    const product = price.product as StripeTypes.Product;
+    const productName = product.name;
 
     const paymentIntent = await this.paymentsService.createPaymentIntent({
       stripeCustomerId,
@@ -128,7 +132,7 @@ export class FinanceService {
         type: 'one_time',
         name: productName,
         priceId: price.id,
-        productId: price.product.id,
+        productId: product.id,
       },
     });
 
@@ -176,7 +180,7 @@ export class FinanceService {
       throw new NotFoundException('User not found');
     }
 
-    let stripeCustomerId = user.userBillingProfile.stripeCustomerId;
+    const stripeCustomerId = user.userBillingProfile.stripeCustomerId;
 
     if (!stripeCustomerId) {
       throw new BadRequestException(`Don't have stripe customer id`);
@@ -193,10 +197,9 @@ export class FinanceService {
   }
 }
 
-function isEmpty(obj) {
+function isEmpty(obj: object) {
   for (const prop in obj) {
-    // @ts-ignore
-    if (Object.hasOwn(obj, prop)) {
+    if (Object.prototype.hasOwnProperty.call(obj, prop)) {
       return false;
     }
   }

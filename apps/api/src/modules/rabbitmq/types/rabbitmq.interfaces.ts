@@ -1,4 +1,4 @@
-import { Channel, Connection, Message } from 'amqplib';
+import { Channel, ChannelModel, Message } from 'amqplib';
 import {
   PublishOptions,
   ConsumeOptions,
@@ -7,7 +7,7 @@ import {
 import { RabbitMQConfig } from '../rabbitmq.config';
 
 export interface IRabbitMQConnection {
-  connect(): Promise<Connection>;
+  connect(): Promise<ChannelModel>;
   getChannel(): Promise<Channel>;
   close(): Promise<void>;
   getConnected(): boolean;
@@ -43,7 +43,10 @@ export interface IRabbitMQConsumer {
 }
 
 export interface IRabbitMQQueueManager {
-  assertQueue(queueName: string, options?: any): Promise<void>;
+  assertQueue(
+    queueName: string,
+    options?: any,
+  ): Promise<{ queue: string; messageCount: number; consumerCount: number }>;
   assertExchange(exchange: ExchangeDefinition): Promise<void>;
   bindQueue(
     queueName: string,

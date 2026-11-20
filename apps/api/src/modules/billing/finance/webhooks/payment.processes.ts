@@ -1,11 +1,11 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { WorkerHost } from '@nestjs/bullmq';
 import { Inject } from '@nestjs/common';
 import { Job } from 'bullmq';
 
 // import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 
 import { PaymentMethodService } from '../../payment-method';
-import { PaymentsService } from '../../payments';
+import { PaymentsService, type StripeTypes } from '../../payments';
 import { InvoiceService } from '../../invoice';
 import { UserRepository } from '../../../user';
 import { FeatureRepository } from '../../feature';
@@ -25,7 +25,7 @@ export class PaymentProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  process(job: Job): Promise<void> {
     // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase) {
     //   return this.handleSubscriptionPurchase(job.data as any);
     // }
@@ -38,10 +38,10 @@ export class PaymentProcessor extends WorkerHost {
     //   return this.handleOneTimePurchase(job.data as any);
     // }
 
-    throw new Error(`Unknown job: ${job.name}`);
+    return Promise.reject(new Error(`Unknown job: ${job.name}`));
   }
 
-  async handleSubscriptionPurchase(invoice: any) {
+  async handleSubscriptionPurchase(invoice: StripeTypes.Invoice) {
     const stripeCustomerId = invoice.customer as string;
 
     const user =
@@ -79,14 +79,14 @@ export class PaymentProcessor extends WorkerHost {
       userId: user.userId,
       stripeCustomerId,
       stripePaymentIntentId: invoice.id,
-      customerEmail: invoice.customer_email!,
+      customerEmail: invoice.customer_email,
       amount: invoice.total,
       currency: invoice.currency,
       metadata: invoice.metadata,
     });
   }
 
-  async handleSubscriptionUpgrade(paymentIntent: any) {
+  async handleSubscriptionUpgrade(paymentIntent: StripeTypes.PaymentIntent) {
     const stripeCustomerId = paymentIntent.customer as string;
     const subscriptionId = paymentIntent.metadata.subscriptionId;
 
@@ -133,7 +133,7 @@ export class PaymentProcessor extends WorkerHost {
     }
   }
 
-  async handleOneTimePurchase(paymentIntent: any) {
+  async handleOneTimePurchase(paymentIntent: StripeTypes.PaymentIntent) {
     // return this.prisma.$transaction(async (tx) => {
     // const existingInvoice = await tx.invoice.findUnique({
     //   where: { stripePaymentIntentId: paymentIntent.id },
@@ -164,10 +164,6 @@ export class PaymentProcessor extends WorkerHost {
         paymentMethodId,
       );
     }
-
-    const paymentMethods = await this.paymentMethodService.getPaymentMethods(
-      user.userId,
-    );
 
     //   await tx.invoice.create({ ... });
     await this.invoiceService.createInvoice({

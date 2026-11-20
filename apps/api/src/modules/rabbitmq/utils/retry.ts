@@ -134,10 +134,12 @@ export function RetryDecorator(options: RetryOptions = {}) {
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
-    const originalMethod = descriptor.value;
+    const originalMethod = descriptor.value as (
+      ...args: any[]
+    ) => Promise<unknown>;
 
-    descriptor.value = async function (...args: any[]) {
-      return retry(() => originalMethod.apply(this, args), {
+    descriptor.value = async function (...args: any[]): Promise<unknown> {
+      return retry(() => originalMethod.apply(this, args) as Promise<unknown>, {
         ...options,
         logger: options.logger || new RabbitMQLogger(`Retry:${propertyKey}`),
       });

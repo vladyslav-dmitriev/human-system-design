@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel } from 'amqplib';
+import amqp, { ChannelModel, Channel } from 'amqplib';
 import { EventEmitter } from 'events';
 
 import { IRabbitMQConnection } from '../types/rabbitmq.interfaces';
@@ -13,9 +13,9 @@ export class RabbitMQConnection
   extends EventEmitter
   implements IRabbitMQConnection
 {
-  private connection: Connection | null = null;
+  private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
-  public isConnected: () => boolean;
+  private connected = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isReconnecting = false;
   private readonly logger: RabbitMQLogger;
@@ -28,16 +28,25 @@ export class RabbitMQConnection
     this.logger = new RabbitMQLogger('RabbitMQConnection');
   }
 
-  async connect(): Promise<Connection> {
-    if (this.isConnected && this.connection) {
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  async connect(): Promise<ChannelModel> {
+    if (this.connected && this.connection) {
       return this.connection;
     }
 
     try {
       this.logger.info('Подключение к RabbitMQ...');
 
-      this.connection = await amqp.connect(this.config.url, {
-        heartbeat: this.config.heartbeat || 30,
+      // heartbeat в amqplib задаётся параметром URL, а не socketOptions
+      const url = new URL(this.config.url);
+      if (!url.searchParams.has('heartbeat')) {
+        url.searchParams.set('heartbeat', String(this.config.heartbeat || 30));
+      }
+
+      this.connection = await amqp.connect(url.toString(), {
         timeout: this.config.connectionTimeout || 10000,
       });
 
@@ -45,7 +54,7 @@ export class RabbitMQConnection
       await this.channel.prefetch(this.config.prefetch);
 
       this.setupConnectionListeners();
-      this.isConnected = true;
+      this.connected = true;
 
       this.logger.info('✅ RabbitMQ подключен успешно');
       this.emit('connected', this.connection);
@@ -53,7 +62,7 @@ export class RabbitMQConnection
       return this.connection;
     } catch (error) {
       this.logger.error('❌ Ошибка подключения к RabbitMQ:', error);
-      this.isConnected = false;
+      this.connected = false;
       throw error;
     }
   }
@@ -61,14 +70,14 @@ export class RabbitMQConnection
   private setupConnectionListeners(): void {
     if (!this.connection) return;
 
-    this.connection.on('error', async (error) => {
+    this.connection.on('error', (error) => {
       this.logger.error('Ошибка соединения:', error);
-      await this.handleDisconnect();
+      void this.handleDisconnect();
     });
 
-    this.connection.on('close', async () => {
+    this.connection.on('close', () => {
       this.logger.warn('Соединение закрыто');
-      await this.handleDisconnect();
+      void this.handleDisconnect();
     });
 
     this.connection.on('blocked', (reason) => {
@@ -85,7 +94,7 @@ export class RabbitMQConnection
   private async handleDisconnect(): Promise<void> {
     if (this.isReconnecting) return;
 
-    this.isConnected = false;
+    this.connected = false;
     this.channel = null;
     this.connection = null;
 
@@ -107,15 +116,16 @@ export class RabbitMQConnection
       `Попытка переподключения через ${this.config.reconnectInterval}мс`,
     );
 
-    this.reconnectTimer = setTimeout(async () => {
-      try {
-        await this.reconnect();
-        this.isReconnecting = false;
-      } catch (error) {
-        this.logger.error('Ошибка переподключения:', error);
-        this.isReconnecting = false;
-        this.scheduleReconnect();
-      }
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnect()
+        .then(() => {
+          this.isReconnecting = false;
+        })
+        .catch((error: unknown) => {
+          this.logger.error('Ошибка переподключения:', error);
+          this.isReconnecting = false;
+          this.scheduleReconnect();
+        });
     }, this.config.reconnectInterval);
   }
 
@@ -136,14 +146,14 @@ export class RabbitMQConnection
   }
 
   async getChannel(): Promise<Channel> {
-    if (!this.isConnected || !this.channel) {
+    if (!this.connected || !this.channel) {
       await this.connect();
     }
-    return this.channel!;
+    return this.channel;
   }
 
   getConnected(): boolean {
-    return this.isConnected;
+    return this.connected;
   }
 
   async close(): Promise<void> {
@@ -172,7 +182,7 @@ export class RabbitMQConnection
       this.connection = null;
     }
 
-    this.isConnected = false;
+    this.connected = false;
     this.logger.info('Соединение закрыто');
     this.emit('closed');
   }

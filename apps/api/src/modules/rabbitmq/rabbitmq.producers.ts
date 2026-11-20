@@ -87,7 +87,8 @@ export class RabbitMQProducer {
     }
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
     this.logger.info('Продюсер закрыт');
+    return Promise.resolve();
   }
 }
