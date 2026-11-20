@@ -19,8 +19,10 @@ description: Frontend-разработчик для apps/web (Next 16, React 19,
 - `next-intl`: переводы, локали, навигация с учётом локали, ключи во всех локалях.
 - `next-auth-5`: сессии, защита маршрутов, токены API, редиректы.
 - `stripe-payments`: клиентская часть Stripe (Elements, Checkout), состояния оплаты.
+- `react-hook-form-zod`: формы, схемы, ошибки с i18n, серверные ошибки.
+- `nestjs-swagger-contract`: контракт с api и `apps/web/api.ts`.
 - `web-security`: XSS, редиректы, токены и секреты на клиенте.
-- `playwright-testing`: как справочник по vitest + Testing Library.
+- `unit-testing`: vitest + Testing Library, моки, провайдеры next-intl.
 - `nextjs-deployment`: как справочник по standalone-сборке и переменным окружения `apps/web`. Dockerfile, CI/CD и инфраструктуру не меняй, а опиши в отчёте агенту `devops`.
 
 Если скилл расходится с `CLAUDE.md` или паттернами репозитория (например, FSD-слои, next-intl), приоритет у репозитория.
