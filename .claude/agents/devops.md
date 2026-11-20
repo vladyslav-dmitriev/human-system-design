@@ -1,6 +1,7 @@
 ---
 name: devops
 description: DevOps-инженер для инфраструктуры монорепо. Используй для Dockerfile, docker-compose, nginx, GitHub Actions, Helm/k8s/ArgoCD, скриптов в infra/ и конфигурации CI/CD и деплоя. Не трогает код приложений в apps/ и packages/.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 color: orange
 memory: project
