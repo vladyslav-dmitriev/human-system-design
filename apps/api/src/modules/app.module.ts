@@ -15,7 +15,7 @@ import { PdfModule } from './pdf';
 import Redis from 'ioredis';
 import { RedisModule } from './redis';
 import { REDIS_CLIENT } from './redis/redis.module';
-import { MetricsController, MetricsModule } from './metrics';
+import { MetricsModule } from './metrics';
 import { CacheModule } from './cache';
 import { FinanceModule } from './billing/finance';
 import { PaymentsModule } from './billing/payments';
@@ -126,7 +126,7 @@ import { RabbitMQModule } from './rabbitmq';
     TodoModule,
     PdfModule,
   ],
-  controllers: [MetricsController, AppController],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

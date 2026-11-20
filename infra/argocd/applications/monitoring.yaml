@@ -1,3 +1,11 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    # раньше приложения app (wave 0), чтобы CRD успели появиться
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   project: human-system-design
   destination:
@@ -6,13 +14,16 @@ spec:
   source:
     repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
     targetRevision: main
-    path: infra/helm/monitoring  # Путь к новой папке
+    path: infra/helm/vendors/monitoring
     helm:
       valueFiles:
-      - values.yaml
+        - values.yaml
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-    - CreateNamespace=true
+      - CreateNamespace=true
+      # CRD kube-prometheus-stack слишком большие для client-side apply
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

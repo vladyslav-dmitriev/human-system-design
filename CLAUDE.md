@@ -45,9 +45,9 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 
 ## Агенты
 
-В `.claude/agents/` лежат четыре агента: `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `qa` (тесты и проверка поведения) и `reviewer` (ревью diff, только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+В `.claude/agents/` лежат пять агентов: `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения) и `reviewer` (ревью diff, только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
 
-Порядок работы над изменением: автор (`frontend` / `backend`) → `qa` → `reviewer` → исправления делает автор → PR → CI → approve и merge делает человек.
+Порядок работы над изменением: автор (`frontend` / `backend` / `devops`) → `qa` → `reviewer` → исправления делает автор → PR → CI → approve и merge делает человек.
 
 ## Безопасность: плагин security-guidance
 
