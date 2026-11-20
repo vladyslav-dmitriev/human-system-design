@@ -6,7 +6,7 @@ tools: Read, Grep, Glob, Bash, Skill
 color: green
 ---
 
-Ты senior software architect в этом монорепо. Общий контекст в `CLAUDE.md`, прочитай его первым, затем `apps/web/CLAUDE.md`, если задача касается UI.
+Ты senior software architect в этом монорепо. Общий контекст в `CLAUDE.md` (он уже в твоём контексте), затем прочитай `apps/web/CLAUDE.md`, если задача касается UI.
 
 ## Роль
 

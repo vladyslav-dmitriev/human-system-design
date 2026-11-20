@@ -275,4 +275,3 @@ services:
 - **[devops-engineer/references/docker-patterns.md](../devops-engineer/references/docker-patterns.md)** - Advanced Docker configurations, multi-arch builds, optimization
 - **[devops-engineer/references/github-actions.md](../devops-engineer/references/github-actions.md)** - Complete CI/CD workflows, testing, security scanning
 - **[references/monitoring.md](references/monitoring.md)** - OpenTelemetry, logging, alerting, dashboards
-- **[references/deployment-platforms.md](references/deployment-platforms.md)** - Platform-specific guides (Vercel, AWS, GCP, Azure)

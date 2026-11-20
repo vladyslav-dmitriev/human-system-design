@@ -146,4 +146,4 @@ Each rule file contains:
 
 ## Full Compiled Document
 
-For the complete guide with all rules expanded: `AGENTS.md`
+The compiled `AGENTS.md` was removed to save tokens (~30k): read only the individual files in `rules/` that match the task.
