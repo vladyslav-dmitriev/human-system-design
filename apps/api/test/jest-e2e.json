@@ -1,0 +1,34 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts", "tsx"],
+  "rootDir": "..",
+  "roots": ["<rootDir>/test"],
+  "testRegex": ".*\\.e2e-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)sx?$": [
+      "ts-jest",
+      {
+        "diagnostics": false,
+        "tsconfig": {
+          "module": "commonjs",
+          "target": "es2021",
+          "esModuleInterop": true,
+          "allowJs": true,
+          "experimentalDecorators": true,
+          "emitDecoratorMetadata": true,
+          "skipLibCheck": true,
+          "jsx": "react-jsx"
+        }
+      }
+    ]
+  },
+  "transformIgnorePatterns": [
+    "node_modules/\\.pnpm/(?!(@auth\\+core|uuid|@panva\\+hkdf|jose|oauth4webapi|preact|preact-render-to-string)@)"
+  ],
+  "moduleNameMapper": {
+    "^interceptors$": "<rootDir>/src/interceptors",
+    "^(prisma|config|utils|types|emails|modules)/(.*)$": "<rootDir>/src/$1/$2",
+    "^types$": "<rootDir>/src/types"
+  },
+  "testEnvironment": "node",
+  "testTimeout": 30000
+}

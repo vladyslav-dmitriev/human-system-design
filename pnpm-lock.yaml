@@ -461,6 +461,9 @@ importers:
       '@playwright/test':
         specifier: ^1.61.1
         version: 1.61.1
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.19
 
   packages/eslint-config:
     devDependencies:
@@ -12056,7 +12059,7 @@ snapshots:
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 22.19.19
+      '@types/node': 24.12.4
       pg-protocol: 1.14.0
       pg-types: 2.2.0
 
