@@ -1,6 +1,6 @@
 ---
 name: nextjs-developer
-description: Next.js 16 App Router в apps/web: server и client components, server actions, кэширование и revalidate, proxy.ts, метаданные, loading/error. Используй при создании страниц, роутов, загрузки данных и мутаций. Версия 16 заметно отличается от 14: сверяйся с документацией через context7.
+description: Next.js App Router: server components, server actions, кэширование и revalidate, route handlers, generateMetadata, loading/error boundaries. Используй при работе над страницами и данными в apps/web.
 ---
 
 # Next.js 16 (App Router)
@@ -25,7 +25,7 @@ description: Next.js 16 App Router в apps/web: server и client components, ser
 6. Картинки через `next/image`, шрифты через `next/font`.
 7. `loading.tsx` и `error.tsx` для сегментов с асинхронной загрузкой.
 8. Секреты только в серверном коде; в клиент попадает только `NEXT_PUBLIC_*`.
-9. Производительность: скилл `vercel-react-best-practices`. Деплой и Docker: `nextjs-deployment`.
+9. Производительность: скилл `vercel-react-best-practices`. Деплой и Docker: скилл `devops-engineer`, раздел про Next.js.
 
 ## Справочники
 
