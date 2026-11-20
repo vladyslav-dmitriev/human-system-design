@@ -29,7 +29,7 @@ pnpm --filter api start:dev       # api (tsx watch, .env)
 pnpm lint
 pnpm typecheck
 pnpm --filter web test:run        # vitest
-pnpm --filter api typecheck      # tsc, как и web (CI: turbo run typecheck)
+pnpm --filter api typecheck       # tsc (CI: turbo run typecheck)
 pnpm --filter api test            # jest
 pnpm --filter api prisma:generate
 pnpm test:e2e                     # build web + playwright (baseURL http://myapp.local)
@@ -44,7 +44,7 @@ pnpm i18n:sync                                   # Crowdin: выгрузка и 
 pnpm --filter api exec prisma migrate dev --name <name>   # новая миграция
 ```
 
-`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Образцы переменных: `apps/api/.env.example` и `apps/web/.env.example` (копируй в `.env`, значения секретов подставляй свои). Агентам чтение `.env*` запрещено, `.env.example` читать можно. Скиллы лежат в `.claude/skills/` и подключаются агентами сами (список в каждом `.claude/agents/*.md`).
+`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Образцы переменных: `apps/api/.env.example` и `apps/web/.env.example` (копируй в `.env`, значения секретов подставляй свои). Агентам чтение `.env*` запрещено, `.env.example` читать можно.
 
 ## Правила
 
@@ -56,11 +56,11 @@ pnpm --filter api exec prisma migrate dev --name <name>   # новая мигр�
 
 ## Агенты
 
-В `.claude/agents/` лежат восемь агентов: `designer` (UI/UX: спеки экранов в `docs/design/`, дизайн-ревью и a11y; код не пишет), `architect` (необязательный помощник: по запросу основной сессии готовит черновик плана и контракта, только чтение, решений не принимает), `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Модели заданы в frontmatter: `architect` и `security` на `opus` (планирование и поиск уязвимостей), `reviewer` и `qa` на `sonnet`, остальные наследуют модель сессии. Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+В `.claude/agents/` лежат восемь агентов (роли в их `description`): `designer`, `architect` (необязательный, только черновик плана), `frontend`, `backend`, `devops`, `qa`, `reviewer`, `security`. Модели в frontmatter: `architect` и `security` на `opus`, `reviewer` и `qa` на `sonnet`, остальные наследуют модель сессии. Каждый правит только свою зону; изменения в чужой зоне агент не делает, а описывает в отчёте. Зоны: `frontend` — `apps/web`, `packages/ui`, `packages/i18n`; `backend` — `apps/api`; `devops` — Dockerfile, compose, nginx, `.github/workflows`, `infra/`; `designer` — `docs/design/`; `qa` — тесты; `reviewer` и `security` только читают.
 
 Зоны вне `apps/*` и перечисленных выше: `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml` и `.github/actions/**` правит `devops`; `.claude/**` и `CLAUDE.md` правит только человек (или явно по его просьбе основная сессия); `apps/web/CLAUDE.md` читает `frontend`.
 
-Навыки лежат в `.claude/skills/` и подключаются агентами через Skill по необходимости (список в теле каждого агента). Репозиторные: `nestjs-module` (правила модуля Nest в этом проекте), `api-contract` (формат описания контракта web ↔ api) и `design-system` (токены, компоненты, шаблон дизайн-спеки). Плагин дизайнера: `frontend-design` (`.claude/settings.json`). У `designer`, `frontend`, `backend`, `qa` и `devops` включена `memory: project`: их заметки копятся в `.claude/agent-memory/<агент>/` и коммитятся вместе с репозиторием. У `reviewer` и `security` памяти нет, они только читают.
+Навыки лежат в `.claude/skills/`, агенты подключают их через Skill по необходимости (список в теле каждого агента, брать только нужные по задаче: каждый скилл стоит контекста). Репозиторные: `nestjs-module`, `api-contract` (контракт web ↔ api: формат, правила изменения, чек-лист) и `design-system`; остальные взяты из сторонних наборов и адаптированы. Плагины: `context7`, `playwright`, `security-guidance` и для `designer` `frontend-design` (`.claude/settings.json`). У `designer`, `frontend`, `backend`, `qa` и `devops` включена `memory: project`: заметки в `.claude/agent-memory/<агент>/` коммитятся вместе с репозиторием.
 
 ### Архитектура и новая крупная фича
 

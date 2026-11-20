@@ -14,18 +14,19 @@ memory: project
 
 ## Скиллы
 
-Подключай через Skill только те из `.claude/skills/`, что нужны этой задаче (не все подряд):
+Подключай через Skill только те скиллы, что нужны для задачи (не все сразу). Каждый подтягивает десятки килобайт контекста. Список в `.claude/skills/`:
 - `nextjs-developer`: App Router, server components и actions, кэширование, метаданные.
 - `vercel-react-best-practices`: производительность React/Next (при написании и ревью компонентов, загрузки данных, бандла).
 - `tailwind-shadcn`: Tailwind 4, shadcn/Radix, токены, cva, доступность.
 - `next-intl`: переводы, локали, навигация с учётом локали, ключи во всех локалях.
-- `api-contract`: как читать описание эндпоинта от `backend` и как описывать, что нужно от него (формат контракта web ↔ api).
+- `api-contract`: формат контракта web ↔ api, как читать описание эндпоинта от `backend`, `apps/web/api.ts`, обратная совместимость.
 - `next-auth-5`: сессии, защита маршрутов, токены API, редиректы.
 - `stripe-payments`: клиентская часть Stripe (Elements, Checkout), состояния оплаты.
 - `react-hook-form-zod`: формы, схемы, ошибки с i18n, серверные ошибки.
-- `nestjs-swagger-contract`: контракт с api и `apps/web/api.ts`.
 - `web-security`: XSS, редиректы, токены и секреты на клиенте.
 - `unit-testing`: vitest + Testing Library, моки, провайдеры next-intl.
+
+Для сборки и деплоя (standalone, Dockerfile, CI/CD) скиллов нет: опиши нужное в отчёте агенту `devops`.
 
 Если скилл расходится с `CLAUDE.md` или паттернами репозитория (например, FSD-слои, next-intl), приоритет у репозитория.
 

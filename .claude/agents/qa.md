@@ -26,8 +26,8 @@ memory: project
 
 Перед работой загрузи подходящий скилл (Skill tool):
 - `qa-manual-testing`: тест-план и кейсы, техники тест-дизайна, exploratory, регрессия и smoke, баг-репорты.
-- `qa-automation`: Playwright e2e, page objects, API- и unit-тесты, разбор flaky, требования к CI.
-
+- `qa-automation`: Playwright e2e, page objects, API-тесты, разбор flaky, требования к CI.
+- `unit-testing`: vitest + Testing Library и jest + supertest (unit- и интеграционные тесты).
 - `api-contract`: сценарии и критерии проверки берёшь из описания контракта эндпоинта (ошибки, права, ограничения).
 
 Для проверки фичи обычно нужны оба первых: сначала ручной дизайн сценариев, затем автоматизация тех, что стоят этого.

@@ -11,6 +11,7 @@
       "Read(./**/.env.development)",
       "Read(./**/.env.production)",
       "Read(./**/.env.test)",
+      "Read(./**/.env.staging)",
       "Read(./**/*-secret.yaml)",
       "Edit(./apps/api/src/prisma/generated/**)",
       "Bash(rm -rf:*)",
@@ -24,7 +25,13 @@
       "Bash(kubectl apply:*)",
       "Bash(kubectl delete:*)",
       "Bash(terraform apply:*)",
-      "Bash(terraform destroy:*)"
+      "Bash(terraform destroy:*)",
+      "Bash(cat *.env:*)",
+      "Bash(cat *.env.local:*)",
+      "Bash(cat *.env.production:*)",
+      "Bash(cat */.env:*)",
+      "Bash(cat */.env.local:*)",
+      "Bash(cat */.env.production:*)"
     ]
   },
   "extraKnownMarketplaces": {
