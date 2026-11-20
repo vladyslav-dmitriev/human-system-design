@@ -1,6 +1,6 @@
 ---
 name: nestjs-expert
-description: NestJS 11 в apps/api: модули, controller → service → repository, DI и области видимости, DTO и class-validator, guards и JWT/Passport, exception filters, Swagger, unit/e2e-тесты. Используй при создании и ревью модулей, эндпоинтов и auth. Доступ к БД через Prisma (скилл prisma-7).
+description: NestJS 11 в apps/api (в т.ч. структура нового модуля по образцу src/modules/todo): модули, controller → service → repository, DI и области видимости, DTO и class-validator, guards и JWT/Passport, exception filters, Swagger, unit/e2e-тесты. Используй при создании и ревью модулей, эндпоинтов и auth. Доступ к БД через Prisma (скилл prisma-7).
 ---
 
 # NestJS 11 (apps/api)
@@ -17,6 +17,15 @@ description: NestJS 11 в apps/api: модули, controller → service → rep
 6. Тесты: unit для сервисов (`Test.createTestingModule`), e2e для контроллеров.
 7. `pnpm --filter api typecheck`, `lint`, `test`.
 
+## Правила модуля (образец `todo`, без его недостатков: `@ts-ignore`, валидация файлов в контроллере, русские строки в ошибках)
+
+- Файлы: `<name>.module.ts`, `<name>s.controller.ts`, `<name>.service.ts`, `<name>.repository.ts`, `dto/{request/{body,query,params},response,common}/*.dto.ts` + `dto/index.ts`, `index.ts` (`export { <Name>Module }`). Модуль подключай в `AppModule`.
+- Контроллер: `@ApiTags`, `@ApiCookieAuth`, `@UseGuards(AuthGuard, RolesGuard)`, `@Serialize(ResponseDto)` на каждом эндпоинте. Публичный эндпоинт без guard только осознанно, отметь в отчёте.
+- `userId` только через `@GetUser('id')`, никогда из body или query. Чужие данные: проверка владельца в сервисе или фильтр по `userId` в `where` репозитория (защита от IDOR).
+- Prisma только из repository, поля через `select`. DTO: каждое поле с `class-validator` и `@ApiProperty`.
+- Загрузка файлов: тип и размер проверяются, затем `StorageService.upload`; лимиты в константах.
+- Новые env только через `src/config`. Тесты: `*.service.spec.ts` рядом с сервисом (jest), репозиторий мокай; подробности в скилле `unit-testing`.
+
 ## Справочники
 
 | Тема | Файл | Когда |
@@ -29,7 +38,6 @@ description: NestJS 11 в apps/api: модули, controller → service → rep
 | DTO и валидация | `references/dtos-validation.md` | входные данные |
 | Исключения и фильтры | `references/error-exception-filters.md` | формат ошибок |
 | Auth | `references/authentication.md` | JWT, Passport, guards |
-| Тесты | `references/testing-patterns.md` | jest, supertest |
 
 Шаблоны: `assets/templates/` (controller, module, service).
 

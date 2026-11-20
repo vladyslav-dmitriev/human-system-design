@@ -29,14 +29,7 @@ description: Next.js App Router: server components, server actions, кэширо
 
 ## Справочники
 
-Предыдущие версии текстов лежат в `references/` и написаны под Next 14. Используй их как общие объяснения, а детали API проверяй:
-
-| Тема | Файл |
-|---|---|
-| Роутинг, layouts, route groups | `references/app-router.md` |
-| RSC, стриминг, границы клиента | `references/server-components.md` |
-| Server actions, формы, revalidate | `references/server-actions.md` |
-| Загрузка и кэширование данных | `references/data-fetching.md` |
+Локальных справочников нет (прежние были под Next 14 и вводили в заблуждение, например про кэш `fetch` по умолчанию). Детали API берись из документации через context7.
 
 ## Перед сдачей
 
