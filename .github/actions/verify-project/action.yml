@@ -22,13 +22,15 @@ runs:
       shell: bash
       run: pnpm install --frozen-lockfile
 
+    # Prisma Client must exist before lint/typecheck: without it
+    # PrismaService has no model delegates and every repository fails
+    - name: Generate Prisma Client
+      shell: bash
+      run: pnpm --filter api prisma:generate
+
     - name: Lint
       shell: bash
       run: pnpm turbo run lint
-
-    # - name: Generate Prisma Client
-    #   run: pnpm --filter=api prisma generate || true
-    #   shell: bash
 
     - name: Typecheck
       shell: bash
