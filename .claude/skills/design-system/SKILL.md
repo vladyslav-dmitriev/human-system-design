@@ -5,12 +5,12 @@ description: Дизайн-система проекта (shadcn new-york, neutra
 
 # Дизайн-система проекта
 
-Источники истины: `apps/web/CLAUDE.md` (Figma-файл, соответствие компонент ↔ код, токены), `apps/web/shared/styles/globals.css` (CSS-переменные), `apps/web/components/ui` (компоненты), `apps/web/components.json` (shadcn: new-york, neutral, lucide).
+Источники истины: `apps/web/CLAUDE.md` (соответствие компонент ↔ код, токены), `apps/web/shared/styles/globals.css` (CSS-переменные), `apps/web/components/ui` (компоненты), `apps/web/components.json` (shadcn: new-york, neutral, lucide).
 
 ## Правила
 
-- Токены Figma `color/<name>` ↔ CSS `--<name>` ↔ Tailwind-класс. Новый цвет сначала добавляется как токен (в обеих темах: светлая и `.dark`), затем используется.
-- Компонент берётся из `components/ui`. Новый компонент добавляется в Figma-кит и в таблицу соответствия в `apps/web/CLAUDE.md` одновременно с кодом (это делает `frontend`, дизайнер описывает).
+- Токены `color/<name>` ↔ CSS `--<name>` ↔ Tailwind-класс. Новый цвет сначала добавляется как токен (в обеих темах: светлая и `.dark`), затем используется.
+- Компонент берётся из `components/ui`. Новый компонент добавляется в таблицу соответствия в `apps/web/CLAUDE.md` одновременно с кодом (это делает `frontend`, дизайнер описывает).
 - Иконки только lucide. Шрифт Geist. Радиусы через токены (`rounded-md` и т. п.).
 - Каждый экран продумывается в светлой и тёмной теме, mobile и desktop.
 - Тексты: i18n-ключи, учитывать запас под длинные строки (немецкий, русский).
@@ -29,10 +29,10 @@ description: Дизайн-система проекта (shadcn new-york, neutra
 
 ```
 # <Фича>
-Figma: <ссылка на фрейм>
+Макет/прототип: <ссылка или путь>
 Цель и пользователь: ...
 Флоу: шаги, ветки ошибок
-Экраны/компоненты: <Figma-компонент> → <код-компонент из components/ui>, новые компоненты
+Экраны/компоненты: <элемент UI> → <код-компонент из components/ui>, новые компоненты
 Состояния: default / loading / empty / error / disabled / success
 Адаптив: mobile, desktop, поведение при переполнении
 Тексты (i18n): ключ → en / ru / ...

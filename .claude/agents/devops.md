@@ -16,8 +16,7 @@ memory: project
 ## Скиллы
 
 Перед работой подключай через Skill:
-- `devops-engineer`: Docker, CI/CD, Kubernetes, Terraform, релизы, инциденты.
-- `nextjs-deployment`: standalone-сборка, multi-stage Docker, health checks, мониторинг Next.js.
+- `devops-engineer`: Docker, compose, GitHub Actions, k8s/Helm/ArgoCD, выкат и откат, сборка Next.js standalone (справочники в `references/`).
 
 Если скилл расходится с `CLAUDE.md` или текущими паттернами репозитория, приоритет у репозитория.
 
