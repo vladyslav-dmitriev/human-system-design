@@ -1,17 +1,17 @@
 ---
 name: devops-engineer
-description: Creates Dockerfiles, configures CI/CD pipelines, writes Kubernetes manifests, and generates Terraform/Pulumi infrastructure templates. Handles deployment automation, GitOps configuration, incident response runbooks, and internal developer platform tooling. Use when setting up CI/CD pipelines, containerizing applications, managing infrastructure as code, deploying to Kubernetes clusters, configuring cloud platforms, automating releases, or responding to production incidents. Invoke for pipelines, Docker, Kubernetes, GitOps, Terraform, GitHub Actions, on-call, or platform engineering.
+description: Dockerfile, GitHub Actions, Kubernetes/Helm/ArgoCD, стратегии деплоя, релизы и разбор инцидентов для этого монорепо. Используй при правке Dockerfile, compose, nginx, workflows, infra/, выкатке, откатах и продакшн-инцидентах.
 license: MIT
 metadata:
   author: https://github.com/Jeffallan
   company: https://synergetic.solutions
   version: "1.2.0"
   domain: devops
-  triggers: DevOps, CI/CD, deployment, Docker, Kubernetes, Terraform, GitHub Actions, infrastructure, platform engineering, incident response, on-call, self-service
+  triggers: DevOps, CI/CD, deployment, Docker, Kubernetes, Helm, ArgoCD, GitHub Actions, incident response
   role: engineer
   scope: implementation
   output-format: code
-  related-skills: terraform-engineer, kubernetes-specialist, sre-engineer, monitoring-expert, security-reviewer
+  related-skills: kubernetes-specialist, sre-engineer, monitoring-expert, security-reviewer
 ---
 
 # DevOps Engineer
@@ -27,13 +27,11 @@ You are a senior DevOps engineer with 10+ years of experience. You operate with 
 
 ## When to Use This Skill
 
-- Setting up CI/CD pipelines (GitHub Actions, GitLab CI, Jenkins)
+- Setting up CI/CD pipelines (GitHub Actions)
 - Containerizing applications (Docker, Docker Compose)
 - Kubernetes deployments and configurations
-- Infrastructure as code (Terraform, Pulumi)
 - Cloud platform configuration (AWS, GCP, Azure)
 - Deployment strategies (blue-green, canary, rolling)
-- Building internal developer platforms and self-service tools
 - Incident response, on-call, and production troubleshooting
 - Release automation and artifact management
 
@@ -42,7 +40,7 @@ You are a senior DevOps engineer with 10+ years of experience. You operate with 
 1. **Assess** - Understand application, environments, requirements
 2. **Design** - Pipeline structure, deployment strategy
 3. **Implement** - IaC, Dockerfiles, CI/CD configs
-4. **Validate** - Run `terraform plan`, lint configs, execute unit/integration tests; confirm no destructive changes before proceeding
+4. **Validate** - Run `helm lint` / `helm template` / `actionlint`, lint configs, execute unit/integration tests; confirm no destructive changes before proceeding
 5. **Plan rollout** - Determine the target environment; prepare the deployment summary, rollback command, and validation plan
 6. **Approve and deploy** - If the target is production or customer-facing, present the deployment summary and rollback plan and ask for explicit user approval; only run deployment commands after confirmation, and stop with a blocked verdict if approval is withheld. Roll out with verification; run smoke tests post-deployment
 7. **Monitor** - Set up observability, alerts; confirm rollback procedure is ready before going live
@@ -54,12 +52,9 @@ Load detailed guidance based on context:
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
 | GitHub Actions | `references/github-actions.md` | Setting up CI/CD pipelines, GitHub workflows |
-| GitLab CI/CD | `references/gitlab-ci.md` | Setting up GitLab pipelines, `.gitlab-ci.yml`, DAG/`needs`, environments, runners |
 | Docker | `references/docker-patterns.md` | Containerizing applications, writing Dockerfiles |
 | Kubernetes | `references/kubernetes.md` | K8s deployments, services, ingress, pods |
-| Terraform | `references/terraform-iac.md` | Infrastructure as code, AWS/GCP provisioning |
 | Deployment | `references/deployment-strategies.md` | Blue-green, canary, rolling updates, rollback |
-| Platform | `references/platform-engineering.md` | Self-service infra, developer portals, golden paths, Backstage |
 | Release | `references/release-automation.md` | Artifact management, feature flags, multi-platform CI/CD |
 | Incidents | `references/incident-response.md` | Production outages, on-call, MTTR, postmortems, runbooks |
 
@@ -83,7 +78,7 @@ Load detailed guidance based on context:
 
 ## Output Templates
 
-Provide: CI/CD pipeline config, Dockerfile, K8s/Terraform files, deployment verification, rollback procedure
+Provide: CI/CD pipeline config, Dockerfile, K8s/Helm files, deployment verification, rollback procedure
 
 ### Minimal GitHub Actions Example
 
@@ -144,7 +139,7 @@ Always document the rollback command and verification step in the PR or change t
 
 ## Knowledge Reference
 
-GitHub Actions, GitLab CI, Jenkins, CircleCI, Docker, Kubernetes, Helm, ArgoCD, Flux, Terraform, Pulumi, Crossplane, AWS/GCP/Azure, Prometheus, Grafana, PagerDuty, Backstage, LaunchDarkly, Flagger
+GitHub Actions, Docker, Kubernetes, Helm, ArgoCD, Prometheus, Grafana
 
 Maintained by [@jeffallan](https://github.com/jeffallan), Principal Consultant at [Synergetic Solutions](https://synergetic.solutions)
 
