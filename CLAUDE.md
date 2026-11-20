@@ -27,17 +27,28 @@ pnpm dev                          # все приложения через turbo
 pnpm --filter web dev             # web на :3000
 pnpm --filter api start:dev       # api (tsx watch, .env)
 pnpm lint
-pnpm check-types
+pnpm typecheck
 pnpm --filter web test:run        # vitest
+pnpm --filter api typecheck      # tsc, как и web (CI: turbo run typecheck)
 pnpm --filter api test            # jest
 pnpm --filter api prisma:generate
 pnpm test:e2e                     # build web + playwright (baseURL http://myapp.local)
 docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 ```
 
+## Прочие команды и окружение
+
+```bash
+pnpm format                                      # prettier по всему монорепо
+pnpm i18n:sync                                   # Crowdin: выгрузка и загрузка переводов
+pnpm --filter api exec prisma migrate dev --name <name>   # новая миграция
+```
+
+`apps/api` читает переменные из `apps/api/.env` (`start:dev` через dotenv), `apps/web` из `apps/web/.env*`. Образцы переменных: `apps/api/.env.example` и `apps/web/.env.example` (копируй в `.env`, значения секретов подставляй свои). Агентам чтение `.env*` запрещено, `.env.example` читать можно. Скиллы лежат в `.claude/skills/` и подключаются агентами сами (список в каждом `.claude/agents/*.md`).
+
 ## Правила
 
-- Перед тем как сказать «готово», прогоняйте `check-types`, `lint` и тесты затронутого пакета.
+- Перед тем как сказать «готово», прогоняйте `typecheck`, `lint` и тесты затронутого пакета.
 - Контракт между web и api — это эндпоинты Nest (Swagger). Меняете контракт — обновляйте обе стороны и `apps/web/api.ts` в одном изменении, либо явно опишите, что осталось другой стороне.
 - Пользовательские тексты только через i18n (`packages/i18n/src/messages`), без строк, захардкоженных в компонентах.
 - Секреты и токены не коммитить. `.env*` в `.gitignore`.
@@ -45,13 +56,15 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 
 ## Агенты
 
-В `.claude/agents/` лежат шесть агентов: `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+В `.claude/agents/` лежат семь агентов: `architect` (необязательный помощник: по запросу основной сессии готовит черновик плана и контракта, только чтение, решений не принимает), `frontend` (`apps/web`, `packages/ui`, `packages/i18n`), `backend` (`apps/api`), `devops` (Dockerfile, compose, nginx, `.github/workflows`, `infra/`), `qa` (тесты и проверка поведения), `reviewer` (ревью diff, только чтение) и `security` (проверка безопасности diff: авторизация, IDOR, секреты, зависимости; только чтение). Модели заданы в frontmatter: `architect` и `security` на `opus` (планирование и поиск уязвимостей), `reviewer` и `qa` на `sonnet`, остальные наследуют модель сессии. Каждый правит только свою зону. Изменения в чужой зоне агент не делает, а описывает в отчёте.
+
+Зоны вне `apps/*` и перечисленных выше: `packages/eslint-config`, `packages/typescript-config`, корневые `package.json`, `turbo.json`, `pnpm-workspace.yaml` и `.github/actions/**` правит `devops`; `.claude/**` и `CLAUDE.md` правит только человек (или явно по его просьбе основная сессия); `apps/web/CLAUDE.md` читает `frontend`.
 
 Навыки лежат в `.claude/skills/` и подключаются агентами через Skill по необходимости (список в теле каждого агента). Репозиторные: `nestjs-module` (правила модуля Nest в этом проекте) и `api-contract` (формат описания контракта web ↔ api). У `frontend`, `backend`, `qa` и `devops` включена `memory: project`: их заметки копятся в `.claude/agent-memory/<агент>/` и коммитятся вместе с репозиторием. У `reviewer` и `security` памяти нет, они только читают.
 
 ### Архитектура и новая крупная фича
 
-Архитектурные решения принимает основная сессия вместе с пользователем в plan mode, а не сабагенты: они не ведут диалог и не вызывают друг друга. Порядок:
+Архитектурные решения принимает основная сессия вместе с пользователем в plan mode, а не сабагенты: они не ведут диалог и не вызывают друг друга. Агент `architect` можно вызвать из основной сессии только для чернового плана, обсуждает и утверждает его всё равно основная сессия. Порядок:
 
 1. Требования и обсуждение в основной сессии (`Explore` по необходимости, чтобы изучить код).
 2. План и архитектура. Результат записывается в файл (например `docs/<feature>.md`): решения, структура, модель данных, контракт API по образцу навыка `api-contract`, критерии приёмки, что нужно от `devops`, если меняются инфраструктура или окружение.
@@ -65,11 +78,4 @@ docker compose up -d              # postgres, redis, rabbitmq, nginx, pgadmin
 
 Автор (`frontend` / `backend` / `devops`) → `qa` → `reviewer` (+ `security`, если затронуты auth, платежи, загрузки или доступ к данным) → исправления делает автор → PR → CI → approve и merge делает человек.
 
-## Безопасность: плагин security-guidance
-
-В `.claude/settings.json` включён плагин `security-guidance@claude-plugins-official`. Сейчас его платные LLM-ревью выключены (`"ENABLE_CODE_SECURITY_REVIEW": "0"` в `env`), чтобы не тратить токены. Работает только бесплатный слой: при каждом `Edit` / `Write` плагин предупреждает об опасных паттернах (секреты в коде, `innerHTML`, небезопасная десериализация и т. п.). Если плагин выдал предупреждение, агент исправляет проблему до того, как сдавать работу.
-
-Выключенные слои: LLM-ревью diff в конце каждого хода и агентное ревью на `git commit` (ищет IDOR, обход авторизации, SSRF). Оба по умолчанию работают на Opus.
-- Включить оба: удалить `ENABLE_CODE_SECURITY_REVIEW` из `env`.
-- Включить только ревью на коммит (дешевле): вместо этого поставить `"ENABLE_STOP_REVIEW": "0"`.
-- Выключить плагин целиком, вместе с предупреждениями: `"SECURITY_GUIDANCE_DISABLE": "1"`.
+Команды в `.claude/commands/`: `/feature <описание>` (весь конвейер), `/review` (reviewer + security), `/verify` (typecheck, lint, тесты затронутых пакетов). Хук `.claude/hooks/protect-applied-migrations.sh` блокирует правку уже закоммиченных миграций Prisma, хук `format-prettier.sh` форматирует каждый изменённый `ts/tsx/js/json/css` файл prettier'ом (у `apps/api` свой `.prettierrc`, у остальных дефолты; если prettier не установлен, пропускает), а `permissions.deny` в `.claude/settings.json` закрывает чтение `.env*` и секретов и опасные команды.

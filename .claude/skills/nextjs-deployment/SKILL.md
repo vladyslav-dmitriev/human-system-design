@@ -71,7 +71,7 @@ export default nextConfig
 
 ### 2. Create Dockerfile
 
-See [references/docker-patterns.md](references/docker-patterns.md) for complete multi-stage builds, multi-arch support, and optimization.
+See [devops-engineer/references/docker-patterns.md](../devops-engineer/references/docker-patterns.md) for complete multi-stage builds, multi-arch support, and optimization.
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -108,7 +108,7 @@ CMD ["node", "server.js"]
 
 ### 3. Set Up GitHub Actions
 
-See [references/github-actions.md](references/github-actions.md) for complete workflows with testing, security scanning, and deployment strategies.
+See [devops-engineer/references/github-actions.md](../devops-engineer/references/github-actions.md) for complete workflows with testing, security scanning, and deployment strategies.
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -272,7 +272,7 @@ services:
 
 ## References
 
-- **[references/docker-patterns.md](references/docker-patterns.md)** - Advanced Docker configurations, multi-arch builds, optimization
-- **[references/github-actions.md](references/github-actions.md)** - Complete CI/CD workflows, testing, security scanning
+- **[devops-engineer/references/docker-patterns.md](../devops-engineer/references/docker-patterns.md)** - Advanced Docker configurations, multi-arch builds, optimization
+- **[devops-engineer/references/github-actions.md](../devops-engineer/references/github-actions.md)** - Complete CI/CD workflows, testing, security scanning
 - **[references/monitoring.md](references/monitoring.md)** - OpenTelemetry, logging, alerting, dashboards
 - **[references/deployment-platforms.md](references/deployment-platforms.md)** - Platform-specific guides (Vercel, AWS, GCP, Azure)
