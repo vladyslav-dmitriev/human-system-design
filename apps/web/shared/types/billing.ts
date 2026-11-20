@@ -7,6 +7,14 @@ export type PaymentMethod = {
   isDefault: boolean;
 };
 
+/** Данные для оплаты на checkout (api: finance checkout / subscriptions upgrade) */
+export type CheckoutPaymentData = {
+  clientSecret: string;
+  amount: number;
+  currency: string;
+  productName: string;
+};
+
 /** Цена/продукт из GET billing/products (api: ProductMapper.toDomain) */
 export type BillingProduct = {
   priceId: string;

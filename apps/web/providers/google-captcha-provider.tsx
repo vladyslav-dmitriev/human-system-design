@@ -2,6 +2,17 @@
 
 import { useEffect } from "react";
 
+type ReCaptcha = {
+  ready(callback: () => void): void;
+  execute(siteKey: string | undefined, options: { action: string }): Promise<string>;
+};
+
+declare global {
+  interface Window {
+    grecaptcha?: ReCaptcha;
+  }
+}
+
 export const GoogleCaptchaProvider = ({
   children,
   siteKey,
@@ -24,14 +35,16 @@ export const GoogleCaptchaProvider = ({
 
 export const executeRecaptcha = async (action: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    if (!(window as any).grecaptcha) {
+    const grecaptcha = window.grecaptcha;
+
+    if (!grecaptcha) {
       reject(new Error("reCAPTCHA script is not loaded"));
       return;
     }
 
-    (window as any).grecaptcha.ready(async () => {
+    grecaptcha.ready(async () => {
       try {
-        const token = await (window as any).grecaptcha.execute(
+        const token = await grecaptcha.execute(
           process.env.NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY,
           { action },
         );

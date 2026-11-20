@@ -115,6 +115,8 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       {/* Блок локального превью изображения */}
       {previewUrl && (
         <div className="relative w-full h-48 rounded-lg overflow-hidden border bg-muted group">
+          {/* blob: URL локального превью, next/image его не оптимизирует */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
             alt="Preview"

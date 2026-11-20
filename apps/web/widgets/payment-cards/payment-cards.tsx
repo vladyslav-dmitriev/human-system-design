@@ -17,7 +17,6 @@ import {
 import { useTranslations } from "next-intl";
 import { PaymentMethod } from "@/shared/types/billing";
 import { API_URL } from "@/api";
-import { getPaymentMethods } from "@/utils";
 
 type PaymentCardsProps = {
   autoRenew: boolean;
@@ -32,6 +31,27 @@ export const PaymentCards = ({
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Перечитываем список карт после добавления (utils.getPaymentMethods
+  // серверный — использует next/headers, в клиентском компоненте нельзя)
+  const refreshCards = async () => {
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(API_URL.billing.paymentMethods(), {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        setCards((await res.json()) as PaymentMethod[]);
+      }
+    } catch (error) {
+      console.error("Failed to refresh payment methods:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const t = useTranslations();
 
@@ -152,14 +172,9 @@ export const PaymentCards = ({
             <Elements stripe={stripePromise}>
               <AddCardForm
                 onSuccess={async () => {
-                  // setIsLoading(true);
-
-                  // const data = await getPaymentMethods();
-                  // setCards(data);
-
-                  // setIsLoading(false);
                   setShowAddForm(false);
                   toast.success(t("payment_methods_message_attached"));
+                  await refreshCards();
                 }}
               />
             </Elements>

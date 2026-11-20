@@ -5,7 +5,6 @@ import {
   CardNumberElement,
   CardExpiryElement,
   CardCvcElement,
-  PaymentRequestButtonElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
@@ -15,11 +14,16 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { Button } from "@/components/ui/button";
+import type { PaymentIntentResult } from "@stripe/stripe-js";
+import type {
+  CheckoutPaymentData,
+  PaymentMethod,
+} from "@/shared/types/billing";
 
 type CheckoutFormContentProps = {
   userEmail?: string;
-  paymentMethods: any[];
-  paymentData: any;
+  paymentMethods: PaymentMethod[];
+  paymentData: CheckoutPaymentData;
 };
 
 export function CheckoutFormContent({
@@ -31,7 +35,6 @@ export function CheckoutFormContent({
   const [email, setEmail] = useState(userEmail || "");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [paymentRequest, setPaymentRequest] = useState<any>(null); // Тип зависит от Stripe SDK
 
   const [isCardComplete, setIsCardComplete] = useState({
     cardNumber: false,
@@ -48,7 +51,7 @@ export function CheckoutFormContent({
     paymentMethods?.[0]?.id || null,
   );
 
-  const handleCardChange = (event: any, field: string) => {
+  const handleCardChange = (event: { complete: boolean }, field: string) => {
     setIsCardComplete((prev) => ({ ...prev, [field]: event.complete }));
   };
 
@@ -98,12 +101,13 @@ export function CheckoutFormContent({
     }
   };
 
-  const handleResult = (result: any) => {
+  const handleResult = (result: PaymentIntentResult) => {
     setLoading(false);
     if (result.error) {
       setErrorMessage(
-        t("checkout_payment_failed", { error: result.error.message }),
+        t("checkout_payment_failed", { error: result.error.message ?? "" }),
       );
+      return;
     }
 
     if (result.paymentIntent.status === "succeeded") {
@@ -269,9 +273,6 @@ export function CheckoutFormContent({
         )}
       </Button>
 
-      {paymentRequest && (
-        <PaymentRequestButtonElement options={{ paymentRequest }} />
-      )}
     </form>
   );
 }

@@ -10,7 +10,7 @@ import {
   CardCvcElement,
 } from "@stripe/react-stripe-js";
 
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StripeCardElementOptions } from "@stripe/stripe-js";
 import { useTranslations } from "next-intl";

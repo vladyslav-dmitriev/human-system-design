@@ -1,13 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Link2,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Github,
-} from "lucide-react";
+import { Link2, Loader2, Github } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {

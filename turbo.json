@@ -1,7 +1,8 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "globalEnv": [
-    "NODE_ENV"
+    "NODE_ENV",
+    "NEXTAUTH_SECRET"
   ],
   "ui": "tui",
   "tasks": {

@@ -13,6 +13,7 @@ import {
 import { AutoRenewToggle } from "./auto-renew-toggle";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
+import { getErrorMessage } from "@/shared/lib/error";
 
 interface SubscriptionRenewBlockProps {
   // Stripe subscription status: active, past_due, canceled, trialing, ...
@@ -57,9 +58,9 @@ export function SubscriptionRenew({
           ? t("auto_renew_message_turned_off")
           : t("auto_renew_message_restored"),
       );
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Не удалось изменить настройки", {
-        description: error.message,
+        description: getErrorMessage(error),
       });
     } finally {
       setIsLoading(false);

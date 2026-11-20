@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getErrorMessage } from "@/shared/lib/error";
 
 interface SubscriptionCancelBlockProps {
   status: string | null;
@@ -42,8 +43,8 @@ export function SubscriptionCancel({ status }: SubscriptionCancelBlockProps) {
       toast.success("Подписка успешно аннулирована", {
         description: "Ваш аккаунт переведен на бесплатный тарифный план.",
       });
-    } catch (error: any) {
-      toast.error("Ошибка отмены", { description: error.message });
+    } catch (error) {
+      toast.error("Ошибка отмены", { description: getErrorMessage(error) });
     } finally {
       setIsLoading(false);
     }

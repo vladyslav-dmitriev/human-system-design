@@ -30,7 +30,7 @@ export function AuthForgotPassword() {
     formState: { errors },
   } = useForm<ForgotPasswordInputs>();
 
-  const onSubmit = async (data: ForgotPasswordInputs) => {
+  const onSubmit = async () => {
     setIsLoading(true);
     // Имитация API запроса
     await new Promise((resolve) => setTimeout(resolve, 1500));
