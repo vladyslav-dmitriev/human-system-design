@@ -149,6 +149,33 @@ kubectl rollout status deployment/argocd-server \
 # --timeout=300s || true
 
 ########################################
+# Grafana admin secret (пароль не хранится в git)
+########################################
+
+echo ""
+echo "Ensuring Grafana admin secret..."
+
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+if ! kubectl -n monitoring get secret grafana-admin >/dev/null 2>&1; then
+    GRAFANA_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=')"
+
+    if [ -z "$GRAFANA_PASSWORD" ]; then
+        echo "❌ Failed to generate Grafana password."
+        exit 1
+    fi
+
+    # пароль через stdin/файл, а не аргументом, чтобы не светился в списке процессов
+    kubectl -n monitoring create secret generic grafana-admin \
+    --from-literal=admin-user=admin \
+    --from-file=admin-password=<(printf '%s' "$GRAFANA_PASSWORD")
+    unset GRAFANA_PASSWORD
+    echo "Created secret monitoring/grafana-admin"
+else
+    echo "Secret monitoring/grafana-admin already exists."
+fi
+
+########################################
 # Apply GitOps bootstrap
 ########################################
 
@@ -214,4 +241,10 @@ echo ""
 
 echo "username: admin"
 
+echo ""
+
+echo ""
+echo "Grafana password:"
+echo "kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 --decode"
+echo "Open Grafana: kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80"
 echo ""

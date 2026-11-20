@@ -1,9 +1,35 @@
-grafana:
-  adminPassword: admin
+# Где Prometheus ищет API для алерта ApiMetricsTargetDown
+# (job = имя Service чарта app, namespace = namespace приложения app из ArgoCD)
+apiMonitoring:
+  namespace: production
+  job: app
 
-prometheus:
-  prometheusSpec:
-    retention: 7d
+# Значения для сабчарта kube-prometheus-stack (обёртка => всё под ключом сабчарта).
+kube-prometheus-stack:
+  grafana:
+    # Пароль НЕ хранится в git: секрет создаёт infra/scripts/bootstrap.sh
+    # (kubectl -n monitoring create secret generic grafana-admin ...)
+    admin:
+      existingSecret: grafana-admin
+      userKey: admin-user
+      passwordKey: admin-password
+    persistence:
+      enabled: false
+    # sidecar подхватывает ConfigMap с лейблом grafana_dashboard из любых namespace
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        searchNamespace: ALL
 
-alertmanager:
-  enabled: false
+  prometheus:
+    prometheusSpec:
+      retention: 7d
+      # Подхватывать ServiceMonitor / PrometheusRule из любых namespace и без лейбла release
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+  alertmanager:
+    enabled: true
+    # TODO: настроить receivers (Slack/Telegram/email), пока алерты видны только в UI

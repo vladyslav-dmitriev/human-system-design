@@ -13,7 +13,7 @@ import { StorageModule } from './storage';
 import { UserModule } from './user';
 import { PdfModule } from './pdf';
 import { RedisModule } from './redis';
-import { MetricsController, MetricsModule } from './metrics';
+import { MetricsModule } from './metrics';
 import { CacheModule } from './cache';
 import { FinanceModule } from './billing/finance';
 import { PaymentsModule } from './billing/payments';
@@ -121,7 +121,7 @@ import { RabbitMQModule } from './rabbitmq';
     TodoModule,
     PdfModule,
   ],
-  controllers: [MetricsController, AppController],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
