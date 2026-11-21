@@ -5,6 +5,9 @@ api:
     repository: human-system-design-api
     tag: local
     pullPolicy: Never
+  # Реальные сторонние ключи (reCAPTCHA, Stripe test, почта) поверх плейсхолдеров из app-api.
+  # Создаёт пользователь сам, см. docs/k8s-deploy.md, фаза 3. Нет Secret - работают плейсхолдеры.
+  overridesSecret: app-api-overrides
 
 web:
   image:

@@ -27,6 +27,8 @@ api:
   #   REDIS_URL=redis://:<password>@redis:6379
   #   RABBITMQ_URL=amqp://<user>:<password>@rabbitmq:5672/
   existingSecret: app-api
+  # Необязательный Secret, перекрывающий ключи existingSecret (подключается с optional: true). Пусто - не подключается.
+  overridesSecret: ""
   env: [] # дополнительные env в формате контейнера (name/value)
   resources:
     requests:

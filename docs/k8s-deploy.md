@@ -77,23 +77,26 @@
 | `pnpm k8s:up` / `pnpm k8s:deploy` | `infra/scripts/local-up.sh`: сборка образов на хосте, старт кластера (если не запущен), Traefik, Secret'ы, TLS, `helm upgrade --install` для `deps`, затем `app`. Повторный запуск пересобирает образы и обновляет релиз |
 | `pnpm k8s:secrets [-- --force]` | `local-secrets.sh`: Secret'ы `app-deps`, `app-api`, `app-web` со случайными значениями (не печатаются), существующие не перезаписываются |
 | `pnpm k8s:check` | `local-check.sh`: проверка маршрутов, закрытых путей, заголовков, лимитов тела и NetworkPolicy |
+| `pnpm k8s:proxy [-- stop]` | `local-proxy.sh`: доступ на `https://myapp.local` (127.0.0.1:80/443) без sudo |
 | `pnpm k8s:down` | `local-down.sh`: `minikube delete` с подтверждением (`-- --yes` без вопроса); данные БД удаляются |
 
 Как устроено:
 - Профиль `human-system-design`, `--driver=docker --cni=calico` (Calico нужен, чтобы работали NetworkPolicy). Ресурсы: `MINIKUBE_CPUS` (по умолчанию 3) и `MINIKUBE_MEMORY` в МБ (по умолчанию 4000). Docker Desktop должен иметь больше памяти, чем `MINIKUBE_MEMORY`.
 - Образы собираются на хосте ДО старта кластера (сборка Next и minikube вместе не помещаются в ~5 ГБ Docker Desktop), потом `minikube image load`. Тег `local`, `pullPolicy: Never`. id образов кладётся в аннотацию подов, поэтому пересборка приводит к rollout без ручного `rollout restart`.
 - Traefik v3 ставится из официального чарта `https://traefik.github.io/charts` (версия закреплена в скрипте) в namespace `traefik`, Service LoadBalancer 80/443.
-- TLS: самоподписанный сертификат `myapp.local` (SAN) создаётся через openssl в Secret `app-tls`. Ingress с TLS слушает только `websecure`, а Secure-cookie next-auth на http не сохранится, поэтому локально всё идёт по https. Чтобы браузер доверял, можно выпустить сертификат через mkcert (`mkcert -install` меняет системное хранилище, скрипт его не запускает).
-- Доступ из браузера: строка `127.0.0.1 myapp.local` в `/etc/hosts` и в отдельном терминале `minikube -p human-system-design tunnel` (нужен sudo для портов 80/443). Перед этим остановить compose (порт 80). `pnpm k8s:check` работает без sudo и `/etc/hosts`: port-forward на Traefik и `curl --resolve`.
+- TLS: Secret `app-tls` для `myapp.local`. Если установлен mkcert, сертификат выпускается им (доверенный после `mkcert -install`), иначе самоподписанный через openssl. Самоподписанный браузер и Playwright не принимают (`ERR_CERT_AUTHORITY_INVALID`), поэтому для ручной проверки и e2e нужен mkcert: один раз `brew install mkcert && mkcert -install` (меняет системное хранилище доверия, делает пользователь), затем `REGENERATE_TLS=1 pnpm k8s:up`. Ingress с TLS слушает только `websecure` (http даёт 404), а Secure-cookie next-auth на http не сохранится, поэтому локально всё идёт по https.
+- Доступ из браузера: строка `127.0.0.1 myapp.local` в `/etc/hosts` и `pnpm k8s:proxy`. Это контейнер с socat, который Docker Desktop публикует на `127.0.0.1:80/443` (без sudo, из локальной сети не виден) и который пересылает трафик на NodePort Traefik. Альтернатива: `minikube -p human-system-design tunnel` в отдельном терминале (просит sudo). Перед этим остановить compose (порт 80). `pnpm k8s:check` работает без прокси: port-forward на Traefik и `curl --resolve`.
 - `values-local.yaml` включает `ENABLE_METRICS: "true"`, чтобы проверка блокировки `/api/metrics` была честной (404 отдаёт Traefik, а не выключенный api). В prod не включать.
-- Реальные ключи (Stripe и т.п.) пользователь подставляет сам, значения в скриптах не хранятся:
+- Реальные сторонние ключи (reCAPTCHA, Stripe test, почта, S3, Twilio). Регистрация и вход проверяют настоящую reCAPTCHA v3, поэтому с плейсхолдерами они не работают. Ключи переносит сам пользователь, значения не печатаются, не попадают в git и не проходят через агентов. Секретные ключи api кладутся в необязательный Secret `app-api-overrides` (`api.overridesSecret` в `values-local.yaml`), он перекрывает плейсхолдеры `app-api`:
 
 ```bash
-kubectl --context human-system-design -n app patch secret app-api --type merge \
-  -p '{"stringData":{"STRIPE_SECRET_KEY":"sk_test_...","STRIPE_WEBHOOK_SECRET":"whsec_..."}}'
+# из корня основного checkout: пустые значения пропускаются, кавычки в .env переносятся как есть
+grep -E '^(GOOGLE_CAPTCHA_SECRET_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|AWS_REGION|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_S3_BUCKET_NAME|EMAIL_PROVIDER|EMAIL_FROM|SENDGRID_API_KEY|RESEND_API_KEY|TWILIO_SID|TWILIO_AUTH_TOKEN|TWILIO_VERIFY_SERVICE_SID)=.+' apps/api/.env \
+  | kubectl --context human-system-design -n app create secret generic app-api-overrides --from-env-file=/dev/stdin --dry-run=client -o yaml \
+  | kubectl --context human-system-design apply -f -
 kubectl --context human-system-design -n app rollout restart deploy/app-api
 ```
-- `NEXT_PUBLIC_*` вшиваются в образ web при сборке (`https://myapp.local/api`, `http://api:3001`), для других значений нужна пересборка.
+- `NEXT_PUBLIC_*` вшиваются в образ web при сборке. URL API скрипт задаёт сам (`https://myapp.local/api`, `http://api:3001`), а публичные ключи (reCAPTCHA site key, Stripe `pk_test`, Turnstile, Amplitude, GrowthBook) берёт из окружения. Пересборка с ключами из `apps/web/.env`: `(set -a; . apps/web/.env; set +a; pnpm k8s:deploy)`. Ключи reCAPTCHA должны разрешать домен `myapp.local`.
 - Проверка обходов закрытых путей на живом Traefik и NetworkPolicy входят в `pnpm k8s:check` (29 проверок, все проходят). `/api/metrics` и прочие внутренние пути закрывает только middleware `block-internal` (отдельного правила в web Ingress нет: оно давало 308 на `/api/metrics/`). `/apimetrics` уходит в web, как `location /` в nginx; метрик в ответе нет.
 - Занято памяти после `pnpm k8s:up`: около 1.7 ГиБ из 3.9 ГиБ узла minikube.
 

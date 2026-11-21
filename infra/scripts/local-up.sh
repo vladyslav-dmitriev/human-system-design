@@ -22,9 +22,18 @@ docker info >/dev/null 2>&1 || die "Docker не запущен"
 # --- 0. Образы: собираем на хосте ДО старта кластера (в Docker Desktop с ~5 ГБ памяти сборка next и minikube вместе не помещаются) ---
 log "Сборка образов (на хосте)"
 docker build --target prod -t "$API_IMAGE" "$PROJECT_ROOT"
+# Публичные ключи web (reCAPTCHA site key, Stripe pk_test, ...) инлайнятся в бандл при сборке.
+# `--build-arg NAME` без значения берёт его из окружения, если переменная задана (иначе пусто).
+# URL API задаём явно: они должны указывать на Ingress minikube, а не на compose.
 docker build --target web -t "$WEB_IMAGE" \
   --build-arg "NEXT_PUBLIC_API_CLIENT_URL=https://${HOST}/api" \
   --build-arg "NEXT_PUBLIC_API_SERVER_URL=http://api:3001" \
+  --build-arg NEXT_PUBLIC_STRIPE_PUBLIC_KEY \
+  --build-arg NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY \
+  --build-arg NEXT_PUBLIC_CLOUDFLARE_SITE_KEY \
+  --build-arg NEXT_PUBLIC_AMPLITUDE_API_KEY \
+  --build-arg NEXT_PUBLIC_GROWTHBOOK_API_HOST \
+  --build-arg NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY \
   "$PROJECT_ROOT"
 # --- 1. Кластер ---
 if minikube -p "$PROFILE" status >/dev/null 2>&1; then
@@ -54,10 +63,23 @@ IMAGE_IDS="$(docker image inspect --format '{{ .Id }}' "$API_IMAGE" "$WEB_IMAGE"
 log "Secret'ы (существующие не трогаются)"
 "$(dirname "${BASH_SOURCE[0]}")/local-secrets.sh"
 
+# REGENERATE_TLS=1 перевыпускает сертификат (например, после установки mkcert).
+if [ "${REGENERATE_TLS:-}" = "1" ]; then
+  "${KUBECTL[@]}" -n "$NAMESPACE" delete secret app-tls --ignore-not-found >/dev/null
+fi
+
 if "${KUBECTL[@]}" -n "$NAMESPACE" get secret app-tls >/dev/null 2>&1; then
-  log "TLS Secret app-tls уже есть"
+  log "TLS Secret app-tls уже есть (перевыпуск: REGENERATE_TLS=1 pnpm k8s:up)"
+elif command -v mkcert >/dev/null 2>&1; then
+  # mkcert выпускает сертификат от своего локального CA. Чтобы браузер ему доверял, пользователь один раз
+  # сам выполняет `mkcert -install` (меняет системное хранилище доверия, скрипт этого не делает).
+  log "Сертификат mkcert для $HOST"
+  TLS_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TLS_DIR"' EXIT
+  mkcert -cert-file "$TLS_DIR/tls.crt" -key-file "$TLS_DIR/tls.key" "$HOST" >/dev/null 2>&1
+  "${KUBECTL[@]}" -n "$NAMESPACE" create secret tls app-tls --cert="$TLS_DIR/tls.crt" --key="$TLS_DIR/tls.key"
 else
-  log "Самоподписанный сертификат для $HOST"
+  log "Самоподписанный сертификат для $HOST (для доверенного: brew install mkcert && mkcert -install, затем REGENERATE_TLS=1 pnpm k8s:up)"
   TLS_DIR="$(mktemp -d)"
   trap 'rm -rf "$TLS_DIR"' EXIT
   cat > "$TLS_DIR/openssl.cnf" <<CNF
@@ -92,10 +114,10 @@ cat <<MSG
 
 Дальше (один раз, вручную):
   1. Добавьте в /etc/hosts:   127.0.0.1 $HOST
-  2. В ОТДЕЛЬНОМ терминале запустите туннель (просит sudo, нужен для портов 80/443):
-       minikube -p $PROFILE tunnel
+  2. Доступ на 80/443 без sudo:  pnpm k8s:proxy   (или в отдельном терминале: minikube -p $PROFILE tunnel, просит sudo)
   3. Откройте https://$HOST
-     Сертификат самоподписанный: браузер предупредит. Чтобы доверять, можно выпустить его через mkcert
-     (mkcert -install меняет системное хранилище, скрипт этого не делает).
+     Без mkcert сертификат самоподписанный, и браузер его не примет. Доверенный сертификат:
+       brew install mkcert && mkcert -install   (меняет системное хранилище доверия, делаете вы)
+       REGENERATE_TLS=1 pnpm k8s:up
   Быстрая проверка без sudo и /etc/hosts:  pnpm k8s:check
 MSG

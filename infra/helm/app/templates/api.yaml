@@ -46,6 +46,13 @@ spec:
                 name: {{ include "app.fullname" . }}-api
             - secretRef:
                 name: {{ required "api.existingSecret обязателен" .Values.api.existingSecret }}
+            {{- with .Values.api.overridesSecret }}
+            # Необязательный Secret с реальными сторонними ключами (Stripe, reCAPTCHA, почта...):
+            # подключён последним, поэтому перекрывает одноимённые ключи из existingSecret.
+            - secretRef:
+                name: {{ . }}
+                optional: true
+            {{- end }}
           {{- with .Values.api.env }}
           env:
             {{- toYaml . | nindent 12 }}
