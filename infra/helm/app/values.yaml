@@ -127,6 +127,12 @@ ingress:
     # k3s с Traefik v3 и minikube (Helm-чарт Traefik v3): traefik.io. Для Traefik v2: traefik.containo.us/v1alpha1
     apiVersion: traefik.io/v1alpha1
 
+# NetworkPolicy: default-deny входящего трафика + точечные разрешения. Нужен CNI с поддержкой политик.
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: traefik # k3s: kube-system
+  monitoringNamespace: monitoring
+
 metrics:
   serviceMonitor:
     enabled: false # нужны CRD monitoring.coreos.com

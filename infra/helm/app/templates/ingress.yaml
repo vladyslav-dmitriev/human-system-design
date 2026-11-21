@@ -8,7 +8,7 @@
 /api/auth и / должны идти в web БЕЗ среза префикса, а /api -> api С срезом.
 Правила повторяют nginx/templates/default.conf.template.
 */}}
-# Ingress web: /api/auth/ -> web, /api/metrics -> 404 (web), / -> web
+# Ingress web: /api/auth/ -> web, / -> web (/api/metrics и прочие внутренние пути закрывает middleware block-internal в Ingress api)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -43,15 +43,6 @@ spec:
         paths:
           # NextAuth живёт в web (location /api/auth/ в nginx)
           - path: /api/auth/
-            pathType: Prefix
-            backend:
-              service:
-                name: web
-                port:
-                  number: {{ .Values.web.port }}
-          # /api/metrics наружу не отдаём: Next отвечает 404 (в nginx: return 404).
-          # Другие написания и прочие внутренние пути режет middleware block-internal в Ingress api.
-          - path: /api/metrics
             pathType: Prefix
             backend:
               service:

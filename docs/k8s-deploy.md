@@ -69,15 +69,33 @@
 - Зависимости: Postgres, Redis и RabbitMQ. RabbitMQ сейчас нет вообще.
 - CI: `helm lint` и `helm template` с обоими values-файлами.
 
-### Фаза 3. Локальный minikube (devops)
-- `infra/scripts/local-up.sh`: `minikube start --cpus 4 --memory 6g`, Traefik, сборка образов через `minikube image build`, секреты из `.env`, `helm upgrade --install`.
-- `infra/scripts/local-down.sh` (заполнить пустой `destroy.sh`).
-- pnpm-скрипты в корне: `k8s:up`, `k8s:deploy`, `k8s:down`.
-- Доступ: `minikube tunnel` и строка `127.0.0.1 myapp.local` в `/etc/hosts`.
-- Перед запуском остановить compose, потому что оба занимают порт 80.
-- **TLS на minikube** (mkcert или самоподписанный сертификат в Secret `app-tls`, `ingress.tls.enabled: true` в `values-local.yaml`). Иначе Secure-cookie next-auth (`secure: NODE_ENV === "production"` в `apps/web/auth.ts`) не сохранится на `http://myapp.local`, и вход не заработает. Заодно Ingress с `tls.enabled` слушает только `websecure`.
-- **Проверка обходов на живом Traefik**: `/apimetrics`, `/APImetrics`, `/api//metrics`, `/api/%6detrics`, `/api/docs`, `/api/service-auth/validate` должны отвечать 404 (проверять при `ENABLE_METRICS=true`, иначе 404 даёт сам api и проверка ничего не доказывает).
-- **NetworkPolicy**: default-deny в namespace `app` и разрешения: Traefik -> web/api, web -> api, api и migrate -> deps (postgres, redis, rabbitmq), Prometheus -> метрики. На minikube для этого нужен `--cni=calico` (иначе политики не применяются).
+### Фаза 3. Локальный minikube (devops) - реализовано
+Команды (корневой `package.json`):
+
+| Команда | Что делает |
+|---|---|
+| `pnpm k8s:up` / `pnpm k8s:deploy` | `infra/scripts/local-up.sh`: сборка образов на хосте, старт кластера (если не запущен), Traefik, Secret'ы, TLS, `helm upgrade --install` для `deps`, затем `app`. Повторный запуск пересобирает образы и обновляет релиз |
+| `pnpm k8s:secrets [-- --force]` | `local-secrets.sh`: Secret'ы `app-deps`, `app-api`, `app-web` со случайными значениями (не печатаются), существующие не перезаписываются |
+| `pnpm k8s:check` | `local-check.sh`: проверка маршрутов, закрытых путей, заголовков, лимитов тела и NetworkPolicy |
+| `pnpm k8s:down` | `local-down.sh`: `minikube delete` с подтверждением (`-- --yes` без вопроса); данные БД удаляются |
+
+Как устроено:
+- Профиль `human-system-design`, `--driver=docker --cni=calico` (Calico нужен, чтобы работали NetworkPolicy). Ресурсы: `MINIKUBE_CPUS` (по умолчанию 3) и `MINIKUBE_MEMORY` в МБ (по умолчанию 4000). Docker Desktop должен иметь больше памяти, чем `MINIKUBE_MEMORY`.
+- Образы собираются на хосте ДО старта кластера (сборка Next и minikube вместе не помещаются в ~5 ГБ Docker Desktop), потом `minikube image load`. Тег `local`, `pullPolicy: Never`. id образов кладётся в аннотацию подов, поэтому пересборка приводит к rollout без ручного `rollout restart`.
+- Traefik v3 ставится из официального чарта `https://traefik.github.io/charts` (версия закреплена в скрипте) в namespace `traefik`, Service LoadBalancer 80/443.
+- TLS: самоподписанный сертификат `myapp.local` (SAN) создаётся через openssl в Secret `app-tls`. Ingress с TLS слушает только `websecure`, а Secure-cookie next-auth на http не сохранится, поэтому локально всё идёт по https. Чтобы браузер доверял, можно выпустить сертификат через mkcert (`mkcert -install` меняет системное хранилище, скрипт его не запускает).
+- Доступ из браузера: строка `127.0.0.1 myapp.local` в `/etc/hosts` и в отдельном терминале `minikube -p human-system-design tunnel` (нужен sudo для портов 80/443). Перед этим остановить compose (порт 80). `pnpm k8s:check` работает без sudo и `/etc/hosts`: port-forward на Traefik и `curl --resolve`.
+- `values-local.yaml` включает `ENABLE_METRICS: "true"`, чтобы проверка блокировки `/api/metrics` была честной (404 отдаёт Traefik, а не выключенный api). В prod не включать.
+- Реальные ключи (Stripe и т.п.) пользователь подставляет сам, значения в скриптах не хранятся:
+
+```bash
+kubectl --context human-system-design -n app patch secret app-api --type merge \
+  -p '{"stringData":{"STRIPE_SECRET_KEY":"sk_test_...","STRIPE_WEBHOOK_SECRET":"whsec_..."}}'
+kubectl --context human-system-design -n app rollout restart deploy/app-api
+```
+- `NEXT_PUBLIC_*` вшиваются в образ web при сборке (`https://myapp.local/api`, `http://api:3001`), для других значений нужна пересборка.
+- Проверка обходов закрытых путей на живом Traefik и NetworkPolicy входят в `pnpm k8s:check` (29 проверок, все проходят). `/api/metrics` и прочие внутренние пути закрывает только middleware `block-internal` (отдельного правила в web Ingress нет: оно давало 308 на `/api/metrics/`). `/apimetrics` уходит в web, как `location /` в nginx; метрик в ответе нет.
+- Занято памяти после `pnpm k8s:up`: около 1.7 ГиБ из 3.9 ГиБ узла minikube.
 
 ### Фаза 4. Сервер (devops + пользователь)
 Делает пользователь:

@@ -41,3 +41,6 @@ ingress:
     enabled: true
     secretName: app-tls
     clusterIssuer: letsencrypt-prod # TODO: имя ClusterIssuer из infra/k8s/clusterissuer.yaml (фаза 4)
+
+networkPolicy:
+  ingressControllerNamespace: kube-system # Traefik во встроенном k3s

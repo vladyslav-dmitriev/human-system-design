@@ -1,5 +1,5 @@
-# minikube: образы собираются локально (`minikube image build`) и не тянутся из реестра.
-# Применение: helm upgrade --install app infra/helm/app -n app -f infra/helm/app/values.yaml -f infra/helm/app/values-local.yaml
+# minikube: образы собираются на хосте и загружаются в кластер (`minikube image load`), из реестра не тянутся.
+# Ставится скриптом infra/scripts/local-up.sh (pnpm k8s:up)
 api:
   image:
     repository: human-system-design-api
@@ -15,9 +15,14 @@ web:
 config:
   api:
     NODE_ENV: production
+    # Только локально: чтобы проверка блокировки /api/metrics была честной (иначе 404 отдаёт сам api). В prod не включать.
+    ENABLE_METRICS: "true"
 
 ingress:
   className: traefik
   host: myapp.local
+  # Самоподписанный сертификат в Secret app-tls создаёт infra/scripts/local-up.sh
   tls:
-    enabled: false
+    enabled: true
+    secretName: app-tls
+    clusterIssuer: ""

@@ -51,3 +51,9 @@ rabbitmq:
       memory: 256Mi
     limits:
       memory: 512Mi
+
+# NetworkPolicy: postgres/redis/rabbitmq принимают только api и Job миграций чарта app
+networkPolicy:
+  enabled: true
+  appName: app # app.kubernetes.io/name чарта app
+  monitoringNamespace: monitoring
