@@ -7,5 +7,5 @@ test("settings page need to be accessible", async ({ page }) => {
   await settingsPage.goto();
 
   await expect(page).toHaveURL(/.*settings/);
-  await expect(page.getByText("Settings")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 });

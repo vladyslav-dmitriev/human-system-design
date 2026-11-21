@@ -1,0 +1,1 @@
+- [e2e env constraints](e2e-env-constraints.md) — throttle 10/min, real reCAPTCHA, dev-mode web, shell/pkill pitfalls for Playwright runs

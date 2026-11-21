@@ -1,5 +1,7 @@
 import { Page, Locator } from "@playwright/test";
 
+import { waitForPageReady } from "./helpers";
+
 export class CreateAccountPage {
   readonly page: Page;
   readonly nameInput: Locator;
@@ -15,8 +17,9 @@ export class CreateAccountPage {
     this.createAccountButton = page.getByTestId("create-account-button");
   }
 
-  async goto() {
-    await this.page.goto("/en/create-account");
+  async goto(locale = "en") {
+    await this.page.goto(`/${locale}/create-account`);
+    await waitForPageReady(this.page);
   }
 
   async createAccount(name: string, email: string, password: string) {
