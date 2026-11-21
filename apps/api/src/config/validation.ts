@@ -42,6 +42,25 @@ export const validationSchema = Joi.object({
   SENDGRID_API_KEY: Joi.string().empty('').optional(),
   RESEND_API_KEY: Joi.string().empty('').optional(),
 
+  // Общий секрет web -> api (заголовок X-Internal-Secret на validate и SSR).
+  // Обязателен в production; вне production без него validate открыт (локальная
+  // разработка и тесты без web), а X-Client-IP не принимается.
+  INTERNAL_API_SECRET: Joi.string().empty('').min(32).when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+
+  RABBITMQ_URL: Joi.string().required(),
+
+  // SMS: dev-мок с кодом 123456 только вне production; суточный потолок отправок.
+  SMS_DEV_MOCK: Joi.boolean().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.valid(false),
+    otherwise: Joi.optional(),
+  }),
+  SMS_DAILY_LIMIT: Joi.number().integer().min(1).default(1000),
+
   ENABLE_SWAGGER: Joi.boolean().optional(),
   ENABLE_METRICS: Joi.boolean().optional(),
   TRUST_PROXY: Joi.string().optional(),

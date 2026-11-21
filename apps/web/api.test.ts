@@ -49,7 +49,8 @@ describe("API_URL", () => {
     expect(API_URL.billing.syncProducts()).toBe(
       `${SERVER}/billing/products/sync`,
     );
-    expect(API_URL.billing.checkout()).toBe(`${SERVER}/billing/checkout`);
+    expect(API_URL.billing.checkout()).toBe(`${CLIENT}/billing/checkout`);
+    expect(API_URL.auth.logout()).toBe(`${CLIENT}/service-auth/logout`);
   });
 
   it("эндпоинты с параметрами подставляют id", () => {

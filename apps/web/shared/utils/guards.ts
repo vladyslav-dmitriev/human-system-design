@@ -25,18 +25,23 @@ export function buildLoginHref(path: string, search = "") {
  * путь без локали, не страницу входа (иначе open redirect и петли).
  */
 export function getSafeCallbackUrl(value: string | null | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return ROUTE.DASHBOARD;
-  }
-  if (value.includes("\\") || [...value].some((ch) => ch.charCodeAt(0) < 32)) {
-    return ROUTE.DASHBOARD;
-  }
+  if (!value || !isSafeInternalPath(value)) return ROUTE.DASHBOARD;
 
   // локаль в callbackUrl не храним: i18n-роутер добавит свою
   const target = getPathLocale(value) ? normalizePath(value) : value;
+  // после снятия локали `/uk//evil.example` превращается в `//evil.example`
+  if (!isSafeInternalPath(target)) return ROUTE.DASHBOARD;
+
   const path = target.split(/[?#]/)[0] ?? "";
   if (isAuthRoute(path) || path === ROUTE.FORGOT_PASSWORD)
     return ROUTE.DASHBOARD;
 
   return target;
+}
+
+/** Внутренний путь: начинается с одного `/`, без `\` и управляющих символов */
+function isSafeInternalPath(value: string) {
+  if (!value.startsWith("/") || value.startsWith("//")) return false;
+  if (value.includes("\\")) return false;
+  return ![...value].some((ch) => ch.charCodeAt(0) < 32);
 }

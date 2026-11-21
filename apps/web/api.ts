@@ -5,6 +5,9 @@ export const API_URL = {
     login: () => `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/service-auth/login`,
     validate: () =>
       `${process.env.NEXT_PUBLIC_API_SERVER_URL}/service-auth/validate`,
+    /** POST, под AuthGuard; инкрементирует версию сессии, вызывается перед signOut */
+    logout: () =>
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/service-auth/logout`,
     twoFactor: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/service-auth/verify-otp`,
   },
@@ -40,8 +43,9 @@ export const API_URL = {
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/subscriptions/upgrade`,
     subscriptionsRenew: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/subscriptions/renew`,
+    /** POST {priceId, type} -> {clientSecret, amount, currency, productName}; по действию пользователя из браузера */
     checkout: () =>
-      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/checkout`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/checkout`,
     paymentIntentCreate: (paymentIntentId: string) =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-intents/${encodeURIComponent(paymentIntentId)}`,
     createPortalSession: () =>

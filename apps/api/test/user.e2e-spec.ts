@@ -363,7 +363,58 @@ describe('UsersController (nest testing module, mocks)', () => {
       phone: '+380501234567',
       code: '123456',
       twoFactorEnabled: true,
+      currentPassword: OLD_PASSWORD,
     };
+
+    it('wrong currentPassword -> 400 USER_INVALID_PASSWORD for enabling and disabling; nothing is checked or changed', async () => {
+      sms.verifySmsCode.mockResolvedValue(true);
+      for (const twoFactorEnabled of [true, false]) {
+        const res = await post({
+          ...enable,
+          twoFactorEnabled,
+          currentPassword: 'wrong-password',
+        }).expect(400);
+        expect(res.body.code).toBe('USER_INVALID_PASSWORD');
+      }
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('missing currentPassword -> 400 (validation)', async () => {
+      const { currentPassword: _p, ...body } = enable;
+      await post(body).expect(400);
+    });
+
+    it('enabling while 2FA is already enabled -> 400 VALIDATION_FAILED, the code is not checked', async () => {
+      repo.getUserById.mockImplementation(async (id: string) => ({
+        id,
+        email: `${id}@example.test`,
+        password: passwordHash,
+        role: 'USER',
+        profile: { name: 'QA', phone: '+380501234567' },
+        authSettings: { isVerified: true, twoFactorEnabled: true },
+      }));
+      sms.verifySmsCode.mockResolvedValue(true);
+      const res = await post(enable).expect(400);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('disabling checks the code against the profile phone, a pending phone is ignored and cleared', async () => {
+      await http()
+        .put('/user/profile/phone')
+        .set('Cookie', cookieA)
+        .send({ phone: '+380671112233' })
+        .expect(200);
+      sms.verifySmsCode.mockResolvedValue(true);
+      await post({ ...enable, twoFactorEnabled: false }).expect(200);
+      expect(sms.verifySmsCode).toHaveBeenCalledWith({
+        phoneNumber: '+380501234567',
+        code: '123456',
+      });
+      expect(redis.store.has(`pending-phone:${USER_A.id}`)).toBe(false);
+    });
 
     it('valid code enables 2FA for the caller only -> 200 {success:true}', async () => {
       sms.verifySmsCode.mockResolvedValue(true);
@@ -443,7 +494,7 @@ describe('UsersController (nest testing module, mocks)', () => {
       [{ phone: '+380501234567', code: '123456', twoFactorEnabled: 'yes' }],
       [{ phone: '+380501234567', code: '123456' }],
     ])('invalid body %j -> 400', async (body) => {
-      await post(body).expect(400);
+      await post({ ...body, currentPassword: OLD_PASSWORD }).expect(400);
     });
   });
 });

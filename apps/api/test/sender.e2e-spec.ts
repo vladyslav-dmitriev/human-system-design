@@ -144,10 +144,12 @@ describe('Sender controllers (nest testing module, mocks)', () => {
       expect(email.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
-    it('rate limit: 4th request in a minute -> 429', async () => {
-      for (let i = 0; i < 3; i++) await send(cookieA).expect(200);
+    it('a repeated request within 60 s -> 429 RATE_LIMITED and no second mail', async () => {
+      await send(cookieA).expect(200);
       const res = await send(cookieA).expect(429);
       expect(res.body.code).toBe('RATE_LIMITED');
+      expect(email.sendVerificationEmail).toHaveBeenCalledTimes(1);
+      expect(redis.ttl.get(`email-verification-sent:${USER_A.id}`)).toBe(60);
     });
   });
 

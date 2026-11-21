@@ -9,3 +9,6 @@ export const CALLBACK_URL_PARAM = "callbackUrl";
 
 /** Query-параметр: api отозвал сессию, proxy сбрасывает cookie на странице входа */
 export const SESSION_EXPIRED_PARAM = "sessionExpired";
+
+/** Срок жизни сессии next-auth (JWT и cookie): 7 дней, в секундах */
+export const SESSION_MAX_AGE = 7 * 24 * 60 * 60;

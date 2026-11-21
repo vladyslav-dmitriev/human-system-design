@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { ROUTE } from "@/constants";
+import { API_URL } from "@/api";
 import { useTranslations } from "next-intl";
 
 export function Logout() {
@@ -17,6 +18,16 @@ export function Logout() {
     setIsLoading(true);
 
     try {
+      // api инкрементирует версию сессии; ошибка не мешает локальному выходу
+      try {
+        await fetch(API_URL.auth.logout(), {
+          method: "POST",
+          credentials: "include",
+        });
+      } catch (cause) {
+        console.error(cause);
+      }
+
       // redirect: false: ждём ответ signout (cookie сброшена) и только потом
       // уходим на логин сами, без гонки с автоматическим переходом next-auth
       await signOut({ redirect: false });

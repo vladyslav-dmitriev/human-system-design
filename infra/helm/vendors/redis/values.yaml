@@ -3,6 +3,12 @@ architecture: standalone
 auth:
   enabled: false
 
+# session-version и идемпотентность вебхуков живут только в Redis: AOF и без вытеснения ключей
+commonConfiguration: |-
+  appendonly yes
+  save ""
+  maxmemory-policy noeviction
+
 master:
   persistence:
     enabled: true

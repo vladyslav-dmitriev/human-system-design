@@ -328,13 +328,17 @@ describe('UserService', () => {
       phone: '+380501234567',
       code: '123456',
       twoFactorEnabled: true,
+      currentPassword: 'old-password',
     };
+    const account = (phone: string, twoFactorEnabled = false) => ({
+      id: 'u1',
+      password: oldHash,
+      profile: { phone },
+      authSettings: { twoFactorEnabled },
+    });
 
     beforeEach(() => {
-      repo.getUserById.mockResolvedValue({
-        id: 'u1',
-        profile: { phone: '' },
-      });
+      repo.getUserById.mockResolvedValue(account(''));
       store.set(pendingPhoneKey('u1'), dto.phone);
     });
 
@@ -362,10 +366,7 @@ describe('UserService', () => {
       await service.setTwoFactor('u1', dto);
       expect(store.get('session-version:u1')).toBe('1');
 
-      repo.getUserById.mockResolvedValue({
-        id: 'u1',
-        profile: { phone: dto.phone },
-      });
+      repo.getUserById.mockResolvedValue(account(dto.phone, true));
       await service.setTwoFactor('u1', { ...dto, twoFactorEnabled: false });
       expect(store.get('session-version:u1')).toBe('2');
     });
@@ -400,10 +401,8 @@ describe('UserService', () => {
 
     it('disabling checks the code against the SAVED phone and clears it', async () => {
       store.clear();
-      repo.getUserById.mockResolvedValue({
-        id: 'u1',
-        profile: { phone: '+380501234567' },
-      });
+      store.set(pendingPhoneKey('u1'), '+380670000000');
+      repo.getUserById.mockResolvedValue(account('+380501234567', true));
       sms.verifySmsCode.mockResolvedValue(true);
 
       await service.setTwoFactor('u1', { ...dto, twoFactorEnabled: false });
@@ -417,6 +416,43 @@ describe('UserService', () => {
         phone: null,
         twoFactorEnabled: false,
       });
+      // pending-номер при выключении не используется и сбрасывается
+      expect(store.has(pendingPhoneKey('u1'))).toBe(false);
+    });
+
+    it.each([true, false])(
+      'wrong currentPassword (enabled=%s) -> 400 USER_INVALID_PASSWORD, code is not checked',
+      async (twoFactorEnabled) => {
+        repo.getUserById.mockResolvedValue(account('+380501234567', true));
+
+        await expect(
+          code(
+            service.setTwoFactor('u1', {
+              ...dto,
+              twoFactorEnabled,
+              currentPassword: 'wrong',
+            }),
+          ),
+        ).resolves.toEqual({
+          status: 400,
+          code: ErrorCode.USER_INVALID_PASSWORD,
+        });
+        expect(sms.verifySmsCode).not.toHaveBeenCalled();
+        expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+        expect(store.has('session-version:u1')).toBe(false);
+      },
+    );
+
+    it('enabling while 2FA is already enabled -> 400 VALIDATION_FAILED (change number = disable, then enable)', async () => {
+      repo.getUserById.mockResolvedValue(account('+380501234567', true));
+      sms.verifySmsCode.mockResolvedValue(true);
+
+      await expect(code(service.setTwoFactor('u1', dto))).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.VALIDATION_FAILED,
+      });
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
     });
 
     it('invalid code -> 400 USER_INVALID_OTP and nothing changes', async () => {

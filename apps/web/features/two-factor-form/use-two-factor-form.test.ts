@@ -132,6 +132,7 @@ describe("useTwoFactorForm", () => {
     act(() => {
       result.current.setPhone("+380501112233");
       result.current.setOtp("123456");
+      result.current.setCurrentPassword("Passw0rd!");
     });
     await act(() => result.current.handleEnterCode());
 
@@ -141,7 +142,9 @@ describe("useTwoFactorForm", () => {
       phone: "+380501112233",
       code: "123456",
       twoFactorEnabled: true,
+      currentPassword: "Passw0rd!",
     });
+    expect(result.current.currentPassword).toBe("");
     expect(result.current.enabled).toBe(true);
     expect(result.current.phone).toBe("+380501112233");
     expect(result.current.otp).toBe("");
@@ -169,6 +172,22 @@ describe("useTwoFactorForm", () => {
     expect(result.current.otp).toBe("000000");
     expect(result.current.error).toBe("errors.USER_INVALID_OTP");
     expect(result.current.loading).toBe(false);
+    expect(expireSession).not.toHaveBeenCalled();
+  });
+
+  it("enterCode: USER_INVALID_PASSWORD показывается у поля пароля, а не общей ошибкой", async () => {
+    fetchMock.mockReturnValue(fail("USER_INVALID_PASSWORD"));
+    const { result } = setup({ userPhone: null, userTwoFactorEnabled: false });
+    act(() => {
+      result.current.setPhone("+380501112233");
+      result.current.setOtp("123456");
+      result.current.setCurrentPassword("wrong");
+    });
+    await act(() => result.current.handleEnterCode());
+
+    expect(result.current.passwordError).toBe("errors.USER_INVALID_PASSWORD");
+    expect(result.current.error).toBeNull();
+    expect(result.current.enabled).toBe(false);
     expect(expireSession).not.toHaveBeenCalled();
   });
 
@@ -213,12 +232,15 @@ describe("useTwoFactorForm", () => {
     await act(() => result.current.handleSwitchEnabled());
     expect(result.current.step).toBe("otp");
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({});
-    act(() => result.current.setOtp("654321"));
+    act(() => {
+      result.current.setOtp("654321");
+      result.current.setCurrentPassword("Passw0rd!");
+    });
     await act(() => result.current.handleEnterCode());
 
-    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).twoFactorEnabled).toBe(
-      false,
-    );
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.twoFactorEnabled).toBe(false);
+    expect(body.currentPassword).toBe("Passw0rd!");
     expect(result.current.enabled).toBe(false);
     expect(result.current.phone).toBeNull();
     expect(result.current.loading).toBe(false);

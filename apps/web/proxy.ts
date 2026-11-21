@@ -52,6 +52,9 @@ export default async function middleware(req: NextRequest) {
     response.cookies.set(SESSION_COOKIE_NAME, "", {
       maxAge: 0,
       path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       ...(process.env.AUTH_COOKIE_DOMAIN
         ? { domain: process.env.AUTH_COOKIE_DOMAIN }
         : {}),

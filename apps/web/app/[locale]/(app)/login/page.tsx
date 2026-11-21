@@ -49,7 +49,8 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [phone, setPhone] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
+  // одноразовый челлендж 2FA: только в состоянии формы, не в URL и не в storage
+  const [otpChallenge, setOtpChallenge] = useState<string>("");
 
   /** Единственное место, где вызывается signIn: только с одноразовым билетом */
   const completeLogin = async (loginTicket: string | undefined) => {
@@ -116,7 +117,7 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.twoFactorRequired) {
-        setEmail(parsed.data.email);
+        setOtpChallenge(result.otpChallenge ?? "");
         setPhone(result.phoneMasked ?? "");
         setStep("otp");
         return;
@@ -136,7 +137,7 @@ export default function LoginPage() {
 
     try {
       const response = await post(API_URL.auth.twoFactor(), {
-        email,
+        otpChallenge,
         code: otp,
       });
 
@@ -156,6 +157,7 @@ export default function LoginPage() {
   };
 
   const onBack = () => {
+    setOtpChallenge("");
     setError(null);
     setStep("form");
   };

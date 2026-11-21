@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await -- in-memory Redis fake mimics the async client */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 import { EmailsController } from './emails.controller';
@@ -30,10 +31,21 @@ describe('EmailsController', () => {
   const verification = new EmailVerificationService({
     get: (k: string) => (k === 'JWT_SECRET' ? 'unit-test-secret' : undefined),
   } as never);
+  const redisStore = new Map<string, string>();
+  const redis = {
+    set: jest.fn(async (k: string, v: string, ...a: (string | number)[]) => {
+      if (a.includes('NX') && redisStore.has(k)) return null;
+      redisStore.set(k, v);
+
+      return 'OK';
+    }),
+    del: jest.fn(async (k: string) => (redisStore.delete(k) ? 1 : 0)),
+  };
   const controller = new EmailsController(
     service as never,
     verification,
     userRepository as never,
+    redis as never,
   );
 
   const user = (overrides: Record<string, unknown> = {}) => ({
@@ -47,9 +59,67 @@ describe('EmailsController', () => {
     service.sendVerificationEmail.mockReset();
     userRepository.getUserById.mockReset();
     userRepository.markEmailVerified.mockReset();
+    redisStore.clear();
+    redis.set.mockClear();
   });
 
   describe('sendVerificationEmail', () => {
+    it('a second request within 60 s -> 429 RATE_LIMITED and no second email', async () => {
+      userRepository.getUserById.mockResolvedValue(user());
+
+      await controller.sendVerificationEmail('u1', 'en');
+      const error = await controller
+        .sendVerificationEmail('u1', 'en')
+        .catch((e: unknown) => e);
+
+      expect(error).toMatchObject({
+        status: 429,
+        response: { code: ErrorCode.RATE_LIMITED },
+      });
+      expect(service.sendVerificationEmail).toHaveBeenCalledTimes(1);
+      expect(redis.set).toHaveBeenCalledWith(
+        'email-verification-sent:u1',
+        '1',
+        'EX',
+        60,
+        'NX',
+      );
+    });
+
+    it('the window is per user', async () => {
+      userRepository.getUserById.mockImplementation((id: string) =>
+        Promise.resolve(user({ id })),
+      );
+
+      await controller.sendVerificationEmail('u1', 'en');
+      await controller.sendVerificationEmail('u2', 'en');
+
+      expect(service.sendVerificationEmail).toHaveBeenCalledTimes(2);
+    });
+
+    it('a failed send does not consume the window', async () => {
+      userRepository.getUserById.mockResolvedValue(user());
+      service.sendVerificationEmail.mockRejectedValueOnce(new Error('queue'));
+
+      await expect(
+        controller.sendVerificationEmail('u1', 'en'),
+      ).rejects.toThrow('queue');
+      await expect(
+        controller.sendVerificationEmail('u1', 'en'),
+      ).resolves.toEqual({ success: true });
+    });
+
+    it('an already verified user does not occupy the window and gets no email', async () => {
+      userRepository.getUserById.mockResolvedValue(
+        user({ authSettings: { isVerified: true } }),
+      );
+
+      await controller.sendVerificationEmail('u1', 'en');
+      await controller.sendVerificationEmail('u1', 'en');
+
+      expect(service.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['uk-UA,uk;q=0.9', 'uk'],
       ['en-US', 'en'],

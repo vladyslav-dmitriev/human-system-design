@@ -7,12 +7,23 @@ export type PaymentMethod = {
   isDefault: boolean;
 };
 
-/** Данные для оплаты на checkout (api: finance checkout / subscriptions upgrade) */
-export type CheckoutPaymentData = {
-  clientSecret: string;
+/** Сводка заказа на checkout: SSR только показывает её, ничего не создавая */
+export type CheckoutSummary = {
   amount: number;
   currency: string;
   productName: string;
+};
+
+/** Что создаёт api по действию пользователя (кнопка «Оплатить») */
+export type CheckoutRequest = {
+  priceId: string;
+  type: string;
+  operation: "purchase" | "upgrade";
+};
+
+/** Ответ api: finance checkout / subscriptions upgrade */
+export type CheckoutPaymentData = CheckoutSummary & {
+  clientSecret: string;
 };
 
 /** Цена/продукт из GET billing/products (api: ProductMapper.toDomain) */

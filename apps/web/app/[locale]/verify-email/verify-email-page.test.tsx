@@ -4,6 +4,11 @@ import { render, screen } from "@testing-library/react";
 const { auth } = vi.hoisted(() => ({ auth: vi.fn() }));
 
 vi.mock("@/auth", () => ({ auth }));
+vi.mock("next/headers", () => ({
+  headers: async () => ({
+    get: (name: string) => (name === "x-real-ip" ? "198.51.100.9" : null),
+  }),
+}));
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (k: string) => k,
 }));
@@ -39,6 +44,8 @@ describe("verify-email page", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe(
       "http://api.test/sender/emails/verify-email?token=a.b",
     );
+    const init = fetchMock.mock.calls[0]![1];
+    expect(init.headers["X-Client-IP"]).toBe("198.51.100.9");
     expect(screen.getByRole("status")).toHaveTextContent(
       "verify_email_success",
     );

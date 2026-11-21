@@ -13,7 +13,7 @@ map "$scheme:$http_x_forwarded_proto" $hsts {
 }
 
 server {
-    listen 80;
+    listen ${NGINX_PORT};
     server_name myapp.local;
 
     server_tokens off;
@@ -44,15 +44,15 @@ server {
 
     # 1. Запросы NextAuth (обслуживает web)
     location /api/auth/ {
-        include /etc/nginx/conf.d/proxy.inc;
-        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
         proxy_pass http://web:3000;
     }
 
     # 2. Остальные запросы к API (префикс /api/ срезается)
     location /api/ {
-        include /etc/nginx/conf.d/proxy.inc;
-        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
         # api принимает загрузки до 5 МБ (+ multipart-обвязка)
         client_max_body_size 6m;
         proxy_set_header Cookie $http_cookie;
@@ -63,9 +63,9 @@ server {
     # 3. Всё остальное - Next. Cache-Control выставляет сам Next
     # (X-Accel-Buffering: no он добавляет сам для стриминговых ответов).
     location / {
-        include /etc/nginx/conf.d/proxy.inc;
-        include /etc/nginx/conf.d/security-headers.inc;
-        include /etc/nginx/conf.d/csp-report-only.inc;
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
+        include /etc/nginx/snippets/csp-report-only.inc;
         proxy_pass http://web:3000;
     }
 }

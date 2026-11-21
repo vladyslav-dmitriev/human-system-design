@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from "lucide-react";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 import { API_URL } from "@/api";
@@ -13,6 +14,7 @@ import {
 import { ROUTE } from "@/constants";
 import { Link } from "@/i18n/navigation";
 import { getApiErrorCode } from "@/shared/lib/api-error";
+import { buildInternalHeaders } from "@/shared/lib/internal-headers";
 
 type VerifyEmailPageProps = {
   searchParams: Promise<{ token?: string | string[] }>;
@@ -26,6 +28,8 @@ async function verifyEmail(token: string | undefined): Promise<Result> {
   try {
     const res = await fetch(API_URL.emails.verifyEmailServer(token), {
       cache: "no-store",
+      // публичная страница: без serverApiFetch (он редиректит на логин при 401)
+      headers: buildInternalHeaders(await headers()),
     });
 
     if (res.ok) return "success";

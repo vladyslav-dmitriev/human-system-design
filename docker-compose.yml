@@ -4,9 +4,14 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    environment:
+      NGINX_PORT: "80"
     volumes:
-      # Каталог, а не файл: bind mount одного файла держит старый inode, когда git заменяет файл
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # Каталоги, а не файлы: bind mount одного файла держит старый inode, когда git заменяет файл.
+      # conf.d не монтируем: туда envsubst пишет готовый default.conf.
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      # Шаблон: официальный образ подставляет $NGINX_PORT через envsubst в /etc/nginx/conf.d/default.conf
+      - ./nginx/templates:/etc/nginx/templates:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
       interval: 10s
@@ -143,6 +148,8 @@ services:
           memory: 256M
     # ports:
     #   - "6379:6379"
+    # session-version и идемпотентность вебхуков живут только в Redis: AOF и без вытеснения ключей
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
       - redisdata:/data
     healthcheck:

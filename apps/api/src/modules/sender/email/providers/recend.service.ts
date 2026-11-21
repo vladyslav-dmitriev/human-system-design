@@ -42,8 +42,10 @@ export class RecendService implements IEmailService {
         subject,
         html,
       });
-    } catch {
-      throw new InternalServerErrorException('Error sending email');
+    } catch (error) {
+      throw new InternalServerErrorException('Error sending email', {
+        cause: error,
+      });
     }
   }
 }

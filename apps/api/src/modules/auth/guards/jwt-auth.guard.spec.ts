@@ -66,6 +66,42 @@ describe('AuthGuard', () => {
     });
   });
 
+  describe('production: only the __Secure- cookie is accepted', () => {
+    beforeEach(() => {
+      process.env.NODE_ENV = 'production';
+    });
+
+    it.each([
+      'authjs.session-token',
+      'next-auth.session-token',
+      '__Secure-next-auth.session-token',
+    ])('%s is ignored: 401 and no decode', async (name) => {
+      await expect(
+        guard.canActivate(ctx({ cookies: { [name]: 'forged' } })),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(decodeMock).not.toHaveBeenCalled();
+    });
+
+    it('a forged plain cookie next to the real __Secure- one does not win', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1', email: 'a@test.dev' });
+
+      await guard.canActivate(
+        ctx({
+          cookies: {
+            'authjs.session-token': 'forged',
+            '__Secure-authjs.session-token': 'real',
+          },
+        }),
+      );
+
+      expect(decodeMock).toHaveBeenCalledWith({
+        token: 'real',
+        secret: 'test-secret',
+        salt: '__Secure-authjs.session-token',
+      });
+    });
+  });
+
   it('puts the decoded session into request.user, preferring payload.id over sub', async () => {
     decodeMock.mockResolvedValue({
       id: 'u1',

@@ -35,6 +35,9 @@ export const useTwoFactorForm = ({
   const [phone, setPhone] = useState<string | null>(userPhone);
   const [step, setStep] = useState<AuthStep>("idle");
   const [otp, setOtp] = useState("");
+  // пароль нужен и для включения, и для выключения; хранится только в состоянии
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // ключ i18n последней ошибки (корень сообщений)
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +93,7 @@ export const useTwoFactorForm = ({
         setEnabled(false);
         setStep("idle");
         setOtp("");
+        setCurrentPassword("");
       } else {
         setStep("phone");
         setEnabled(true);
@@ -129,6 +133,7 @@ export const useTwoFactorForm = ({
     const nextTwoFactorEnabled = !confirmed;
 
     setError(null);
+    setPasswordError(null);
     setLoading(true);
 
     try {
@@ -136,10 +141,17 @@ export const useTwoFactorForm = ({
         phone,
         code: otp,
         twoFactorEnabled: nextTwoFactorEnabled,
+        currentPassword,
       });
 
       if (!response.ok) {
-        setError(apiErrorKey(await getApiErrorCode(response)));
+        const code = await getApiErrorCode(response);
+        // неверный пароль показываем у поля, остальное общей ошибкой
+        if (code === "USER_INVALID_PASSWORD") {
+          setPasswordError(apiErrorKey(code));
+        } else {
+          setError(apiErrorKey(code));
+        }
         return;
       }
 
@@ -153,6 +165,7 @@ export const useTwoFactorForm = ({
 
       setPhone(nextTwoFactorEnabled ? phone : null);
       setOtp("");
+      setCurrentPassword("");
       setStep("idle");
       setConfirmed(nextTwoFactorEnabled);
       setEnabled(nextTwoFactorEnabled);
@@ -173,6 +186,9 @@ export const useTwoFactorForm = ({
     handleEnterCode,
     setPhone,
     setOtp,
+    setCurrentPassword,
+    currentPassword,
+    passwordError,
     enabled,
     phone,
     step,

@@ -19,6 +19,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Request } from 'express';
 
 import { AuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -67,6 +68,8 @@ export class FinanceController {
   }
 
   @Post('/webhook')
+  // Источник — Stripe (общие IP, подпись проверяется в сервисе): IP-лимит отбросил бы валидные события
+  @SkipThrottle()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: WebhookResponseDto })
   @Serialize(WebhookResponseDto)

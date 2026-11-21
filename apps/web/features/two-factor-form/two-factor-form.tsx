@@ -34,6 +34,9 @@ export function TwoFactorForm({
     handleEnterCode,
     setPhone,
     setOtp,
+    setCurrentPassword,
+    currentPassword,
+    passwordError,
     enabled,
     phone,
     step,
@@ -84,6 +87,9 @@ export function TwoFactorForm({
               phone={phone}
               otp={otp}
               setOtp={setOtp}
+              currentPassword={currentPassword}
+              setCurrentPassword={setCurrentPassword}
+              passwordError={passwordError}
               handleEnterCode={handleEnterCode}
               loading={loading}
               errorId={errorId}

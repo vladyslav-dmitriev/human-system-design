@@ -16,8 +16,9 @@ import { CaptchaGuard } from '../src/modules/captcha/guards/captcha.guard';
 import { CaptchaService } from '../src/modules/captcha/captcha.service';
 import { Prisma } from '@prisma/client';
 import { EmailVerificationService } from '../src/modules/sender/email/email-verification.service';
+import { AuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { REDIS_CLIENT } from '../src/modules/redis';
-import { createTestApp } from './helpers/app';
+import { createTestApp, sessionCookie, USER_A } from './helpers/app';
 import { createFakeRedis } from './helpers/fake-redis';
 
 const GOOD_CAPTCHA = 'captcha-ok';
@@ -96,6 +97,7 @@ describe('AuthController (nest testing module, mocks)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        AuthGuard,
         CaptchaGuard,
         EmailVerificationService,
         { provide: ConfigService, useValue: { get: () => 'e2e-secret' } },
@@ -298,9 +300,9 @@ describe('AuthController (nest testing module, mocks)', () => {
       await login(validLogin({ remember: 1 })).expect(400);
     });
 
-    it('rate limit: 4th login in a minute -> 429 RATE_LIMITED', async () => {
+    it('rate limit: 11th login in a minute -> 429 RATE_LIMITED (10/min)', async () => {
       const body = validLogin({ email: 'a@example.test', password: 'x' });
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 10; i++) {
         const r = await login(body);
         expect(r.status).not.toBe(429);
       }
@@ -348,11 +350,19 @@ describe('AuthController (nest testing module, mocks)', () => {
       expect(res.body).toEqual({
         twoFactorRequired: true,
         phoneMasked: '**********67',
+        otpChallenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       });
       expect(sms.sendSmsCode).toHaveBeenCalledWith({
         phoneNumber: '+380501234567',
+        userId: 'u-1',
       });
       expect(JSON.stringify(res.body)).not.toContain('+380501234567');
+      // в Redis только sha256 челленджа
+      expect(
+        [...redis.store.keys()].some((k) =>
+          k.includes(res.body.otpChallenge as string),
+        ),
+      ).toBe(false);
     });
   });
 
@@ -438,109 +448,152 @@ describe('AuthController (nest testing module, mocks)', () => {
   });
 
   describe('POST /service-auth/verify-otp', () => {
-    const SEED = 'seed@example.test';
-    const otp = (code: string, over: Record<string, unknown> = {}) =>
-      verify({ email: SEED, code, ...over });
+    const FORGED = 'f'.repeat(43);
+    const otp = (otpChallenge: string, code: string) =>
+      verify({ otpChallenge, code });
+    /** login с 2FA -> otpChallenge */
+    const startOtp = async () => {
+      await seedUser({ authSettings: { twoFactorEnabled: true } });
+      const res = await login(validLogin()).expect(200);
+
+      return res.body.otpChallenge as string;
+    };
 
     it('does not require a captcha (it was checked at login)', async () => {
-      const res = await otp('000000');
+      const res = await otp(FORGED, '000000');
       expect(res.status).not.toBe(403);
     });
 
     it.each([['12345'], [''], [123456], ['1234567']])(
       'code %p of wrong shape -> 400',
       async (code) => {
-        const res = await verify({ email: SEED, code });
+        const res = await verify({ otpChallenge: FORGED, code });
         expect(res.status).toBe(400);
       },
     );
 
-    it('rejects a body that carries a password: the endpoint no longer takes one', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin()).expect(200);
-      await otp('123456', { password: PASSWORD }).expect(400);
+    it('the old contract {email, code} is rejected (no otpChallenge)', async () => {
+      await startOtp();
+      await verify({ email: 'seed@example.test', code: '123456' }).expect(400);
     });
 
-    it('without a prior successful login (password step) even the right code gives 400 AUTH_INVALID_OTP', async () => {
+    it('rejects a body that carries a password', async () => {
+      const challenge = await startOtp();
+      await verify({
+        otpChallenge: challenge,
+        code: '123456',
+        password: PASSWORD,
+      }).expect(400);
+    });
+
+    it('a forged challenge: even the right code gives 400 AUTH_INVALID_OTP and the provider is not asked', async () => {
       await seedUser({ authSettings: { twoFactorEnabled: true } });
-      const res = await otp('123456').expect(400);
+      const res = await otp(FORGED, '123456').expect(400);
       expect(res.body.code).toBe('AUTH_INVALID_OTP');
       expect(res.body.loginTicket).toBeUndefined();
       expect(sms.verifySmsCode).not.toHaveBeenCalled();
     });
 
-    it('a failed password step does not open the OTP step', async () => {
+    it('a failed password step issues no challenge', async () => {
       await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin({ password: 'wrong' })).expect(401);
-      await otp('123456').expect(400);
+      const res = await login(validLogin({ password: 'wrong' })).expect(401);
+      expect(res.body.otpChallenge).toBeUndefined();
     });
 
     it('full 2FA flow: login -> verify-otp -> loginTicket -> validate -> user', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin()).expect(200);
-      const res = await otp('123456').expect(200);
+      const challenge = await startOtp();
+      const res = await otp(challenge, '123456').expect(200);
       expect(typeof res.body.loginTicket).toBe('string');
       expect(Object.keys(res.body)).toEqual(['loginTicket']);
 
       const user = await validate({ loginTicket: res.body.loginTicket }).expect(
         200,
       );
-      expect(user.body.user).toMatchObject({ id: 'u-1', email: SEED });
+      expect(user.body.user).toMatchObject({
+        id: 'u-1',
+        email: 'seed@example.test',
+      });
     });
 
     it('wrong code -> 400 AUTH_INVALID_OTP, no ticket', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin()).expect(200);
-      const res = await otp('000000').expect(400);
+      const challenge = await startOtp();
+      const res = await otp(challenge, '000000').expect(400);
       expect(res.body).toMatchObject({ code: 'AUTH_INVALID_OTP' });
       expect(res.body.loginTicket).toBeUndefined();
     });
 
-    it('the code is one-time: a second verify-otp after success is rejected', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin()).expect(200);
-      await otp('123456').expect(200);
-      await otp('123456').expect(400);
+    it('the challenge is one-time: a second verify-otp after success is rejected', async () => {
+      const challenge = await startOtp();
+      await otp(challenge, '123456').expect(200);
+      await otp(challenge, '123456').expect(400);
     });
 
-    it('attempts are limited to 5 per code: the 6th try with the RIGHT code is refused', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      await login(validLogin()).expect(200);
+    it('parallel verify-otp with the right code: exactly one ticket', async () => {
+      const challenge = await startOtp();
+      const results = await Promise.all([
+        otp(challenge, '123456'),
+        otp(challenge, '123456'),
+        otp(challenge, '123456'),
+      ]);
+      expect(results.filter((r) => r.status === 200)).toHaveLength(1);
+    });
 
-      // 5 неверных попыток; ThrottlerGuard (5/мин) тут не мешает, он считает и их
+    it('attempts are limited to 5 per challenge: the 6th try with the RIGHT code is refused', async () => {
+      const challenge = await startOtp();
+
       for (let i = 0; i < 5; i++) {
-        await otp('000000').expect(400);
+        await otp(challenge, '000000').expect(400);
       }
-      // 6-й запрос в минуту: отказ может прийти от throttler (429) или от счётчика (400),
-      // в любом случае билет выдан быть не должен
-      const res = await otp('123456');
+      // 6-й запрос в минуту: отказ от throttler (429) или от счётчика (400);
+      // билет выдан быть не должен
+      const res = await otp(challenge, '123456');
       expect([400, 429]).toContain(res.status);
       expect(res.body.loginTicket).toBeUndefined();
     });
 
-    it('rate limit by route: 6th request in a minute -> 429', async () => {
-      for (let i = 0; i < 5; i++) await otp('000000');
-      const res = await otp('000000').expect(429);
-      expect(res.body.code).toBe('RATE_LIMITED');
+    it('a repeated login gives a NEW challenge and does not reset the old counter', async () => {
+      const first = await startOtp();
+      await otp(first, '000000').expect(400);
+      const second = (await login(validLogin()).expect(200)).body
+        .otpChallenge as string;
+      expect(second).not.toBe(first);
+      const attemptsKeys = [...redis.store.keys()].filter((k) =>
+        k.startsWith('login-otp-attempts:'),
+      );
+      expect(attemptsKeys).toHaveLength(1);
+      expect(redis.store.get(attemptsKeys[0])).toBe('1');
+      expect(redis.ttl.get(attemptsKeys[0])).toBe(300);
     });
 
-    it('OTP of one user cannot be used for another email', async () => {
-      await seedUser({ authSettings: { twoFactorEnabled: true } });
-      users.set('victim@example.test', {
-        ...(await seedUser({
-          id: 'u-2',
-          email: 'victim@example.test',
-          authSettings: { twoFactorEnabled: true },
-        })),
-      });
-      await login(validLogin()).expect(200);
-      // у victim шаг с паролем не пройден
-      const res = await verify({
-        email: 'victim@example.test',
-        code: '123456',
-      });
-      expect(res.status).toBe(400);
-      expect(res.body.loginTicket).toBeUndefined();
+    it('rate limit by route: 6th request in a minute -> 429', async () => {
+      for (let i = 0; i < 5; i++) await otp(FORGED, '000000');
+      const res = await otp(FORGED, '000000').expect(429);
+      expect(res.body.code).toBe('RATE_LIMITED');
+    });
+  });
+
+  describe('POST /service-auth/logout', () => {
+    it('without a session -> 401 UNAUTHORIZED', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/service-auth/logout')
+        .expect(401);
+      expect(res.body.code).toBe('UNAUTHORIZED');
+    });
+
+    it('with a session -> {success:true} and the session is revoked (INCR session-version)', async () => {
+      const cookie = await sessionCookie(USER_A);
+      const res = await request(app.getHttpServer())
+        .post('/service-auth/logout')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect(res.body).toEqual({ success: true });
+      expect(redis.store.get(`session-version:${USER_A.id}`)).toBe('1');
+
+      // старая cookie (sessionVersion 0) больше не принимается
+      await request(app.getHttpServer())
+        .post('/service-auth/logout')
+        .set('Cookie', cookie)
+        .expect(401);
     });
   });
 });

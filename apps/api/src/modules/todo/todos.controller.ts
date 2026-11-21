@@ -72,9 +72,7 @@ export class TodosController {
     let imageUrl: string | null = null;
 
     if (file) {
-      imageUrl = await this.storageService.upload(
-        await toImageUpload(file, 'todos'),
-      );
+      imageUrl = await this.storageService.upload(toImageUpload(file, 'todos'));
     }
 
     return this.service.createTodo(userId, body, imageUrl);
@@ -135,7 +133,7 @@ export class TodosController {
     @GetUser('id') userId: string,
   ) {
     // Владелец проверяется до загрузки, чтобы в S3 не оставались чужие файлы
-    const image = await toImageUpload(file, 'todos');
+    const image = toImageUpload(file, 'todos');
     await this.service.assertTodoOwner(userId, body.todoId);
     const imageUrl = await this.storageService.upload(image);
 

@@ -24,9 +24,22 @@ describe('PaymentProcessor', () => {
     hasInvoiceForPayment: jest.fn(),
   };
   const redis = { del: jest.fn() };
-  const featureRepository = { createUserFeature: jest.fn() };
+  const featureRepository = {
+    createUserFeature: jest.fn(),
+    hasUserFeature: jest.fn(),
+  };
 
   let processor: PaymentProcessor;
+
+  const syncFixture = {
+    id: 'sub_1',
+    customer: 'cus_1',
+    status: 'active',
+    cancel_at_period_end: false,
+    items: {
+      data: [{ price: { id: 'price_1' }, current_period_end: 1_800_000_000 }],
+    },
+  };
 
   const billingUser = {
     userId: 'u1',
@@ -46,6 +59,10 @@ describe('PaymentProcessor', () => {
       redis as never,
     );
     redis.del.mockResolvedValue(1);
+    // по умолчанию getSubscription отдаёт то же, что пришло в событии (см. handleSubscriptionSync)
+    paymentsService.getSubscription.mockImplementation((id: string) =>
+      Promise.resolve(syncFixture.id === id ? syncFixture : undefined),
+    );
   });
 
   describe('process', () => {
@@ -77,8 +94,15 @@ describe('PaymentProcessor', () => {
   });
 
   describe('onFailed (retries exhausted)', () => {
+    const remove = jest.fn();
+
+    beforeEach(() => {
+      remove.mockReset().mockResolvedValue(undefined);
+    });
+
     const failedJob = (attemptsMade: number) =>
       ({
+        remove,
         id: 'evt_1',
         name: 'one-time-purchase',
         attemptsMade,
@@ -90,9 +114,24 @@ describe('PaymentProcessor', () => {
       await processor.onFailed(failedJob(2), new Error('db'));
 
       expect(redis.del).not.toHaveBeenCalled();
+      expect(remove).not.toHaveBeenCalled();
     });
 
     it('releases the idempotency key after the last attempt so a manual Stripe resend is processed', async () => {
+      await processor.onFailed(failedJob(5), new Error('db'));
+
+      expect(redis.del).toHaveBeenCalledWith('stripe-webhook-event:evt_1');
+    });
+
+    it('removes the exhausted job so queue.add(jobId = event.id) is not dropped as a duplicate', async () => {
+      await processor.onFailed(failedJob(5), new Error('db'));
+
+      expect(remove).toHaveBeenCalledTimes(1);
+    });
+
+    it('still releases the key when job.remove() fails', async () => {
+      remove.mockRejectedValue(new Error('locked'));
+
       await processor.onFailed(failedJob(5), new Error('db'));
 
       expect(redis.del).toHaveBeenCalledWith('stripe-webhook-event:evt_1');
@@ -139,21 +178,20 @@ describe('PaymentProcessor', () => {
   });
 
   describe('handleSubscriptionSync', () => {
-    const subscription = {
-      id: 'sub_1',
-      customer: 'cus_1',
-      status: 'active',
-      cancel_at_period_end: false,
-      items: {
-        data: [{ price: { id: 'price_1' }, current_period_end: 1_800_000_000 }],
-      },
-    };
+    const subscription = syncFixture;
+    /** Stripe отдаёт актуальную подписку; событие несёт (возможно устаревший) снимок. */
+    const stripeHas = (overrides: Record<string, unknown> = {}) =>
+      paymentsService.getSubscription.mockResolvedValue({
+        ...subscription,
+        ...overrides,
+      });
 
     it('writes the current subscription state', async () => {
       userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
 
       await processor.handleSubscriptionSync(subscription as never);
 
+      expect(paymentsService.getSubscription).toHaveBeenCalledWith('sub_1');
       expect(userRepository.updateBillingSubscription).toHaveBeenCalledWith({
         userId: 'u1',
         stripeSubscriptionId: 'sub_1',
@@ -164,13 +202,23 @@ describe('PaymentProcessor', () => {
       });
     });
 
+    it('a stale event does not overwrite a newer state: the fresh subscription from Stripe wins', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+      // событие "updated" (active) пришло после "deleted": в Stripe подписка уже отменена
+      stripeHas({ status: 'canceled' });
+
+      await processor.handleSubscriptionSync(subscription as never);
+
+      expect(
+        userRepository.updateBillingSubscription.mock.calls[0][0],
+      ).toMatchObject({ status: 'canceled', autoRenew: false });
+    });
+
     it('cancel_at_period_end switches auto renew off', async () => {
       userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+      stripeHas({ cancel_at_period_end: true });
 
-      await processor.handleSubscriptionSync({
-        ...subscription,
-        cancel_at_period_end: true,
-      } as never);
+      await processor.handleSubscriptionSync(subscription as never);
 
       expect(
         userRepository.updateBillingSubscription.mock.calls[0][0].autoRenew,
@@ -179,11 +227,9 @@ describe('PaymentProcessor', () => {
 
     it('a canceled subscription is stored as canceled without auto renew', async () => {
       userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+      stripeHas({ status: 'canceled' });
 
-      await processor.handleSubscriptionSync({
-        ...subscription,
-        status: 'canceled',
-      } as never);
+      await processor.handleSubscriptionSync(subscription as never);
 
       expect(
         userRepository.updateBillingSubscription.mock.calls[0][0],
@@ -192,11 +238,9 @@ describe('PaymentProcessor', () => {
 
     it('accepts an expanded customer object', async () => {
       userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+      stripeHas({ customer: { id: 'cus_1' } });
 
-      await processor.handleSubscriptionSync({
-        ...subscription,
-        customer: { id: 'cus_1' },
-      } as never);
+      await processor.handleSubscriptionSync(subscription as never);
 
       expect(userRepository.getUserByStripeCustomerId).toHaveBeenCalledWith(
         'cus_1',
@@ -349,13 +393,19 @@ describe('PaymentProcessor', () => {
         status: 'active',
         items: { data: [{}] },
       });
-      userRepository.updateBillingSubscription.mockRejectedValue(
-        new Error('db'),
-      );
+      const dbError = new Error('db');
 
-      await expect(
-        processor.handleSubscriptionUpgrade(intent as never),
-      ).rejects.toThrow('Error updating user subscription in database');
+      userRepository.updateBillingSubscription.mockRejectedValue(dbError);
+
+      const error = await processor
+        .handleSubscriptionUpgrade(intent as never)
+        .catch((e: unknown) => e as Error & { cause?: unknown });
+
+      expect(error).toMatchObject({
+        message: 'Error updating user subscription in database',
+      });
+      // исходная причина не теряется
+      expect((error as { cause?: unknown }).cause).toBe(dbError);
       expect(invoiceService.createInvoice).not.toHaveBeenCalled();
     });
   });
@@ -396,6 +446,31 @@ describe('PaymentProcessor', () => {
       expect(
         paymentMethodService.updateDefaultPaymentMethod,
       ).not.toHaveBeenCalled();
+    });
+
+    it('a retry after a partial failure does not create a second UserFeature', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+      featureRepository.hasUserFeature.mockResolvedValue(false);
+      // 1-я попытка: фича создана, затем падает смена карты
+      paymentMethodService.updateDefaultPaymentMethod.mockRejectedValueOnce(
+        new Error('stripe'),
+      );
+
+      await expect(
+        processor.handleOneTimePurchase(intent as never),
+      ).rejects.toThrow('stripe');
+      expect(featureRepository.createUserFeature).toHaveBeenCalledTimes(1);
+
+      // ретрай: фича уже есть
+      featureRepository.hasUserFeature.mockResolvedValue(true);
+      await processor.handleOneTimePurchase(intent as never);
+
+      expect(featureRepository.hasUserFeature).toHaveBeenCalledWith(
+        'u1',
+        'price_x',
+      );
+      expect(featureRepository.createUserFeature).toHaveBeenCalledTimes(1);
+      expect(invoiceService.createInvoice).toHaveBeenCalledTimes(1);
     });
 
     it('grants nothing for an unknown customer', async () => {

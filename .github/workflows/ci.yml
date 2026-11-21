@@ -90,6 +90,10 @@ jobs:
       AWS_ACCESS_KEY_ID: ci-placeholder
       AWS_SECRET_ACCESS_KEY: ci-placeholder
       AWS_S3_BUCKET_NAME: ci-placeholder
+      EMAIL_PROVIDER: sendgrid
+      EMAIL_FROM: ci@example.test
+      EMAIL_VERIFICATION_SECRET: ci-only-email-verification-secret-0123456789
+      INTERNAL_API_SECRET: ci-only-internal-api-secret-0123456789-0123
       SENDGRID_API_KEY: SG.ci-placeholder
       RESEND_API_KEY: re_ci_placeholder
       TWILIO_SID: ACci00000000000000000000000000000
@@ -218,6 +222,10 @@ jobs:
             -e AWS_ACCESS_KEY_ID=ci-placeholder \
             -e AWS_SECRET_ACCESS_KEY=ci-placeholder \
             -e AWS_S3_BUCKET_NAME=ci-placeholder \
+            -e EMAIL_PROVIDER=sendgrid \
+            -e EMAIL_FROM=ci@example.test \
+            -e EMAIL_VERIFICATION_SECRET=ci-only-email-verification-secret-0123456789 \
+            -e INTERNAL_API_SECRET=ci-only-internal-api-secret-0123456789-0123 \
             -e SENDGRID_API_KEY=SG.ci-placeholder \
             -e RESEND_API_KEY=re_ci_placeholder \
             -e TWILIO_SID=ACci00000000000000000000000000000 \

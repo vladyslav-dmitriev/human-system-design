@@ -158,14 +158,22 @@ export class UserService {
   }
 
   async setTwoFactor(userId: string, dto: UserSetTwoFactorBodyDto) {
-    const user = await this.userRepository.getUserById(userId);
-    const pending = await this.redis.get(pendingPhoneKey(userId));
+    // Включать и выключать 2FA можно только зная текущий пароль (украденная сессия не годится)
+    const user = await this.assertCurrentPassword(userId, dto.currentPassword);
 
-    // Включение: номер должен быть тем, на который отправили код.
-    // Выключение: код приходит на сохранённый номер.
+    if (dto.twoFactorEnabled && user.authSettings?.twoFactorEnabled) {
+      // Сменить номер: выключить кодом со старого номера и включить заново
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Two-factor authentication is already enabled',
+      });
+    }
+
+    // Включение: номер должен быть тем, на который отправили код (pending, иначе профиль).
+    // Выключение: код приходит на номер профиля, pending-номер не используется.
     const phone = dto.twoFactorEnabled
-      ? (pending ?? user?.profile?.phone)
-      : user?.profile?.phone;
+      ? ((await this.redis.get(pendingPhoneKey(userId))) ?? user.profile?.phone)
+      : user.profile?.phone;
 
     if (!phone || (dto.twoFactorEnabled && phone !== dto.phone)) {
       throw this.invalidOtp();

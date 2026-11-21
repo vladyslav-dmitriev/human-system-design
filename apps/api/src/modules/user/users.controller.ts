@@ -94,7 +94,11 @@ export class UsersController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Serialize(UserSetTwoFactorResponseDto)
   @ApiResponse({ status: 200, type: UserSetTwoFactorResponseDto })
-  @ApiResponse({ status: 400, description: 'USER_INVALID_OTP' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'USER_INVALID_OTP | USER_INVALID_PASSWORD | VALIDATION_FAILED (2FA уже включена)',
+  })
   async setTwoFactor(
     @GetUser('id') userId: string,
     @Body() body: UserSetTwoFactorBodyDto,

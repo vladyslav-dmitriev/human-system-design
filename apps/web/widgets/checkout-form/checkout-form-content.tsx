@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   CardNumberElement,
   CardExpiryElement,
@@ -16,21 +16,28 @@ import { getFormattedPrice } from "@/shared/lib/price";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import type { PaymentIntentResult } from "@stripe/stripe-js";
+import { API_URL } from "@/api";
+import { apiFetch } from "@/shared/lib/api-client";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 import type {
   CheckoutPaymentData,
+  CheckoutRequest,
+  CheckoutSummary,
   PaymentMethod,
 } from "@/shared/types/billing";
 
 type CheckoutFormContentProps = {
   userEmail?: string;
   paymentMethods: PaymentMethod[];
-  paymentData: CheckoutPaymentData;
+  summary: CheckoutSummary;
+  request: CheckoutRequest;
 };
 
 export function CheckoutFormContent({
   userEmail,
   paymentMethods,
-  paymentData,
+  summary,
+  request,
 }: CheckoutFormContentProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -67,15 +74,63 @@ export function CheckoutFormContent({
     !isEmailValid ||
     (paymentOption === "saved" ? !selectedCardId : !isNewCardValid);
 
+  // PaymentIntent создаётся по нажатию кнопки; повторная попытка после
+  // отказа карты использует тот же intent, а не создаёт новый
+  const clientSecretRef = useRef<string | null>(null);
+
+  /** POST создаёт PaymentIntent/подписку; null и errorMessage при ошибке */
+  const getClientSecret = async () => {
+    if (clientSecretRef.current) return clientSecretRef.current;
+
+    const url =
+      request.operation === "purchase"
+        ? API_URL.billing.checkout()
+        : API_URL.billing.subscriptionsUpgrade();
+    const body =
+      request.operation === "purchase"
+        ? { priceId: request.priceId, type: request.type }
+        : { priceId: request.priceId, type: "subscription" };
+
+    const response = await apiFetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      setErrorMessage(t(apiErrorKey(await getApiErrorCode(response))));
+      return null;
+    }
+
+    const data: Partial<CheckoutPaymentData> = await response
+      .json()
+      .catch(() => ({}));
+
+    if (!data.clientSecret) {
+      setErrorMessage(t("checkout_load_failed"));
+      return null;
+    }
+
+    clientSecretRef.current = data.clientSecret;
+    return data.clientSecret;
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setErrorMessage(null);
 
     try {
+      const clientSecret = await getClientSecret();
+      if (!clientSecret) {
+        setLoading(false);
+        return;
+      }
+
       if (paymentOption === "saved" && selectedCardId) {
         const result = await stripe!.confirmCardPayment(
-          paymentData.clientSecret,
+          clientSecret,
           {
             payment_method: selectedCardId,
             setup_future_usage: "off_session",
@@ -85,7 +140,7 @@ export function CheckoutFormContent({
       } else {
         const cardElement = elements!.getElement(CardNumberElement);
         const result = await stripe!.confirmCardPayment(
-          paymentData.clientSecret,
+          clientSecret,
           {
             payment_method: {
               card: cardElement!,
@@ -261,7 +316,7 @@ export function CheckoutFormContent({
             <span className="text-muted-foreground">
               {t("checkout_plan_label")}
             </span>
-            <span className="font-bold">{paymentData.productName}</span>
+            <span className="font-bold">{summary.productName}</span>
           </div>
           <div className="flex justify-between items-baseline text-sm text-foreground">
             <div className="text-muted-foreground">
@@ -275,8 +330,8 @@ export function CheckoutFormContent({
             </div>
             <div className="font-bold">
               {getFormattedPrice(
-                paymentData.amount,
-                paymentData.currency,
+                summary.amount,
+                summary.currency,
                 locale,
               )}
             </div>

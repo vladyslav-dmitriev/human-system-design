@@ -1,23 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, Length } from 'class-validator';
-
-import { NormalizeEmail } from '../common';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, Length } from 'class-validator';
 
 export class AccountTwoFactorBodyDto {
-  @ApiProperty({ description: 'Нормализуется: trim + lowercase' })
-  @NormalizeEmail()
-  @IsEmail()
-  email: string;
+  @ApiProperty({ description: 'otpChallenge из ответа login' })
+  @IsString()
+  @Length(20, 200)
+  otpChallenge: string;
 
   @ApiProperty({ minLength: 6, maxLength: 6 })
   @IsString()
   @Length(6, 6)
   code: string;
-
-  @ApiPropertyOptional({
-    description: 'Не используется, оставлено для совместимости',
-  })
-  @IsOptional()
-  @IsString()
-  captchaToken?: string;
 }

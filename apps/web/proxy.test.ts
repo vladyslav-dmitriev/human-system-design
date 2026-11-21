@@ -144,6 +144,14 @@ describe("proxy (middleware)", () => {
       );
     });
 
+    it("cookie сбрасывается с httpOnly, SameSite=lax и path=/", async () => {
+      const res = await middleware(req("/uk/login?sessionExpired=1"));
+      const cookie = res.headers.get("set-cookie") ?? "";
+      expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).toMatch(/SameSite=lax/i);
+      expect(cookie).toMatch(/Path=\//);
+    });
+
     it("без параметра вошедший по-прежнему уходит в кабинет", async () => {
       const res = await middleware(req("/uk/login"));
       expect(location(res)).toBe(`${ORIGIN}/uk/dashboard`);

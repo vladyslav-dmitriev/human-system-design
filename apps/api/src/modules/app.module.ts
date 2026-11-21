@@ -66,14 +66,19 @@ import { RabbitMQModule } from './rabbitmq';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const isDevelopment = configService.get('NODE_ENV') === 'development';
+        // Без fallback с учётными данными: URL обязателен (Joi + эта проверка)
+        const rabbitUrl = configService.get<string>('RABBITMQ_URL');
+
+        if (!rabbitUrl) {
+          throw new Error(
+            'RABBITMQ_URL is not set (example: amqp://user:password@localhost:5672/)',
+          );
+        }
 
         return {
           environment: isDevelopment ? 'development' : 'production',
           config: {
-            url: configService.get(
-              'RABBITMQ_URL',
-              'amqp://admin:admin123@rabbitmq:5672',
-            ),
+            url: rabbitUrl,
             prefetch: 1,
             // prefetch: configService.get('RABBITMQ_PREFETCH', 1),
             reconnectInterval: configService.get(

@@ -3,13 +3,15 @@ import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "./auth.config";
 import { API_URL } from "./api";
-import { SESSION_COOKIE_NAME } from "./constants";
+import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "./constants";
+import { buildInternalHeaders } from "./shared/lib/internal-headers";
 
 export const result = NextAuth({
   ...authConfig,
 
   session: {
     strategy: "jwt",
+    maxAge: SESSION_MAX_AGE,
   },
   cookies: {
     sessionToken: {
@@ -51,7 +53,7 @@ export const result = NextAuth({
     Credentials({
       // Принимает только одноразовый loginTicket из login / verify-otp:
       // пароль и OTP проверяет API до выдачи билета
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const loginTicket = credentials?.loginTicket;
 
         if (typeof loginTicket !== "string" || !loginTicket) return null;
@@ -61,6 +63,7 @@ export const result = NextAuth({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...buildInternalHeaders(request?.headers),
             },
             body: JSON.stringify({ loginTicket }),
           });

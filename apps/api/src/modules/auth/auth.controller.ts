@@ -6,8 +6,14 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import {
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import {
@@ -21,6 +27,9 @@ import {
   AccountValidateResponseDto,
 } from './dto';
 import { CaptchaGuard } from '../captcha/guards';
+import { AuthGuard } from './guards/jwt-auth.guard';
+import { InternalSecretGuard } from './guards/internal-secret.guard';
+import { GetUser } from './decorators/get-user.decorator';
 import { Serialize } from 'interceptors';
 
 @ApiTags('service-auth')
@@ -43,10 +52,10 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(CaptchaGuard)
   @Serialize(AccountLoginResponseDto)
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary:
-      'Вход: loginTicket (без 2FA) или twoFactorRequired + phoneMasked (SMS отправлено)',
+      'Вход: loginTicket (без 2FA) или twoFactorRequired + phoneMasked + otpChallenge (SMS отправлено)',
   })
   @ApiResponse({ status: 200, type: AccountLoginResponseDto })
   @ApiResponse({ status: 401, description: 'AUTH_INVALID_CREDENTIALS' })
@@ -56,14 +65,21 @@ export class AuthController {
 
   @Post('validate')
   @HttpCode(200)
+  @UseGuards(InternalSecretGuard)
+  // Без IP-лимита: все вызовы идут с одного адреса сервера web; доступ закрыт секретом
+  @SkipThrottle()
   @Serialize(AccountValidateResponseDto)
-  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({
     summary:
-      'Обмен одноразового loginTicket на пользователя. Только для сервера web (nginx закрывает снаружи)',
+      'Обмен одноразового loginTicket на пользователя. Только для сервера web: заголовок X-Internal-Secret',
   })
+  @ApiHeader({ name: 'X-Internal-Secret', required: true })
   @ApiResponse({ status: 200, type: AccountValidateResponseDto })
-  @ApiResponse({ status: 401, description: 'AUTH_TICKET_INVALID' })
+  @ApiResponse({
+    status: 401,
+    description:
+      'AUTH_TICKET_INVALID (в т.ч. нет или неверный X-Internal-Secret)',
+  })
   async validate(@Body() body: AccountValidateBodyDto) {
     return this.authService.validate(body);
   }
@@ -77,5 +93,17 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'AUTH_INVALID_OTP' })
   async twoFactor(@Body() body: AccountTwoFactorBodyDto) {
     return this.authService.twoFactor(body);
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @Serialize(AccountCreateResponseDto)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Выход: отзывает все сессии пользователя' })
+  @ApiResponse({ status: 200, type: AccountCreateResponseDto })
+  @ApiResponse({ status: 401, description: 'UNAUTHORIZED' })
+  async logout(@GetUser('id') userId: string) {
+    return this.authService.logout(userId);
   }
 }

@@ -80,6 +80,7 @@ function webPaths(): Record<string, string> {
 const WEB_METHOD: Record<string, string[]> = {
   'auth.createAccount': ['POST'],
   'auth.login': ['POST'],
+  'auth.logout': ['POST'],
   'auth.validate': ['POST'],
   'auth.twoFactor': ['POST'],
   'users.profile': ['GET'],

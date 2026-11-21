@@ -1,4 +1,5 @@
-const DEFAULT_TRUST_PROXY = 'loopback,linklocal,uniquelocal';
+// Один хоп: nginx на краю (он перезаписывает X-Forwarded-For адресом клиента)
+const DEFAULT_TRUST_PROXY = 1;
 
 const parseBoolean = (
   value: string | boolean | undefined,
@@ -27,8 +28,8 @@ export const isMetricsEnabled = (env: NodeJS.ProcessEnv = process.env) =>
 
 /**
  * Каким прокси доверяем при определении IP клиента (`X-Forwarded-For`).
- * По умолчанию: только loopback и внутренние сети (nginx в docker-сети);
- * значение `false` отключает trust proxy, число = количество хопов.
+ * По умолчанию один хоп (nginx на краю); значение `false` отключает trust proxy,
+ * число = количество хопов, иначе список подсетей для Express.
  */
 export const getTrustProxy = (
   env: NodeJS.ProcessEnv = process.env,

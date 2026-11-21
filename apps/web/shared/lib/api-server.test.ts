@@ -39,6 +39,19 @@ describe("serverApiFetch", () => {
     expect(init.method).toBe("POST");
   });
 
+  it("добавляет X-Internal-Secret и X-Client-IP (первый адрес x-forwarded-for)", async () => {
+    vi.stubEnv("INTERNAL_API_SECRET", "s".repeat(32));
+    headersGet.mockImplementation((name: string) =>
+      name === "x-forwarded-for" ? "203.0.113.7, 10.0.0.1" : null,
+    );
+    fetchMock.mockResolvedValue(json(200, {}));
+    await serverApiFetch("http://api/x");
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.headers["X-Internal-Secret"]).toBe("s".repeat(32));
+    expect(init.headers["X-Client-IP"]).toBe("203.0.113.7");
+    vi.unstubAllEnvs();
+  });
+
   it("401 UNAUTHORIZED: редирект на логин локали с callbackUrl", async () => {
     fetchMock.mockResolvedValue(json(401, { code: "UNAUTHORIZED" }));
     await expect(serverApiFetch("http://api/x")).rejects.toThrow(

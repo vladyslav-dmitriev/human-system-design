@@ -62,12 +62,18 @@ export class PaymentProcessor extends WorkerHost {
       `Payment job ${job?.id} (${job?.name}) failed, attempt ${job?.attemptsMade}/${attempts}: ${error.message}`,
     );
 
-    // Задача исчерпала ретраи: освобождаем ключ идемпотентности, чтобы ручная
-    // повторная отправка события из дашборда Stripe была обработана.
+    // Задача исчерпала ретраи. Для ручного resend из дашборда Stripe освобождаем и ключ
+    // идемпотентности, и саму задачу: jobId = event.id, и упавшая задача в Redis иначе
+    // заставила бы `queue.add` молча отбросить повторное событие как дубль.
     if (job && job.attemptsMade >= attempts && job.data?.eventId) {
       this.logger.error(
         `Payment job ${job.id} moved to failed, event ${job.data.eventId} needs manual review`,
       );
+      await job.remove().catch((removeError: unknown) => {
+        this.logger.error(
+          `Failed payment job ${job.id} was not removed: ${removeError instanceof Error ? removeError.message : 'unknown error'}`,
+        );
+      });
       await this.redis
         .del(webhookEventKey(job.data.eventId))
         .catch(() => undefined);
@@ -175,12 +181,22 @@ export class PaymentProcessor extends WorkerHost {
         currency: paymentIntent.currency,
         metadata: paymentIntent.metadata,
       });
-    } catch {
-      throw new Error('Error updating user subscription in database');
+    } catch (error) {
+      // target es2021: `cause` задаём вручную (ES2022 ErrorOptions в типах недоступен)
+      const wrapped = new Error('Error updating user subscription in database');
+
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      throw wrapped;
     }
   }
 
-  async handleSubscriptionSync(subscription: StripeTypes.Subscription) {
+  async handleSubscriptionSync(eventSubscription: StripeTypes.Subscription) {
+    // Событие может прийти позже других (порядок доставки Stripe не гарантирован):
+    // пишем текущее состояние подписки из Stripe, а не снимок из события.
+    const subscription = await this.paymentsService.getSubscription(
+      eventSubscription.id,
+    );
+
     const stripeCustomerId =
       typeof subscription.customer === 'string'
         ? subscription.customer
@@ -230,10 +246,18 @@ export class PaymentProcessor extends WorkerHost {
 
     const paymentMethodId = paymentIntent.payment_method as string;
 
-    await this.featureRepository.createUserFeature(
-      user.userId,
-      paymentIntent.metadata.priceId,
-    );
+    // Ретрай после частичного сбоя (карта, счёт): вторую фичу не создаём
+    if (
+      !(await this.featureRepository.hasUserFeature(
+        user.userId,
+        paymentIntent.metadata.priceId,
+      ))
+    ) {
+      await this.featureRepository.createUserFeature(
+        user.userId,
+        paymentIntent.metadata.priceId,
+      );
+    }
 
     if (user.defaultPaymentMethodId !== paymentMethodId) {
       await this.paymentMethodService.updateDefaultPaymentMethod(

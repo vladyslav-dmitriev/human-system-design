@@ -124,6 +124,7 @@ describe("LoginPage", () => {
     ["//evil.example", "/dashboard"],
     ["https://evil.example", "/dashboard"],
     ["/\\evil.example", "/dashboard"],
+    ["/uk//evil.example", "/dashboard"],
     ["/login", "/dashboard"],
   ])(
     "callbackUrl=%s после входа ведёт на %s (open redirect закрыт)",
@@ -144,7 +145,11 @@ describe("LoginPage", () => {
 
   it("2FA: показывается OTP-шаг с замаскированным телефоном, signIn ещё не вызван", async () => {
     fetchMock.mockReturnValue(
-      json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+      json({
+          twoFactorRequired: true,
+          phoneMasked: "**********33",
+          otpChallenge: "chal-123",
+        }),
     );
     render(<LoginPage />);
     fillAndSubmit();
@@ -155,10 +160,14 @@ describe("LoginPage", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("2FA: verify-otp получает только email и code (без пароля и captcha), затем ровно один signIn с билетом", async () => {
+  it("2FA: verify-otp получает только otpChallenge и code (без пароля и captcha), затем ровно один signIn с билетом", async () => {
     fetchMock
       .mockReturnValueOnce(
-        json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+        json({
+          twoFactorRequired: true,
+          phoneMasked: "**********33",
+          otpChallenge: "chal-123",
+        }),
       )
       .mockReturnValueOnce(json({ loginTicket: TICKET }));
     render(<LoginPage />);
@@ -169,7 +178,7 @@ describe("LoginPage", () => {
     const [url, init] = fetchMock.mock.calls[1]!;
     expect(url).toMatch(/\/service-auth\/verify-otp$/);
     expect(JSON.parse(init.body)).toEqual({
-      email: "user@example.com",
+      otpChallenge: "chal-123",
       code: "123456",
     });
     expect(signIn).toHaveBeenCalledTimes(1);
@@ -182,7 +191,11 @@ describe("LoginPage", () => {
   it("неверный OTP (400 AUTH_INVALID_OTP): показывается ошибка, signIn не вызывается", async () => {
     fetchMock
       .mockReturnValueOnce(
-        json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+        json({
+          twoFactorRequired: true,
+          phoneMasked: "**********33",
+          otpChallenge: "chal-123",
+        }),
       )
       .mockReturnValueOnce(
         json({ code: "AUTH_INVALID_OTP", message: "x" }, false, 400),

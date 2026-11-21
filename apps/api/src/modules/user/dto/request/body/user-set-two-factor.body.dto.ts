@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsPhoneNumber, IsString, Length } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsPhoneNumber,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 
 export class UserSetTwoFactorBodyDto {
   @ApiProperty({ description: 'Номер в формате E.164' })
@@ -14,4 +21,10 @@ export class UserSetTwoFactorBodyDto {
   @ApiProperty()
   @IsBoolean()
   twoFactorEnabled: boolean;
+
+  @ApiProperty({ description: 'Текущий пароль (для включения и выключения)' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  currentPassword: string;
 }

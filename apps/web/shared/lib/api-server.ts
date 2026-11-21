@@ -6,6 +6,7 @@ import { getApiErrorCode } from "./api-error";
 import { SESSION_EXPIRED_PARAM } from "../../constants";
 import { buildLoginHref } from "../utils/guards";
 import { normalizePath } from "./normalize-path";
+import { buildInternalHeaders } from "./internal-headers";
 
 /** Редирект на логин текущей локали; proxy сбросит протухшую cookie по `sessionExpired` */
 export async function redirectToLogin(): Promise<never> {
@@ -28,12 +29,14 @@ export async function serverApiFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   const cookieString = (await cookies()).toString();
+  const requestHeaders = await headers();
 
   const response = await fetch(url, {
     cache: "no-store",
     ...init,
     headers: {
       ...(init.headers as Record<string, string>),
+      ...buildInternalHeaders(requestHeaders),
       Cookie: cookieString,
     },
   });

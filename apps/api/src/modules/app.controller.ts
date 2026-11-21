@@ -39,17 +39,25 @@ export class AppController {
       return 'down';
     }
 
+    let timer: NodeJS.Timeout | undefined;
+
     try {
       const pong = await Promise.race([
         this.redis.ping(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), REDIS_PING_TIMEOUT_MS),
-        ),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('timeout')),
+            REDIS_PING_TIMEOUT_MS,
+          );
+        }),
       ]);
 
       return pong === 'PONG' ? 'up' : 'down';
     } catch {
       return 'down';
+    } finally {
+      // Таймер не должен жить 2 с после каждого PING (держит event loop и тесты)
+      clearTimeout(timer);
     }
   }
 }

@@ -23,14 +23,19 @@ import { EmailVerificationService } from '../sender/email/email-verification.ser
 import { SmsService } from '../sender/sms';
 import { AuthRepository } from './auth.repository';
 import { UserRepository } from '../user';
-import { REDIS_CLIENT, getSessionVersion } from '../redis';
+import { REDIS_CLIENT, bumpSessionVersion, getSessionVersion } from '../redis';
 import { ErrorCode } from '../../common/errors';
 
 const LOGIN_TICKET_PREFIX = 'login-ticket:';
 const LOGIN_TICKET_TTL_SECONDS = 300;
 
-/** Состояние «пароль проверен, ждём OTP» для входа с 2FA. */
+/**
+ * Состояние «пароль проверен, ждём OTP» для входа с 2FA:
+ * `login-otp:<sha256(otpChallenge)>` = userId, отдельный счётчик попыток
+ * `login-otp-attempts:<sha256>` (атомарный INCR, TTL ставится до первого INCR).
+ */
 const LOGIN_OTP_PREFIX = 'login-otp:';
+const LOGIN_OTP_ATTEMPTS_PREFIX = 'login-otp-attempts:';
 const LOGIN_OTP_TTL_SECONDS = 300;
 export const LOGIN_OTP_MAX_ATTEMPTS = 5;
 
@@ -158,17 +163,17 @@ export class AuthService {
     }
 
     if (user.authSettings?.twoFactorEnabled && user.profile.phone) {
-      await this.redis.set(
-        `${LOGIN_OTP_PREFIX}${sha256(email)}`,
-        '0',
-        'EX',
-        LOGIN_OTP_TTL_SECONDS,
-      );
-      await this.smsService.sendSmsCode({ phoneNumber: user.profile.phone });
+      // SMS идёт через те же счётчики (пользователь, номер, сутки), что и sender/sms/send:
+      // повторный login не даёт обойти лимит. Челлендж создаётся только после отправки.
+      await this.smsService.sendSmsCode({
+        phoneNumber: user.profile.phone,
+        userId: user.id,
+      });
 
       return {
         twoFactorRequired: true,
         phoneMasked: maskPhoneNumber(user.profile.phone),
+        otpChallenge: await this.issueOtpChallenge(user.id),
       };
     }
 
@@ -205,25 +210,43 @@ export class AuthService {
     };
   }
 
-  async twoFactor(dto: AccountTwoFactorBodyDto) {
-    const email = normalizeEmail(dto.email);
-    const key = `${LOGIN_OTP_PREFIX}${sha256(email)}`;
+  private async issueOtpChallenge(userId: string): Promise<string> {
+    const challenge = randomBytes(32).toString('base64url');
 
-    // Состояние появляется только после успешной проверки пароля в login()
-    if ((await this.redis.get(key)) === null) {
+    await this.redis.set(
+      `${LOGIN_OTP_PREFIX}${sha256(challenge)}`,
+      userId,
+      'EX',
+      LOGIN_OTP_TTL_SECONDS,
+    );
+
+    return challenge;
+  }
+
+  async twoFactor(dto: AccountTwoFactorBodyDto) {
+    const hash = sha256(dto.otpChallenge);
+    const key = `${LOGIN_OTP_PREFIX}${hash}`;
+    const attemptsKey = `${LOGIN_OTP_ATTEMPTS_PREFIX}${hash}`;
+
+    // Челлендж выдаёт только login() после проверки пароля
+    const userId = await this.redis.get(key);
+
+    if (userId === null) {
       throw this.invalidOtp();
     }
 
-    const attempts = await this.redis.incr(key);
+    // Счётчик атомарный: TTL ставится SET NX до INCR (INCR TTL не трогает), окна без TTL нет
+    await this.redis.set(attemptsKey, '0', 'EX', LOGIN_OTP_TTL_SECONDS, 'NX');
+    const attempts = await this.redis.incr(attemptsKey);
 
     if (attempts > LOGIN_OTP_MAX_ATTEMPTS) {
-      await this.redis.del(key);
+      await this.redis.del(key, attemptsKey);
       throw this.invalidOtp();
     }
 
-    const user = await this.authRepository.getUserLogin(email);
+    const user = await this.authRepository.getUserLoginById(userId);
 
-    if (!user?.profile?.phone) {
+    if (!user?.profile?.phone || !user.authSettings?.twoFactorEnabled) {
       throw this.invalidOtp();
     }
 
@@ -242,10 +265,21 @@ export class AuthService {
       throw this.invalidOtp();
     }
 
-    // Код одноразовый: состояние удаляется, повторный verify-otp невозможен
-    await this.redis.del(key);
+    // Код одноразовый: GETDEL челленджа решает гонку параллельных запросов с верным кодом
+    if ((await this.redis.getdel(key)) === null) {
+      throw this.invalidOtp();
+    }
+
+    await this.redis.del(attemptsKey);
 
     return { loginTicket: await this.issueLoginTicket(user.id) };
+  }
+
+  /** Выход: INCR версии сессии отзывает все выданные сессии пользователя. */
+  async logout(userId: string) {
+    await bumpSessionVersion(this.redis, userId);
+
+    return { success: true };
   }
 
   private invalidCredentials() {

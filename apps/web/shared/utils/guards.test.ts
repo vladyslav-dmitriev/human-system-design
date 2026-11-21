@@ -65,6 +65,8 @@ describe("guards", () => {
       ["https://evil.example", "/dashboard"],
       ["//evil.example", "/dashboard"],
       ["///evil.example", "/dashboard"],
+      ["/uk//evil.example", "/dashboard"],
+      ["/uk/\\evil.example", "/dashboard"],
       ["/\\evil.example", "/dashboard"],
       ["javascript:alert(1)", "/dashboard"],
       ["evil", "/dashboard"],

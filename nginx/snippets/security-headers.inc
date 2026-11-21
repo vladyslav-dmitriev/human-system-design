@@ -1,6 +1,6 @@
 # Security-заголовки. Подключается в каждом location через include:
 # add_header в location отменяет наследование add_header с уровня server.
-# Файл с расширением .inc, чтобы nginx не подключил его как отдельный конфиг из conf.d/*.conf.
+# Файл с расширением .inc, чтобы nginx не подключил его как отдельный конфиг из conf.d/*.conf (include-файлы лежат в snippets/).
 
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;

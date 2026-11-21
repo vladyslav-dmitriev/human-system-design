@@ -11,6 +11,7 @@ export default defineConfig({
     server: { deps: { inline: ['next-intl'] } },
     alias: {
       "@": path.resolve(import.meta.dirname, "./"),
+      "server-only": path.resolve(import.meta.dirname, "./test-utils/server-only.ts"),
     },
     coverage: {
       provider: "v8",

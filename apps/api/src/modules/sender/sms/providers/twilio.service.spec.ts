@@ -79,10 +79,12 @@ describe('TwilioService', () => {
   });
 
   describe('PAID_API is not "enabled"', () => {
+    const mock = { SMS_DEV_MOCK: 'true', NODE_ENV: 'development' };
+
     it.each([undefined, 'disabled', 'ENABLED', ''])(
-      'does not call Twilio when PAID_API=%p',
+      'does not call Twilio when PAID_API=%p (dev mock)',
       async (paid) => {
-        const service = build({ ...base, PAID_API: paid });
+        const service = build({ ...base, ...mock, PAID_API: paid });
 
         await service.sendSmsCode({ phoneNumber: '+1' });
         await service.verifySmsCode({ phoneNumber: '+1', code: '1' });
@@ -92,9 +94,30 @@ describe('TwilioService', () => {
       },
     );
 
-    it('does not accept an arbitrary code when PAID_API is unset', async () => {
-      const service = build({ ...base, PAID_API: undefined });
+    it('without SMS_DEV_MOCK the dev code 123456 is NOT accepted, even in development', async () => {
+      for (const flag of [undefined, 'false', '']) {
+        const service = build({
+          ...base,
+          PAID_API: undefined,
+          NODE_ENV: 'development',
+          SMS_DEV_MOCK: flag,
+        });
 
+        await expect(
+          service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+        ).resolves.toBe(false);
+        await expect(
+          service.sendSmsCode({ phoneNumber: '+1' }),
+        ).rejects.toThrow('SMS provider is not enabled');
+      }
+    });
+
+    it('with SMS_DEV_MOCK=true accepts only the fixed dev code', async () => {
+      const service = build({ ...base, ...mock, PAID_API: undefined });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(true);
       await expect(
         service.verifySmsCode({ phoneNumber: '+1', code: 'anything' }),
       ).resolves.toBe(false);
@@ -103,23 +126,12 @@ describe('TwilioService', () => {
       ).resolves.toBe(false);
     });
 
-    it('accepts only the fixed dev code outside production', async () => {
-      const service = build({
-        ...base,
-        PAID_API: undefined,
-        NODE_ENV: 'development',
-      });
-
-      await expect(
-        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
-      ).resolves.toBe(true);
-    });
-
-    it('does not accept even the dev code in production', async () => {
+    it('does not accept even the dev code in production, even with SMS_DEV_MOCK=true', async () => {
       const service = build({
         ...base,
         PAID_API: 'disabled',
         NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
       });
 
       await expect(
@@ -135,6 +147,7 @@ describe('TwilioService', () => {
         ...base,
         PAID_API: undefined,
         NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
       });
 
       await expect(service.sendSmsCode({ phoneNumber: '+1' })).rejects.toThrow(

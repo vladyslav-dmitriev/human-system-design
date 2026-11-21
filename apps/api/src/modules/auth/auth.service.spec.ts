@@ -29,9 +29,12 @@ function createFakeRedis() {
   return {
     store,
     ttl,
-    set: jest.fn(async (k: string, v: string, _ex?: string, sec?: number) => {
+    set: jest.fn(async (k: string, v: string, ...args: (string | number)[]) => {
+      if (args.includes('NX') && store.has(k)) return null;
       store.set(k, v);
-      if (sec) ttl.set(k, sec);
+      const ex = args.indexOf('EX');
+
+      if (ex >= 0) ttl.set(k, Number(args[ex + 1]));
 
       return 'OK';
     }),
@@ -50,7 +53,9 @@ function createFakeRedis() {
 
       return next;
     }),
-    del: jest.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
+    del: jest.fn(async (...keys: string[]) =>
+      keys.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0),
+    ),
   };
 }
 
@@ -264,7 +269,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('with 2FA sends an SMS, returns the masked phone and NO ticket', async () => {
+    it('with 2FA sends an SMS, returns the masked phone, an otpChallenge and NO ticket', async () => {
       authRepository.getUserLogin.mockResolvedValue(
         loginUser({ authSettings: { twoFactorEnabled: true } }),
       );
@@ -273,12 +278,19 @@ describe('AuthService', () => {
 
       expect(smsService.sendSmsCode).toHaveBeenCalledWith({
         phoneNumber: '+380501234567',
+        userId: 'u1',
       });
       expect(result).toEqual({
         twoFactorRequired: true,
         phoneMasked: '**********67',
+        otpChallenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as string,
       });
       expect(result).not.toHaveProperty('loginTicket');
+      // В Redis лежит только sha256 челленджа, TTL 300
+      const key = `login-otp:${sha256((result as { otpChallenge: string }).otpChallenge)}`;
+
+      expect(redis.store.get(key)).toBe('u1');
+      expect(redis.ttl.get(key)).toBe(300);
       expect(
         [...redis.store.keys()].some((k) => k.startsWith('login-ticket:')),
       ).toBe(false);
@@ -407,71 +419,96 @@ describe('AuthService', () => {
   });
 
   describe('twoFactor (verify-otp)', () => {
-    const dto = { email: 'a@test.dev', code: '123456' };
-    const otpKey = `login-otp:${sha256('a@test.dev')}`;
+    let otpChallenge: string;
+    const dto = () => ({ otpChallenge, code: '123456' });
+    const otpKey = () => `login-otp:${sha256(otpChallenge)}`;
+    const attemptsKey = () => `login-otp-attempts:${sha256(otpChallenge)}`;
 
     const startOtp = async () => {
       authRepository.getUserCredentials.mockResolvedValue({
         id: 'u1',
         password: passwordHash,
       });
-      authRepository.getUserLogin.mockResolvedValue(
-        loginUser({ authSettings: { twoFactorEnabled: true } }),
-      );
-      await service.login(creds as never);
+      const twoFa = loginUser({ authSettings: { twoFactorEnabled: true } });
+
+      authRepository.getUserLogin.mockResolvedValue(twoFa);
+      authRepository.getUserLoginById.mockResolvedValue(twoFa);
+      const result = await service.login(creds as never);
+
+      otpChallenge = (result as { otpChallenge: string }).otpChallenge;
     };
 
-    it('without a prior successful password step the code is not even checked', async () => {
-      authRepository.getUserLogin.mockResolvedValue(loginUser());
-
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+    it('an unknown / forged challenge: the code is not even checked', async () => {
+      await expect(
+        service.twoFactor({
+          otpChallenge: 'forged-challenge-forged-challenge',
+          code: '123456',
+        }),
+      ).rejects.toMatchObject({
         status: 400,
         response: { code: ErrorCode.AUTH_INVALID_OTP },
       });
       expect(smsService.verifySmsCode).not.toHaveBeenCalled();
     });
 
-    it('a correct code returns a loginTicket and consumes the OTP state', async () => {
+    it('an email is not a challenge: the old email-keyed state does not exist', async () => {
+      await startOtp();
+
+      await expect(
+        service.twoFactor({ otpChallenge: 'a@test.dev', code: '123456' }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(smsService.verifySmsCode).not.toHaveBeenCalled();
+    });
+
+    it('a correct code returns a loginTicket and consumes the challenge', async () => {
       await startOtp();
       smsService.verifySmsCode.mockResolvedValue(true);
 
-      const result = await service.twoFactor(dto);
+      const result = await service.twoFactor(dto());
 
       expect(smsService.verifySmsCode).toHaveBeenCalledWith({
         phoneNumber: '+380501234567',
         code: '123456',
       });
       expect(redis.store.get(ticketKey(result.loginTicket))).toBe('u1');
-      expect(redis.store.has(otpKey)).toBe(false);
+      expect(redis.store.has(otpKey())).toBe(false);
+      expect(redis.store.has(attemptsKey())).toBe(false);
     });
 
     it('the code is one-time: a repeated verify-otp is rejected', async () => {
       await startOtp();
       smsService.verifySmsCode.mockResolvedValue(true);
 
-      await service.twoFactor(dto);
+      await service.twoFactor(dto());
 
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+      await expect(service.twoFactor(dto())).rejects.toMatchObject({
         status: 400,
         response: { code: ErrorCode.AUTH_INVALID_OTP },
       });
       expect(smsService.verifySmsCode).toHaveBeenCalledTimes(1);
     });
 
-    it('email is normalized, so case tricks use the same attempt counter', async () => {
+    it('parallel requests with the right code issue exactly one ticket (GETDEL gate)', async () => {
       await startOtp();
       smsService.verifySmsCode.mockResolvedValue(true);
 
-      await expect(
-        service.twoFactor({ ...dto, email: ' A@Test.DEV ' }),
-      ).resolves.toHaveProperty('loginTicket');
+      const results = await Promise.allSettled([
+        service.twoFactor(dto()),
+        service.twoFactor(dto()),
+        service.twoFactor(dto()),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(
+        [...redis.store.keys()].filter((k) => k.startsWith('login-ticket:')),
+      ).toHaveLength(1);
     });
 
     it('a wrong code -> 400 AUTH_INVALID_OTP and no ticket', async () => {
       await startOtp();
       smsService.verifySmsCode.mockResolvedValue(false);
 
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+      await expect(service.twoFactor(dto())).rejects.toMatchObject({
         status: 400,
         response: { code: ErrorCode.AUTH_INVALID_OTP },
       });
@@ -480,12 +517,22 @@ describe('AuthService', () => {
       ).toBe(false);
     });
 
+    it('the attempts counter always has a TTL (no GET/INCR window without expiry)', async () => {
+      await startOtp();
+      smsService.verifySmsCode.mockResolvedValue(false);
+
+      await expect(service.twoFactor(dto())).rejects.toBeDefined();
+
+      expect(redis.store.get(attemptsKey())).toBe('1');
+      expect(redis.ttl.get(attemptsKey())).toBe(300);
+    });
+
     it(`attempts are limited: after ${LOGIN_OTP_MAX_ATTEMPTS} wrong codes even the right code is refused without asking the provider`, async () => {
       await startOtp();
       smsService.verifySmsCode.mockResolvedValue(false);
 
       for (let i = 0; i < LOGIN_OTP_MAX_ATTEMPTS; i++) {
-        await expect(service.twoFactor(dto)).rejects.toMatchObject({
+        await expect(service.twoFactor(dto())).rejects.toMatchObject({
           status: 400,
         });
       }
@@ -495,27 +542,59 @@ describe('AuthService', () => {
 
       smsService.verifySmsCode.mockResolvedValue(true);
 
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+      await expect(service.twoFactor(dto())).rejects.toMatchObject({
         status: 400,
         response: { code: ErrorCode.AUTH_INVALID_OTP },
       });
       expect(smsService.verifySmsCode).toHaveBeenCalledTimes(
         LOGIN_OTP_MAX_ATTEMPTS,
       );
-      // Новый вход (новая SMS) сбрасывает состояние
+      // Новый login даёт новый челлендж со своими попытками (лимит SMS считает SmsService)
       await service.login(creds as never);
-      await expect(service.twoFactor(dto)).resolves.toHaveProperty(
-        'loginTicket',
+      expect(smsService.sendSmsCode).toHaveBeenCalledTimes(2);
+    });
+
+    it('a repeated login does NOT reset the attempts of the previous challenge', async () => {
+      await startOtp();
+      const first = otpChallenge;
+
+      smsService.verifySmsCode.mockResolvedValue(false);
+      await expect(service.twoFactor(dto())).rejects.toBeDefined();
+      await service.login(creds as never);
+
+      expect(redis.store.get(`login-otp-attempts:${sha256(first)}`)).toBe('1');
+    });
+
+    it('a login that failed to send SMS (429) leaves no challenge behind', async () => {
+      authRepository.getUserCredentials.mockResolvedValue({
+        id: 'u1',
+        password: passwordHash,
+      });
+      authRepository.getUserLogin.mockResolvedValue(
+        loginUser({ authSettings: { twoFactorEnabled: true } }),
       );
+      smsService.sendSmsCode.mockRejectedValue(
+        Object.assign(new Error('limit'), { status: 429 }),
+      );
+
+      await expect(service.login(creds as never)).rejects.toMatchObject({
+        status: 429,
+      });
+      expect(
+        [...redis.store.keys()].some((k) => k.startsWith('login-otp')),
+      ).toBe(false);
     });
 
     it('rejects when the user has no phone', async () => {
       await startOtp();
-      authRepository.getUserLogin.mockResolvedValue(
-        loginUser({ profile: { name: 'Ann', phone: '' } }),
+      authRepository.getUserLoginById.mockResolvedValue(
+        loginUser({
+          authSettings: { twoFactorEnabled: true },
+          profile: { name: 'Ann', phone: '' },
+        }),
       );
 
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+      await expect(service.twoFactor(dto())).rejects.toMatchObject({
         status: 400,
       });
       expect(smsService.verifySmsCode).not.toHaveBeenCalled();
@@ -525,10 +604,20 @@ describe('AuthService', () => {
       await startOtp();
       smsService.verifySmsCode.mockRejectedValue(new Error('twilio down'));
 
-      await expect(service.twoFactor(dto)).rejects.toMatchObject({
+      await expect(service.twoFactor(dto())).rejects.toMatchObject({
         status: 400,
         response: { code: ErrorCode.AUTH_INVALID_OTP },
       });
+    });
+  });
+
+  describe('logout', () => {
+    it('increments session-version:<userId> and returns success', async () => {
+      await expect(service.logout('u1')).resolves.toEqual({ success: true });
+      expect(redis.store.get('session-version:u1')).toBe('1');
+
+      await service.logout('u1');
+      expect(redis.store.get('session-version:u1')).toBe('2');
     });
   });
 });

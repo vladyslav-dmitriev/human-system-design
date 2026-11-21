@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
 import { Link, redirect } from "@/i18n/navigation";
-import { getPaymentMethods } from "@/utils";
+import { getBillingProducts, getPaymentMethods } from "@/utils";
+import type { CheckoutSummary } from "@/shared/types/billing";
 import { CheckoutForm } from "@/widgets/checkout-form";
 import { serverApiFetch } from "@/shared/lib/api-server";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -12,34 +13,38 @@ type CheckoutPageProps = {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 };
 
-const createProduct = async (priceId: string, type: string) => {
-  const res = await serverApiFetch(API_URL.billing.checkout(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ priceId, type }),
-  });
+/**
+ * GET только показывает заказ. PaymentIntent и подписка создаются позже,
+ * по нажатию «Оплатить» (POST из браузера), поэтому обновление страницы,
+ * prefetch и ссылки ничего не создают.
+ */
+const getPurchaseSummary = async (
+  priceId: string,
+): Promise<CheckoutSummary | undefined> => {
+  const products = await getBillingProducts();
+  const product = [...products.recurring, ...products.oneTime].find(
+    (p) => p.priceId === priceId,
+  );
 
-  if (!res.ok) return;
-
-  const data = await res.json();
+  if (!product || product.amount === null) return;
 
   return {
-    clientSecret: data.clientSecret,
-    amount: data.amount,
-    currency: data.currency,
-    productName: data.productName,
+    amount: product.amount,
+    currency: product.currency,
+    productName: product.name,
   };
 };
 
-const upgradeProduct = async (priceId: string) => {
+/** `type: "check"` только считает сумму апгрейда, клиентского секрета нет */
+const getUpgradeSummary = async (
+  priceId: string,
+): Promise<CheckoutSummary | undefined> => {
   const res = await serverApiFetch(API_URL.billing.subscriptionsUpgrade(), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ type: "subscription", priceId }),
+    body: JSON.stringify({ type: "check", priceId }),
   });
 
   if (!res.ok) return;
@@ -47,7 +52,6 @@ const upgradeProduct = async (priceId: string) => {
   const data = await res.json();
 
   return {
-    clientSecret: data.clientSecret,
     amount: data.amount,
     currency: data.currency,
     productName: data.productName,
@@ -81,15 +85,17 @@ export default async function CheckoutPage({
     redirect({ href: ROUTE.PRICING, locale });
   }
 
-  const [paymentMethods, paymentData, t] = await Promise.all([
+  const operation = billingOperation === "purchase" ? "purchase" : "upgrade";
+
+  const [paymentMethods, summary, t] = await Promise.all([
     getPaymentMethods(),
-    billingOperation === "purchase"
-      ? createProduct(priceId!, type!)
-      : upgradeProduct(priceId!),
+    operation === "purchase"
+      ? getPurchaseSummary(priceId!)
+      : getUpgradeSummary(priceId!),
     getTranslations(),
   ]);
 
-  if (!paymentData) {
+  if (!summary) {
     return (
       <div className="container mx-auto py-6 px-4 max-w-md space-y-4 text-center">
         <p role="alert" className="text-sm text-destructive">
@@ -107,7 +113,8 @@ export default async function CheckoutPage({
       <CheckoutForm
         userEmail={email}
         paymentMethods={paymentMethods}
-        paymentData={paymentData}
+        summary={summary}
+        request={{ priceId: priceId!, type: type!, operation }}
       />
     </div>
   );

@@ -22,12 +22,14 @@ describe('UsersController', () => {
         phone: '+1',
         code: '123456',
         twoFactorEnabled: true,
+        currentPassword: 'pw',
       }),
     ).resolves.toEqual({ success: true });
     expect(service.setTwoFactor).toHaveBeenCalledWith('u1', {
       phone: '+1',
       code: '123456',
       twoFactorEnabled: true,
+      currentPassword: 'pw',
     });
   });
 

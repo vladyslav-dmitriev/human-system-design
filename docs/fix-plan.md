@@ -125,3 +125,21 @@ Docker сейчас недоступен (диск был заполнен, де
 | **backend-deps** (после двух первых) | `apps/api/package.json`, `pnpm-lock.yaml` | `@nestjs/*` и остальное из `pnpm audit --prod` для api; убрать bull-board, если не используется. |
 
 Отложено до живого Docker: миграции (`tokenVersion` в БД, если Redis-варианта мало), сборка образов, Playwright, `--force-recreate nginx`.
+
+## Волна 3: правки по reviewer и security
+
+### Изменения контракта
+
+- **OTP-челлендж вместо email.** `POST /service-auth/login` при 2FA → `200 {twoFactorRequired: true, phoneMasked, otpChallenge}`; `otpChallenge` — 32 случайных байта base64url, в Redis под `login-otp:<sha256>` (TTL 300, хранит userId и счётчик). `POST /service-auth/verify-otp {otpChallenge, code}` → `{loginTicket}` | `400 AUTH_INVALID_OTP`. Счётчик попыток атомарный (Lua или MULTI), повторный `login` создаёт новый челлендж, но не сбрасывает лимит SMS.
+- **Внутренние вызовы web → api.** Новый секрет `INTERNAL_API_SECRET` (≥ 32 символа, только на сервере web, не `NEXT_PUBLIC_*`). Сервер web шлёт его в заголовке `X-Internal-Secret` на `POST /service-auth/validate` и на SSR-запросы (в т.ч. `verify-email`), а также IP клиента в `X-Client-IP`. api: `validate` без секрета → `401 AUTH_TICKET_INVALID`, без IP-лимита; при верном секрете throttler берёт IP из `X-Client-IP`.
+- **2FA.** `POST /user/profile/2fa {twoFactorEnabled, phone, code, currentPassword}`; неверный пароль → `400 USER_INVALID_PASSWORD`. Включение при уже включённой 2FA → `400 VALIDATION_FAILED` (сменить номер = выключить кодом со старого номера и включить заново). Pending-номер используется только при включении.
+- **Выход.** `POST /service-auth/logout` (под `AuthGuard`) → `{success: true}`, делает `INCR session-version`. Web вызывает его перед `signOut`.
+- **Повторное письмо.** `POST /sender/emails/send-verification` в окне 60 с → `429 RATE_LIMITED`.
+
+### Агенты
+
+| Агент | Что делает |
+|---|---|
+| backend | `image-upload.ts` без `file-type` (ручная проверка сигнатур jpg/png/webp), контракт выше, throttler: `service-auth/*` всегда по IP, `login` 10/мин, `TRUST_PROXY` по умолчанию 1 хоп, `@SkipThrottle` на вебхуке; SMS: лимит на номер и общий суточный потолок, SMS из `login` в том же счётчике; dev-код только при `SMS_DEV_MOCK=true` (запрещён в production через Joi); в production `AuthGuard` принимает только `__Secure-` cookie; вебхуки: удалять failed-задачу в `onFailed`, `handleSubscriptionSync` берёт свежую подписку из Stripe, one-time покупка не создаёт вторую фичу при ретрае, `cause` в ошибках; `/health` `clearTimeout`; убрать fallback-креды RabbitMQ и полное письмо в логе `email.consumer` |
+| frontend | `otpChallenge` во входе, `X-Internal-Secret` и `X-Client-IP` в `authorize` и SSR (`api-server.ts`), поле `currentPassword` в 2FA-форме, вызов logout перед `signOut`, `maxAge` сессии 7 дней, очистка cookie в `proxy.ts` с `secure`/`httpOnly`/`sameSite`, `getSafeCallbackUrl` проверяет `//` и `\` после снятия локали, checkout создаёт PaymentIntent/подписку по действию пользователя, а не при SSR; без email и полного URL в GrowthBook |
+| devops | `docker-smoke` с `EMAIL_FROM`, `nginx.Dockerfile` слушает 8080 (compose — 80), nginx `X-Forwarded-For $remote_addr` (nginx на краю), Redis AOF + `noeviction` в compose, `INTERNAL_API_SECRET` в `.env.example` обоих приложений и compose |

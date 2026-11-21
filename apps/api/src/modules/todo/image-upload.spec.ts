@@ -47,19 +47,16 @@ describe('toImageUpload', () => {
     ['png', png, 'image/png'],
     ['jpg', jpeg, 'image/jpeg'],
     ['webp', webp, 'image/webp'],
-  ])(
-    'accepts a real %s and names it by detected type',
-    async (ext, make, mime) => {
-      const result = await toImageUpload(file(make()), 'todos');
+  ])('accepts a real %s and names it by detected type', (ext, make, mime) => {
+    const result = toImageUpload(file(make()), 'todos');
 
-      expect(result.contentType).toBe(mime);
-      expect(result.fileName).toMatch(new RegExp(`^[0-9a-f-]{36}\\.${ext}$`));
-      expect(result.folder).toBe('todos');
-    },
-  );
+    expect(result.contentType).toBe(mime);
+    expect(result.fileName).toMatch(new RegExp(`^[0-9a-f-]{36}\\.${ext}$`));
+    expect(result.folder).toBe('todos');
+  });
 
-  it('ignores the client file name and mimetype (name is generated)', async () => {
-    const result = await toImageUpload(
+  it('ignores the client file name and mimetype (name is generated)', () => {
+    const result = toImageUpload(
       file(png(), { originalname: '../../evil.php', mimetype: 'text/html' }),
       'todos',
     );
@@ -68,57 +65,54 @@ describe('toImageUpload', () => {
     expect(result.fileName.endsWith('.png')).toBe(true);
   });
 
-  it('rejects an HTML payload disguised as .png / image/png', async () => {
-    await expect(
-      toImageUpload(
-        file(Buffer.from('<html><script>alert(1)</script>')),
-        'todos',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('rejects SVG (can carry scripts)', async () => {
-    await expect(
-      toImageUpload(
-        file(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>')),
-        'todos',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('rejects an allowed-looking but unsupported type (GIF)', async () => {
-    await expect(
-      toImageUpload(
-        file(Buffer.from('GIF89a\x01\x00\x01\x00\x00\x00\x00;')),
-        'todos',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('rejects a PDF', async () => {
-    await expect(
-      toImageUpload(file(Buffer.from('%PDF-1.4\n%....\n')), 'todos'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('rejects a missing or empty file', async () => {
-    await expect(toImageUpload(undefined, 'todos')).rejects.toBeInstanceOf(
+  it.each([
+    [
+      'an HTML payload disguised as png',
+      Buffer.from('<html><script>alert(1)</script>'),
+    ],
+    [
+      'SVG (can carry scripts)',
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+    ],
+    ['GIF', Buffer.from('GIF89a\x01\x00\x01\x00\x00\x00\x00;')],
+    ['a PDF', Buffer.from('%PDF-1.4\n%....\n')],
+    ['RIFF that is not WebP (WAV)', Buffer.from('RIFF\x1a\0\0\0WAVEfmt ')],
+    ['a truncated PNG signature', PNG_SIGNATURE.subarray(0, 7)],
+  ])('rejects %s', (_name, buffer) => {
+    expect(() => toImageUpload(file(buffer), 'todos')).toThrow(
       BadRequestException,
     );
-    await expect(
-      toImageUpload(file(Buffer.alloc(0)), 'todos'),
-    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('a file over 5 MB gives 413 even if it is a valid PNG', async () => {
+  it('rejects an ASF payload (file-type@16 looped on it) fast, without parsing', () => {
+    const asfGuid = Buffer.from('3026b2758e66cf11a6d900aa0062ce6c', 'hex');
+    const payload = Buffer.concat([asfGuid, Buffer.alloc(60 - asfGuid.length)]);
+    const started = Date.now();
+
+    expect(() => toImageUpload(file(payload), 'todos')).toThrow(
+      BadRequestException,
+    );
+    expect(Date.now() - started).toBeLessThan(100);
+  });
+
+  it('rejects a missing or empty file', () => {
+    expect(() => toImageUpload(undefined, 'todos')).toThrow(
+      BadRequestException,
+    );
+    expect(() => toImageUpload(file(Buffer.alloc(0)), 'todos')).toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('a file over 5 MB gives 413 even if it is a valid PNG', () => {
     const big = Buffer.concat([png(), Buffer.alloc(MAX_IMAGE_SIZE_BYTES)]);
 
-    await expect(toImageUpload(file(big), 'todos')).rejects.toBeInstanceOf(
+    expect(() => toImageUpload(file(big), 'todos')).toThrow(
       PayloadTooLargeException,
     );
   });
 
-  it('a file of exactly 5 MB is accepted', async () => {
+  it('a file of exactly 5 MB is accepted', () => {
     const head = png();
     const exact = Buffer.concat([
       head,
@@ -126,6 +120,6 @@ describe('toImageUpload', () => {
     ]);
 
     expect(exact.length).toBe(MAX_IMAGE_SIZE_BYTES);
-    await expect(toImageUpload(file(exact), 'todos')).resolves.toBeDefined();
+    expect(toImageUpload(file(exact), 'todos')).toBeDefined();
   });
 });

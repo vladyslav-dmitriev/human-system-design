@@ -39,8 +39,11 @@ export class EmailConsumer extends RabbitMQConsumer implements OnModuleInit {
   }
 
   private handleEmail(message: unknown, metadata: ConsumedMessageMetadata) {
-    this.logger.info('📨 Получено email сообщение:');
-    console.log('📋 Content:', JSON.stringify(message, null, 2));
-    console.log('🔑 Metadata:', metadata);
+    // Письмо целиком (адрес, токены, текст) в лог не пишем: только служебные поля
+    this.logger.info('📨 Получено email сообщение', {
+      messageId: metadata.messageId,
+      routingKey: metadata.routingKey,
+      hasContent: message !== undefined && message !== null,
+    });
   }
 }

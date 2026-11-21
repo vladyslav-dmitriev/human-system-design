@@ -13,4 +13,11 @@ export class AccountLoginResponseDto {
   @ApiPropertyOptional({ description: 'Только если twoFactorRequired = true' })
   @Expose()
   phoneMasked?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Только если twoFactorRequired = true: одноразовый челлендж для verify-otp (TTL 5 минут)',
+  })
+  @Expose()
+  otpChallenge?: string;
 }

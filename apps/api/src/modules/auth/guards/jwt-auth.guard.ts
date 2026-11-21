@@ -12,6 +12,7 @@ import type Redis from 'ioredis';
 
 import type { AuthenticatedRequest } from '../decorators/get-user.decorator';
 import { REDIS_CLIENT, getSessionVersion } from '../../redis';
+import { getSessionCookieNames } from '../session-cookie';
 import { ErrorCode } from '../../../common/errors';
 
 const unauthorized = (message: string) =>
@@ -36,15 +37,7 @@ export class AuthGuard implements CanActivate {
       string | undefined
     >;
 
-    const cookieName = cookies['authjs.session-token']
-      ? 'authjs.session-token'
-      : cookies['__Secure-authjs.session-token']
-        ? '__Secure-authjs.session-token'
-        : cookies['next-auth.session-token']
-          ? 'next-auth.session-token'
-          : cookies['__Secure-next-auth.session-token']
-            ? '__Secure-next-auth.session-token'
-            : null;
+    const cookieName = getSessionCookieNames().find((name) => cookies[name]);
 
     if (!cookieName) {
       throw unauthorized('Session cookie is missing');
