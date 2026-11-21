@@ -1,7 +1,20 @@
 type AuthFormErrorProps = {
-  error: string | null;
+  id: string;
+  error: string | null | undefined;
+  className?: string;
 };
 
-export const AuthFormError = ({ error }: AuthFormErrorProps) => {
-  return <p className="text-red-500 text-sm text-center">{error}</p>;
+/** Ошибка формы или поля: озвучивается скринридером, текст от 12px */
+export const AuthFormError = ({ id, error, className }: AuthFormErrorProps) => {
+  if (!error) return null;
+
+  return (
+    <p
+      id={id}
+      role="alert"
+      className={`text-xs text-destructive font-medium ${className ?? ""}`}
+    >
+      {error}
+    </p>
+  );
 };

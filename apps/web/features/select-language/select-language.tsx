@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import {
   Select,
@@ -21,6 +21,7 @@ export function SelectLanguage() {
   const locale = useLocale() as Locale;
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations();
 
   const onChange = (nextLocale: Locale) => {
     router.replace(pathname, { locale: nextLocale });
@@ -29,10 +30,11 @@ export function SelectLanguage() {
   return (
     <Select value={locale} onValueChange={onChange}>
       <SelectTrigger
+        aria-label={t("language_title")}
         className="
-          w-auto min-w-0 h-8 gap-1.5 px-2 bg-transparent border-none shadow-none hover:bg-muted 
+          w-auto min-w-[4.5rem] shrink-0 h-8 gap-1.5 px-2 bg-transparent border-none shadow-none hover:bg-muted 
           [&>svg]:hidden 
-          focus:ring-0 focus:ring-offset-0
+          focus-visible:ring-1 focus-visible:ring-ring
         "
       >
         <SelectValue />

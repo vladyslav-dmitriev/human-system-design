@@ -13,7 +13,7 @@ import {
 import { AutoRenewToggle } from "./auto-renew-toggle";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
-import { getErrorMessage } from "@/shared/lib/error";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 interface SubscriptionRenewBlockProps {
   // Stripe subscription status: active, past_due, canceled, trialing, ...
@@ -45,11 +45,15 @@ export function SubscriptionRenew({
         body: JSON.stringify({ autoRenew: !autoRenew }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || "Ошибка изменения статуса продления");
+        const code = await getApiErrorCode(response);
+        toast.error(t("auto_renew_failed"), {
+          description: t(apiErrorKey(code)),
+        });
+        return;
       }
+
+      const data = await response.json();
 
       onSuccessChange(data.autoRenew);
 
@@ -59,9 +63,8 @@ export function SubscriptionRenew({
           : t("auto_renew_message_restored"),
       );
     } catch (error) {
-      toast.error("Не удалось изменить настройки", {
-        description: getErrorMessage(error),
-      });
+      console.error(error);
+      toast.error(t("auto_renew_failed"));
     } finally {
       setIsLoading(false);
     }

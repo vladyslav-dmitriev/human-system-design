@@ -7,6 +7,8 @@ import {
 import { SkipThrottle } from '@nestjs/throttler';
 import Redis from 'ioredis';
 
+import { Serialize } from 'interceptors';
+import { HealthResponseDto } from './app.dto';
 import { REDIS_CLIENT } from './redis';
 
 const REDIS_PING_TIMEOUT_MS = 2000;
@@ -18,6 +20,7 @@ export class AppController {
 
   /** Готовность: 200, если Redis отвечает на PING, иначе 503. */
   @Get('health')
+  @Serialize(HealthResponseDto)
   async healthCheck() {
     const redis = await this.pingRedis();
 

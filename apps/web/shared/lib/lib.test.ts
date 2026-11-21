@@ -56,9 +56,13 @@ describe("normalizePath", () => {
   it("корень локали даёт /", () => {
     expect(normalizePath("/uk")).toBe("/");
   });
-  // BUG: см. FIX.md "normalizePath отрезает первый сегмент без проверки локали"
-  it.fails("путь без локали не искажается", () => {
+  it("путь без локали не искажается", () => {
     expect(normalizePath("/login")).toBe("/login");
+    expect(normalizePath("/settings/security")).toBe("/settings/security");
+    expect(normalizePath("/")).toBe("/");
+  });
+  it("неизвестная локаль не считается локалью", () => {
+    expect(normalizePath("/fr/login")).toBe("/fr/login");
   });
 });
 

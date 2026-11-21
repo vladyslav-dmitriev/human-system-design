@@ -17,6 +17,8 @@ import {
 import { useTranslations } from "next-intl";
 import { PaymentMethod } from "@/shared/types/billing";
 import { API_URL } from "@/api";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 type PaymentCardsProps = {
   autoRenew: boolean;
@@ -30,6 +32,7 @@ export const PaymentCards = ({
   const [cards, setCards] = useState<PaymentMethod[]>(paymentMethods);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Перечитываем список карт после добавления (utils.getPaymentMethods
@@ -38,7 +41,7 @@ export const PaymentCards = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch(API_URL.billing.paymentMethods(), {
+      const res = await fetch(API_URL.billing.paymentMethodsClient(), {
         credentials: "include",
         cache: "no-store",
       });
@@ -56,8 +59,6 @@ export const PaymentCards = ({
   const t = useTranslations();
 
   const handleDeleteCard = async (id: string) => {
-    if (!confirm("Вы уверены, что хотите удалить эту карту?")) return;
-
     setDeletingId(id);
 
     try {
@@ -70,15 +71,19 @@ export const PaymentCards = ({
       });
       if (res.ok) {
         setCards((prev) => prev.filter((card) => card.id !== id));
-        toast.success("Карта успешно удалена");
+        toast.success(t("payment_methods_deleted"));
       } else {
-        toast.error("Не удалось удалить карту");
+        const code = await getApiErrorCode(res);
+        toast.error(t("payment_methods_delete_failed"), {
+          description: t(apiErrorKey(code)),
+        });
       }
     } catch (error) {
       console.error(error);
-      toast.error("Ошибка при удалении карты");
+      toast.error(t("payment_methods_delete_failed"));
     } finally {
       setDeletingId(null);
+      setPendingDeleteId(null);
     }
   };
 
@@ -107,7 +112,7 @@ export const PaymentCards = ({
             </Button>
           )}
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground/80 leading-relaxed max-w-[80%] pl-1">
+        <CardDescription className="text-sm text-muted-foreground/80 leading-relaxed pl-1">
           {t("payment_methods_description")}
         </CardDescription>
       </CardHeader>
@@ -152,9 +157,10 @@ export const PaymentCards = ({
                   disabled={
                     deletingId !== null || (cards.length === 1 && autoRenew)
                   }
-                  onClick={() => handleDeleteCard(card.id)}
+                  onClick={() => setPendingDeleteId(card.id)}
                   className="h-8 w-8 rounded-lg bg-secondary text-foreground border border-muted/40 hover:bg-destructive hover:text-white hover:border-destructive flex items-center justify-center transition-all duration-200 disabled:opacity-40 group/btn shrink-0"
                   title={t("payment_methods_card_delete")}
+                  aria-label={t("payment_methods_card_delete")}
                 >
                   {deletingId === card.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -192,6 +198,21 @@ export const PaymentCards = ({
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open && deletingId === null) setPendingDeleteId(null);
+        }}
+        title={t("payment_methods_delete_confirm_title")}
+        description={t("payment_methods_delete_confirm_description")}
+        confirmLabel={t("payment_methods_card_delete")}
+        destructive
+        isLoading={deletingId !== null}
+        onConfirm={() =>
+          pendingDeleteId ? handleDeleteCard(pendingDeleteId) : undefined
+        }
+      />
     </Card>
   );
 };

@@ -12,6 +12,8 @@ type TwoFactorFormOtpProps = {
   otp: string;
   setOtp(otp: string): void;
   handleEnterCode(): void;
+  loading?: boolean;
+  errorId?: string;
 };
 
 export const TwoFactorFormOtp = ({
@@ -19,6 +21,8 @@ export const TwoFactorFormOtp = ({
   otp,
   setOtp,
   handleEnterCode,
+  loading = false,
+  errorId,
 }: TwoFactorFormOtpProps) => {
   const t = useTranslations();
 
@@ -31,7 +35,14 @@ export const TwoFactorFormOtp = ({
       )}
 
       <div className="flex items-center gap-3">
-        <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+        <InputOTP
+          maxLength={6}
+          value={otp}
+          onChange={setOtp}
+          autoComplete="one-time-code"
+          aria-label={t("otp_label")}
+          aria-describedby={errorId}
+        >
           <InputOTPGroup className="gap-3">
             {[...Array(6)].map((_, i) => (
               <InputOTPSlot
@@ -42,7 +53,7 @@ export const TwoFactorFormOtp = ({
             ))}
           </InputOTPGroup>
         </InputOTP>
-        <Button onClick={handleEnterCode}>
+        <Button onClick={handleEnterCode} disabled={loading || otp.length < 6}>
           {t("two_factor_confirm_button")}
         </Button>
       </div>

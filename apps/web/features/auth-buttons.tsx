@@ -1,15 +1,13 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
-import { useFeatureFlag } from "@/shared/hooks/use-feature-flag";
 import { useTranslations } from "next-intl";
 import { RoleBadge } from "@/widgets/role-badge";
-import { usePathname } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { User } from "lucide-react";
 
 export const AuthButtons = () => {
@@ -17,8 +15,6 @@ export const AuthButtons = () => {
   const pathname = usePathname();
 
   const t = useTranslations();
-
-  const { isNewAuthDesign } = useFeatureFlag();
 
   if (status === "loading") {
     return null;
@@ -49,21 +45,21 @@ export const AuthButtons = () => {
   return (
     <div className="flex gap-2 justify-end p-2">
       {pathname !== ROUTE.LOGIN && (
-        <Link href={ROUTE.LOGIN}>
-          <Button>
+        <Button asChild>
+          <Link href={ROUTE.LOGIN}>
             <User />
             {t("login")}
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       )}
 
       {pathname !== ROUTE.CREATE_ACCOUNT && (
-        <Link href={ROUTE.CREATE_ACCOUNT}>
-          <Button>
+        <Button asChild>
+          <Link href={ROUTE.CREATE_ACCOUNT}>
             <User />
-            {isNewAuthDesign ? t("createAccount") : "New account"}
-          </Button>
-        </Link>
+            {t("createAccount")}
+          </Link>
+        </Button>
       )}
     </div>
   );

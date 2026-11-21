@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLocale } from "next-intl/server";
 import localFont from "next/font/local";
 import "../shared/styles/globals.css";
 
@@ -21,8 +22,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+
   return (
-    <html>
+    <html lang={locale}>
       <body
         className={`flex flex-col min-h-screen ${geistSans.variable} ${geistMono.variable}`}
       >

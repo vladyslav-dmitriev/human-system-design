@@ -8,6 +8,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+
+import { AllExceptionsFilter } from '../../src/common/filters';
+import { getTrustProxy } from '../../src/config/app.config';
 
 export const TEST_AUTH_SECRET = 'e2e-test-secret-not-a-real-secret-0123456789';
 
@@ -20,7 +24,7 @@ export type TestUser = {
 
 /**
  * Поднимает Nest-приложение с теми же глобальными настройками, что и main.ts
- * (cookie-parser, ValidationPipe whitelist+forbidNonWhitelisted, ClassSerializerInterceptor).
+ * (trust proxy, cookie-parser, AllExceptionsFilter, ValidationPipe whitelist+forbidNonWhitelisted, ClassSerializerInterceptor).
  */
 export async function createTestApp(
   metadata: ModuleMetadata,
@@ -30,7 +34,9 @@ export async function createTestApp(
   const moduleRef = await Test.createTestingModule(metadata).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
 
+  (app as NestExpressApplication).set('trust proxy', getTrustProxy());
   app.use(cookieParser());
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector), {
       strategy: 'excludeAll',

@@ -1,11 +1,8 @@
-import { Expose, Type } from 'class-transformer';
-
-import { UserJWTTokenDto } from '../common';
+import { ApiProperty } from '@nestjs/swagger';
+import { Expose } from 'class-transformer';
 
 export class AccountTwoFactorResponseDto {
+  @ApiProperty()
   @Expose()
-  success: boolean;
-
-  @Type(() => UserJWTTokenDto)
-  user: UserJWTTokenDto;
+  loginTicket: string;
 }

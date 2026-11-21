@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { LogOut, Loader2, ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
+import { useRouter } from "@/i18n/navigation";
 import { ROUTE } from "@/constants";
 import { useTranslations } from "next-intl";
 
@@ -16,12 +16,16 @@ export function Logout() {
   const handleLogout = async () => {
     setIsLoading(true);
 
-    await signOut();
+    try {
+      // redirect: false: ждём ответ signout (cookie сброшена) и только потом
+      // уходим на логин сами, без гонки с автоматическим переходом next-auth
+      await signOut({ redirect: false });
 
-    router.replace(ROUTE.LOGIN);
-    router.refresh();
-
-    setIsLoading(false);
+      router.replace(ROUTE.LOGIN);
+      router.refresh();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -13,5 +13,7 @@
   "checkout_duration_value": "1 місяць",
   "checkout_monthly_price_label": "Ціна за місяць",
   "checkout_pay_button": "Оплатити",
-  "checkout_payment_failed": "Помилка платежу: {error}"
+  "checkout_payment_failed": "Помилка платежу: {error}",
+  "checkout_load_failed": "Не вдалося підготувати оплату. Спробуйте пізніше.",
+  "checkout_back_to_pricing": "Назад до тарифів"
 }

@@ -1,20 +1,16 @@
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
 export class AccountLoginResponseDto {
+  @ApiProperty()
   @Expose()
-  success: boolean;
+  twoFactorRequired: boolean;
 
+  @ApiPropertyOptional({ description: 'Только если twoFactorRequired = false' })
   @Expose()
-  twoFactorEnabled: boolean;
+  loginTicket?: string;
 
+  @ApiPropertyOptional({ description: 'Только если twoFactorRequired = true' })
   @Expose()
-  phone: string;
-
-  @Expose()
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
+  phoneMasked?: string;
 }

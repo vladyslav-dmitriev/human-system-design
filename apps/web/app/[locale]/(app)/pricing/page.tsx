@@ -5,7 +5,6 @@ import {
   getBillingProducts,
   getUserData,
   getUserBilling,
-  // syncBillingProducts,
 } from "@/utils";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
@@ -27,9 +26,9 @@ const upgradeProduct = async (priceId: string) => {
     body: JSON.stringify({ type: "check", priceId }),
   });
 
-  const data = await res.json();
-
   if (!res.ok) return;
+
+  const data = await res.json();
 
   return {
     clientSecret: data.clientSecret,
@@ -45,19 +44,20 @@ export default async function PricingPage() {
     getUserBilling(),
     getBillingProducts(),
     getTranslations(),
-    // syncBillingProducts(),
   ]);
-
-  console.log("userData p", userData);
-  console.log("userBilling p", userBilling);
-  console.log("billingProducts p", billingProducts);
 
   const lastPriceId = billingProducts.recurring?.find(
     (p) => p.name === "Pro",
   )?.priceId;
 
-  if (!userBilling) {
-    return null;
+  if (!userBilling || !userData) {
+    return (
+      <div className="container mx-auto px-2 max-w-5xl py-6">
+        <p role="alert" className="text-sm text-destructive">
+          {t("page_load_failed")}
+        </p>
+      </div>
+    );
   }
 
   const paymentResponse =
@@ -78,10 +78,6 @@ export default async function PricingPage() {
       return plan;
     }),
   };
-
-  if (!userData) {
-    return null;
-  }
 
   const prioritySupport = billingProducts.oneTime.find(
     (p) => p.name === "Priority Support",
@@ -122,7 +118,7 @@ export default async function PricingPage() {
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4 mb-10">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-10">
           {prioritySupport && (
             <ExtraFeatureCard
               key={prioritySupport.priceId}

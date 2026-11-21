@@ -1,6 +1,6 @@
 import { test, testIsolated, expect } from "../fixtures";
 import { LoginPage } from "../pages/login-page";
-import { SettingsPage } from "../pages/settings-page";
+import { SETTINGS_TEXT, SettingsPage } from "../pages/settings-page";
 
 testIsolated(
   "change password: new password works for the next login",
@@ -15,8 +15,10 @@ testIsolated(
         r.request().method() === "PATCH",
     );
     await settingsPage.changePassword(freshUser.password, newPassword);
-    expect((await response).ok()).toBe(true);
-    await expect(page.getByText("Пароль успешно изменен")).toBeVisible();
+    const result = await response;
+    expect(result.ok()).toBe(true);
+    expect(await result.json()).toEqual({ success: true });
+    await expect(page.getByText(SETTINGS_TEXT.passwordChanged)).toBeVisible();
 
     // Drop the session and sign in again with the new password.
     await page.context().clearCookies();
@@ -26,7 +28,7 @@ testIsolated(
   },
 );
 
-test("change password: wrong current password shows an error and keeps the old one", async ({
+test("change password: wrong current password shows an error at the field and keeps the old one", async ({
   page,
   freshUser,
 }) => {
@@ -38,8 +40,10 @@ test("change password: wrong current password shows an error and keeps the old o
     `New-${crypto.randomUUID()}-2!`,
   );
 
-  await expect(page.getByText("Ошибка обновления")).toBeVisible();
-  await expect(page.getByText("Пароль успешно изменен")).toHaveCount(0);
+  await expect(
+    page.getByText(SETTINGS_TEXT.currentPasswordWrong),
+  ).toBeVisible();
+  await expect(page.getByText(SETTINGS_TEXT.passwordChanged)).toHaveCount(0);
   void freshUser;
 });
 
@@ -57,7 +61,27 @@ test("change password: new password shorter than 8 characters is rejected", asyn
 
   await settingsPage.changePassword(freshUser.password, "short1");
 
-  await expect(page.getByText(/at least 8|8 characters/i).last()).toBeVisible();
+  await expect(
+    page.getByText(SETTINGS_TEXT.newPasswordTooShort, { exact: true }),
+  ).toBeVisible();
+  expect(apiCalled).toBe(false);
+});
+
+test("change password: new password over 72 bytes is rejected", async ({
+  page,
+  freshUser,
+}) => {
+  const settingsPage = new SettingsPage(page);
+  await settingsPage.goto();
+  let apiCalled = false;
+  await page.route("**/user/profile/password", (route) => {
+    apiCalled = true;
+    return route.abort();
+  });
+
+  await settingsPage.changePassword(freshUser.password, "a".repeat(73));
+
+  await expect(page.getByText(SETTINGS_TEXT.newPasswordTooLong)).toBeVisible();
   expect(apiCalled).toBe(false);
 });
 

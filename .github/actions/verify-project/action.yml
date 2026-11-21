@@ -1,22 +1,26 @@
 name: Verify Project
-description: Install dependencies and run verification
-
-inputs:
-  node-version:
-    required: true
+description: Install dependencies and run static checks, unit tests and build
 
 runs:
   using: composite
 
   steps:
     - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: .nvmrc
         cache: pnpm
+
+    - name: Cache Turborepo
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-
 
     - name: Install Dependencies
       shell: bash
@@ -28,10 +32,20 @@ runs:
       shell: bash
       run: pnpm --filter api prisma:generate
 
+    # Пока в репозитории есть неотформатированные файлы (см. FIX.md, "prettier --check падает"),
+    # шаг красный. Когда формат будет приведён отдельным коммитом, он станет обязательным без правок.
+    - name: Prettier
+      shell: bash
+      run: pnpm format:check
+
+    # api: lint:check без --fix, чтобы CI не правил файлы молча
     - name: Lint
       shell: bash
-      run: pnpm turbo run lint
+      run: |
+        pnpm turbo run lint --filter='!api'
+        pnpm --filter api lint:check
 
+    # Включает packages/e2e (tsc --noEmit)
     - name: Typecheck
       shell: bash
       run: pnpm turbo run typecheck
@@ -44,13 +58,9 @@ runs:
       shell: bash
       run: pnpm turbo run build
 
-    # - name: Audit
-    #   shell: bash
-    #   run: pnpm audit || true
-
-    - name: Build Docker
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: ./Dockerfile
-        push: false
+    # Известные уязвимости (FIX.md, P1 "Уязвимые зависимости") закроет волна 2 обновлений.
+    # Шаг виден в логе, но пока не валит CI; после обновлений убрать continue-on-error.
+    - name: Audit (prod, high+)
+      shell: bash
+      continue-on-error: true
+      run: pnpm audit --prod --audit-level=high

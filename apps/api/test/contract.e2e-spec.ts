@@ -85,13 +85,15 @@ const WEB_METHOD: Record<string, string[]> = {
   'users.profile': ['GET'],
   'users.email': ['PATCH'],
   'users.password': ['PATCH'],
+  'users.phone': ['PUT'],
   'users.setTwoFactor': ['POST'],
   'sms.sendSmsCode': ['POST'],
   'billing.userBilling': ['GET'],
   'billing.paymentMethods': ['GET'],
+  'billing.paymentMethodsClient': ['GET'],
   'billing.paymentMethodsById': ['POST', 'DELETE'],
   'billing.products': ['GET'],
-  'billing.syncProducts': ['GET'],
+  'billing.syncProducts': ['POST'],
   'billing.subscriptionsUpgrade': ['POST'],
   'billing.subscriptionsRenew': ['POST'],
   'billing.checkout': ['POST'],
@@ -115,9 +117,7 @@ describe('contract: apps/web/api.ts vs Nest controllers', () => {
     expect(Object.keys(web).sort()).toEqual(Object.keys(WEB_METHOD).sort());
   });
 
-  const KNOWN_MISSING = ['emails.sendVerification', 'emails.verifyEmail'];
-
-  it('every web URL (method + path) exists in Nest; only known gaps listed', () => {
+  it('every web URL (method + path) exists in Nest', () => {
     const missing = Object.entries(web)
       .filter(
         ([key, path]) =>
@@ -125,17 +125,6 @@ describe('contract: apps/web/api.ts vs Nest controllers', () => {
       )
       .map(([key]) => key)
       .sort();
-    expect(missing).toEqual(KNOWN_MISSING);
-  });
-
-  // BUG: новый, см. отчёт L2 (api.ts: /emails/* вместо /sender/emails/*; web эти URL нигде не вызывает)
-  it.failing('no web URL points to a non-existent Nest route', () => {
-    const missing = Object.entries(web)
-      .filter(
-        ([key, path]) =>
-          !WEB_METHOD[key].every((m) => routes.includes(`${m} ${path}`)),
-      )
-      .map(([key]) => key);
     expect(missing).toEqual([]);
   });
 
@@ -149,9 +138,7 @@ describe('contract: apps/web/api.ts vs Nest controllers', () => {
     expect(unused).toEqual([
       'GET /health',
       'GET /metrics',
-      'GET /sender/emails/verify-email', // web использует неверный URL /emails/verify-email
       'POST /billing/webhook', // Stripe -> api, web не вызывает
-      'POST /sender/emails/send-verification', // web использует неверный URL /emails/send-verification
     ]);
   });
 
@@ -161,4 +148,50 @@ describe('contract: apps/web/api.ts vs Nest controllers', () => {
       '/billing/payment-methods/:param',
     );
   });
+});
+
+describe('contract: Swagger metadata of protected routes', () => {
+  const GUARDS_METADATA = '__guards__';
+  const hasAuthGuard = (target: object) =>
+    (Reflect.getMetadata(GUARDS_METADATA, target) ?? []).some(
+      (g: { name?: string }) => g?.name === 'AuthGuard',
+    );
+  const responses = (target: object) =>
+    (Reflect.getMetadata('swagger/apiResponse', target) ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+  /** Защищённые AuthGuard операции без декларации cookie-аутентификации и ответа 401. */
+  function undocumented() {
+    const out: string[] = [];
+
+    for (const ctrl of CONTROLLERS) {
+      for (const key of Object.getOwnPropertyNames(ctrl.prototype)) {
+        const handler = ctrl.prototype[key];
+
+        if (Reflect.getMetadata(METHOD_METADATA, handler) === undefined)
+          continue;
+        if (!hasAuthGuard(ctrl) && !hasAuthGuard(handler)) continue;
+
+        const security =
+          Reflect.getMetadata('swagger/apiSecurity', handler) ??
+          Reflect.getMetadata('swagger/apiSecurity', ctrl);
+        const has401 = '401' in responses(handler) || '401' in responses(ctrl);
+
+        if (!security || !has401) out.push(`${ctrl.name}.${key}`);
+      }
+    }
+
+    return out;
+  }
+
+  // BUG: волна 1, backend: у TodosController.{getUserTodos,createTodo,updateTodo,deleteTodo} нет
+  // @ApiUnauthorizedResponse / @ApiResponse({status: 401}) (есть только у upload-image). Минорно, документация.
+  it.failing(
+    'every route behind AuthGuard declares cookie security and a 401 response',
+    () => {
+      expect(undocumented()).toEqual([]);
+    },
+  );
 });

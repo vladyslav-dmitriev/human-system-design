@@ -52,7 +52,6 @@ export class UserRepository {
         authSettings: {
           select: {
             isVerified: true,
-            verifiedToken: true,
             twoFactorEnabled: true,
           },
         },
@@ -125,35 +124,40 @@ export class UserRepository {
     twoFactorEnabled,
   }: {
     userId: string;
-    phone: string;
+    phone: string | null;
     twoFactorEnabled: boolean;
   }) {
-    await this.prisma.userProfile.update({
-      where: {
-        userId,
-      },
-      data: {
-        phone,
-      },
-    });
+    await this.prisma.$transaction([
+      this.prisma.userProfile.update({
+        where: { userId },
+        data: { phone },
+      }),
+      this.prisma.authSettings.update({
+        where: { userId },
+        data: { twoFactorEnabled },
+      }),
+    ]);
+  }
 
-    await this.prisma.authSettings.update({
-      where: {
-        userId,
-      },
+  /** Смена email сбрасывает подтверждение почты. */
+  async updateUserEmail(userId: string, email: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
       data: {
-        twoFactorEnabled,
+        email,
+        authSettings: { update: { isVerified: false } },
       },
     });
   }
 
-  async createUser(data: {
-    name: string;
-    email: string;
-    password: string;
-    verifiedToken: string;
-    isVerified: boolean;
-  }) {
+  async markEmailVerified(userId: string) {
+    await this.prisma.authSettings.update({
+      where: { userId },
+      data: { isVerified: true, verifiedToken: null },
+    });
+  }
+
+  async createUser(data: { name: string; email: string; password: string }) {
     return await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {

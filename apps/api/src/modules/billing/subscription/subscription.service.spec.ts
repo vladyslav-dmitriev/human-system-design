@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 import { SubscriptionService } from './subscription.service';
 
@@ -17,7 +17,7 @@ describe('SubscriptionService', () => {
     createPaymentInvoicePreview: jest.fn(),
     createPaymentIntent: jest.fn(),
   };
-  const repo = { changeAutoRenew: jest.fn() };
+  const repo = { changeAutoRenew: jest.fn(), isPriceAllowed: jest.fn() };
   const service = new SubscriptionService(
     users as never,
     payments as never,
@@ -73,7 +73,13 @@ describe('SubscriptionService', () => {
         customer: 'cus_1',
         items: { data: [{ id: 'si_1' }] },
       });
-      payments.getPrice.mockResolvedValue({ product: { name: 'Pro' } });
+      repo.isPriceAllowed.mockResolvedValue(true);
+      payments.getPrice.mockResolvedValue({
+        active: true,
+        type: 'recurring',
+        unit_amount: 1000,
+        product: { name: 'Pro' },
+      });
       payments.createPaymentInvoicePreview.mockResolvedValue({
         amount_due: 700,
         currency: 'usd',
@@ -98,12 +104,12 @@ describe('SubscriptionService', () => {
       expect(payments.createPaymentIntent).not.toHaveBeenCalled();
     });
 
-    it('pay: creates an intent with metadata used later by the webhook', async () => {
+    it('subscription: creates an intent with metadata used later by the webhook', async () => {
       setup();
       payments.createPaymentIntent.mockResolvedValue({ client_secret: 'cs_1' });
 
       const result = await service.upgradeSubscription('u1', {
-        type: 'pay',
+        type: 'subscription',
         priceId: 'price_2',
       } as never);
 
@@ -119,6 +125,65 @@ describe('SubscriptionService', () => {
           priceId: 'price_2',
         },
       });
+    });
+
+    it.each([
+      [
+        'price is not in the allowlist',
+        () => repo.isPriceAllowed.mockResolvedValue(false),
+      ],
+      [
+        'price is inactive in Stripe',
+        () =>
+          payments.getPrice.mockResolvedValue({
+            active: false,
+            type: 'recurring',
+            unit_amount: 1,
+            product: { name: 'x' },
+          }),
+      ],
+      [
+        'price is one-time, not recurring',
+        () =>
+          payments.getPrice.mockResolvedValue({
+            active: true,
+            type: 'one_time',
+            unit_amount: 1,
+            product: { name: 'x' },
+          }),
+      ],
+      [
+        'Stripe cannot find the price',
+        () => payments.getPrice.mockRejectedValue(new Error('no such price')),
+      ],
+    ])(
+      'rejects with 400 when %s: no preview and no payment intent',
+      async (_name, arrange) => {
+        setup();
+        arrange();
+
+        for (const type of ['check', 'subscription']) {
+          await expect(
+            service.upgradeSubscription('u1', {
+              type,
+              priceId: 'price_evil',
+            } as never),
+          ).rejects.toBeInstanceOf(BadRequestException);
+        }
+        expect(payments.createPaymentInvoicePreview).not.toHaveBeenCalled();
+        expect(payments.createPaymentIntent).not.toHaveBeenCalled();
+      },
+    );
+
+    it('checks the allowlist with the priceId from the request', async () => {
+      setup();
+
+      await service.upgradeSubscription('u1', {
+        type: 'check',
+        priceId: 'price_2',
+      } as never);
+
+      expect(repo.isPriceAllowed).toHaveBeenCalledWith('price_2');
     });
 
     it('throws NotFound for an unknown user and for a user without subscription', async () => {

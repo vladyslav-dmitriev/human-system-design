@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
 import { ArrowRight, Zap } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 
 export const PromoBanner = () => {
@@ -13,7 +13,7 @@ export const PromoBanner = () => {
         {t("promo_banner_badge")}
       </div>
 
-      <div className="bg-white rounded-[15px] p-8 flex items-center justify-between">
+      <div className="bg-white rounded-[15px] p-4 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center">
             <Zap className="text-neutral-900 w-5 h-5" />
@@ -28,14 +28,15 @@ export const PromoBanner = () => {
           </div>
         </div>
 
-        <Link href={ROUTE.PRICING}>
-          <Button
-            variant="ghost"
-            className="font-semibold hover:bg-primary hover:text-white"
-          >
+        <Button
+          asChild
+          variant="ghost"
+          className="font-semibold hover:bg-primary hover:text-white shrink-0"
+        >
+          <Link href={ROUTE.PRICING}>
             {t("promo_banner_button")} <ArrowRight className="ml-2 w-4 h-4" />
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     </div>
   );

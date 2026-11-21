@@ -1,6 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+import { isSwaggerEnabled } from './config/app.config';
+
 export const setupSwagger = (app: INestApplication) => {
   const config = new DocumentBuilder()
     .setTitle('API')
@@ -15,7 +17,7 @@ export const setupSwagger = (app: INestApplication) => {
     })
     .build();
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (isSwaggerEnabled()) {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('docs', app, document);
   }

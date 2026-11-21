@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import {
   ArrowRight,
   CreditCard,
@@ -16,9 +15,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ROUTE } from "@/constants";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { Link, redirect } from "@/i18n/navigation";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { API_URL } from "@/api";
 
@@ -57,8 +56,10 @@ export default async function ThankYouPaymentPage({
 }: ThankYouPaymentPageProps) {
   const { payment_intent_id: paymentIntentId } = await searchParams;
 
+  const locale = await getLocale();
+
   if (!paymentIntentId) {
-    redirect(ROUTE.HOME);
+    redirect({ href: ROUTE.HOME, locale });
   }
 
   const [paymentIntentData, t] = await Promise.all([
@@ -67,7 +68,7 @@ export default async function ThankYouPaymentPage({
   ]);
 
   if (!paymentIntentData) {
-    redirect(ROUTE.HOME);
+    redirect({ href: ROUTE.HOME, locale });
   }
 
   const isSubscription = paymentIntentData.metadata.type === "subscription";
@@ -171,7 +172,10 @@ export default async function ThankYouPaymentPage({
         <div className="h-[1px] bg-gradient-to-r from-transparent via-border/40 to-transparent w-full my-1" />
 
         <CardFooter className="pb-8 pt-4 px-6 flex flex-col gap-2">
-          <Button className="w-full bg-foreground text-background hover:bg-foreground/90 font-medium text-[13px] h-9 shadow-sm group rounded-md">
+          <Button
+            asChild
+            className="w-full bg-foreground text-background hover:bg-foreground/90 font-medium text-[13px] h-9 shadow-sm group rounded-md"
+          >
             <Link
               href={ROUTE.HOME}
               className="flex items-center justify-center gap-1.5"

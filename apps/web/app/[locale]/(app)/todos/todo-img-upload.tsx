@@ -4,9 +4,19 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, UploadCloud } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { API_URL } from "@/api";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
-export function TodoImageUpload({ todoId }: { todoId: string }) {
+export function TodoImageUpload({
+  todoId,
+  onUploaded,
+}: {
+  todoId: string;
+  onUploaded?: (imageUrl: string) => void;
+}) {
+  const t = useTranslations();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,15 +50,23 @@ export function TodoImageUpload({ todoId }: { todoId: string }) {
         // Важно: заголовки Content-Type указывать НЕ НАДО, браузер поставит multipart/form-data автоматически
       });
 
-      if (!response.ok) throw new Error("Ошибка при загрузке");
+      if (!response.ok) {
+        const code = await getApiErrorCode(response);
+        toast.error(t("todo_upload_failed"), {
+          description: t(apiErrorKey(code)),
+        });
+        return;
+      }
 
-      const data = await response.json();
-      alert(`Успешно загружено! Ссылка: ${data.imageUrl}`);
-
-      // Здесь можно вызвать функцию обновления списка тудушек
+      // Ответ: { imageUrl }; ссылку на хранилище пользователю не показываем
+      const data: { imageUrl?: string } = await response.json();
+      if (data.imageUrl) {
+        toast.success(t("todo_upload_success"));
+        onUploaded?.(data.imageUrl);
+      }
     } catch (error) {
       console.error(error);
-      alert("Не удалось загрузить изображение");
+      toast.error(t("todo_upload_failed"));
     } finally {
       setIsUploading(false);
     }
@@ -60,11 +78,15 @@ export function TodoImageUpload({ todoId }: { todoId: string }) {
       className="space-y-4 max-w-sm p-4 border rounded-xl bg-card"
     >
       <div className="grid w-full items-center gap-1.5">
-        <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <label
+          htmlFor={`todo-upload-${todoId}`}
+          className="text-sm font-medium text-muted-foreground flex items-center gap-2"
+        >
           <UploadCloud className="h-4 w-4" />
-          Прикрепить фото к задаче
+          {t("todo_upload_label")}
         </label>
         <Input
+          id={`todo-upload-${todoId}`}
           type="file"
           accept="image/*"
           onChange={handleFileChange}
@@ -80,7 +102,7 @@ export function TodoImageUpload({ todoId }: { todoId: string }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
-            alt="Preview"
+            alt={t("todo_preview_alt")}
             className="object-cover w-full h-full"
           />
         </div>
@@ -90,10 +112,10 @@ export function TodoImageUpload({ todoId }: { todoId: string }) {
         {isUploading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Загрузка...
+            {t("todo_uploading")}
           </>
         ) : (
-          "Сохранить изображение"
+          t("todo_upload_submit")
         )}
       </Button>
     </form>

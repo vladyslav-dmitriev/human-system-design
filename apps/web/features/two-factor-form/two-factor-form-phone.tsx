@@ -23,6 +23,9 @@ export const TwoFactorFormPhone = ({
         <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/50" />
         <Input
           className="pl-9 bg-secondary/20 border-muted/60"
+          type="tel"
+          autoComplete="tel"
+          aria-label={t("two_factor_phone_label")}
           placeholder="+380 (XX) XXX XX XX"
           value={phone ?? ""}
           onChange={(e) => setPhone(e.target.value)}

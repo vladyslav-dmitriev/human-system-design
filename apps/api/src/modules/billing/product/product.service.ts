@@ -60,5 +60,7 @@ export class ProductService {
 
     // Цены изменились — сбрасываем кэш списка планов.
     await this.cacheService.del(CACHE.AvailablePlans);
+
+    return { synced: allPrices.data.length };
   }
 }

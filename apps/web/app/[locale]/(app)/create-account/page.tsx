@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { ROUTE } from "@/constants";
 import { useTranslations, useLocale } from "next-intl";
-import { Loader2, ArrowRight, Github } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 
+import { useRouter, Link } from "@/i18n/navigation";
+import { ROUTE } from "@/constants";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -16,29 +15,56 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { API_URL } from "@/api";
-import { executeRecaptcha } from "@/providers/google-captcha-provider";
+import { getApiErrorCode } from "@/shared/lib/api-error";
+import {
+  createAccountSchema,
+  getFieldErrors,
+} from "@/shared/lib/auth-schemas";
+import {
+  AuthFlowError,
+  fromApiCode,
+  getAuthErrorKey,
+} from "@/widgets/auth/auth-errors";
+import { getCaptchaToken } from "@/widgets/auth/get-captcha-token";
+import { AuthFormError } from "@/widgets/auth/auth-form-error";
+import { AuthFormInput } from "@/widgets/auth/auth-form-input";
 
 export default function CreateAccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations();
+  const errorId = useId();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const parsed = createAccountSchema.safeParse({
+      name: formData.get("name") ?? "",
+      email: formData.get("email") ?? "",
+      password: formData.get("password") ?? "",
+    });
+
+    if (!parsed.success) {
+      const errors = getFieldErrors(parsed.error);
+      setFieldErrors(
+        Object.fromEntries(Object.entries(errors).map(([k, v]) => [k, t(v)])),
+      );
+      return;
+    }
+
+    setFieldErrors({});
+    setIsLoading(true);
+
+    const { name, email, password } = parsed.data;
 
     try {
-      const captchaToken = await executeRecaptcha("register");
+      const captchaToken = await getCaptchaToken("register");
 
       const response = await fetch(API_URL.auth.createAccount(), {
         method: "POST",
@@ -55,141 +81,131 @@ export default function CreateAccountPage() {
         }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || "Не удалось обновить email");
+        throw fromApiCode(await getApiErrorCode(response));
       }
 
-      if (result?.error) {
-        setError(
-          typeof result.error === "string"
-            ? result.error
-            : t("validation_error"),
-        );
-        setIsLoading(false);
-      } else if (result?.success) {
-        const loginResult = await signIn("credentials", {
+      // После регистрации входим обычным путём: login → loginTicket → signIn
+      const loginResponse = await fetch(API_URL.auth.login(), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email,
           password,
-          redirect: false,
-        });
+          captchaToken: await getCaptchaToken("login"),
+        }),
+      });
 
-        if (loginResult?.error) {
-          setError(t("invalid_credentials"));
-          setIsLoading(false);
-        } else {
-          router.push(ROUTE.DASHBOARD);
-          router.refresh();
-        }
+      if (!loginResponse.ok) {
+        throw fromApiCode(await getApiErrorCode(loginResponse));
       }
-    } catch (error) {
-      console.error(error);
+
+      const login = await loginResponse.json();
+
+      // У нового пользователя 2FA нет; если вдруг включена, идём на страницу входа
+      if (login.twoFactorRequired || !login.loginTicket) {
+        router.replace(ROUTE.LOGIN);
+        return;
+      }
+
+      const loginResult = await signIn("credentials", {
+        loginTicket: login.loginTicket,
+        redirect: false,
+      });
+
+      if (!loginResult || loginResult.error) {
+        throw new AuthFlowError("errors.AUTH_TICKET_INVALID");
+      }
+
+      router.replace(ROUTE.DASHBOARD);
+      router.refresh();
+    } catch (cause) {
+      console.error(cause);
+      setError(t(getAuthErrorKey(cause)));
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 bg-neutral-50/50">
+    <main
+      id="main"
+      className="flex min-h-screen items-center justify-center p-6 bg-neutral-50/50"
+    >
       <Card className="w-full max-w-sm border border-muted/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-background/60 backdrop-blur-md rounded-2xl overflow-hidden">
         <CardHeader className="space-y-1 pb-4 text-center">
           <CardTitle className="text-2xl font-semibold tracking-tight">
-            {t("createAccount")}
+            <h1>{t("createAccount")}</h1>
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {t.has("welcome_description")
-              ? t("welcome_description")
-              : "Get started with your account"}
+            {t("welcome_description")}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                data-testid="name-input"
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <div className="space-y-3">
+              <AuthFormInput
+                testId="name-input"
                 name="name"
                 type="text"
-                placeholder={t("name")}
-                required
-                className="h-10 rounded-lg bg-secondary/20"
+                label={t("name")}
+                autoComplete="name"
+                error={fieldErrors.name}
               />
-              <Input
-                data-testid="email-input"
+              <AuthFormInput
+                testId="email-input"
                 name="email"
                 type="email"
-                placeholder="Email"
-                required
-                className="h-10 rounded-lg bg-secondary/20"
+                label={t("email_label")}
+                autoComplete="email"
+                error={fieldErrors.email}
               />
-              <Input
-                data-testid="password-input"
+              <AuthFormInput
+                testId="password-input"
                 name="password"
                 type="password"
-                placeholder={t("password")}
-                required
-                className="h-10 rounded-lg bg-secondary/20"
+                label={t("password")}
+                autoComplete="new-password"
+                error={fieldErrors.password}
               />
             </div>
 
-            {error && (
-              <p className="text-[11px] text-destructive font-medium">
-                {error}
-              </p>
-            )}
+            <AuthFormError id={errorId} error={error} />
 
             <Button
               data-testid="create-account-button"
               type="submit"
               className="w-full rounded-lg h-10 font-medium"
               disabled={isLoading}
+              aria-busy={isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span className="sr-only">{t("loading")}</span>
+                </>
               ) : (
                 <>
                   {t("createAccount")}
-                  <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                  <ArrowRight className="ml-2 h-3.5 w-3.5" aria-hidden />
                 </>
               )}
             </Button>
           </form>
 
-          <div className="relative flex items-center gap-3 py-2">
-            <Separator className="flex-1" />
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              or
-            </span>
-            <Separator className="flex-1" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-lg"
-              onClick={() => signIn("google")}
-            >
-              <span className="text-base">G</span> Google
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-lg"
-              onClick={() => signIn("github")}
-            >
-              <Github className="h-4 w-4" /> GitHub
-            </Button>
-          </div>
-
           <div className="pt-2 text-center text-xs text-muted-foreground">
             {t("alreadyHaveAccount")}{" "}
-            <a
+            <Link
               href={ROUTE.LOGIN}
               className="font-semibold text-foreground hover:underline"
             >
               {t("login")}
-            </a>
+            </Link>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

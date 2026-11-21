@@ -1,8 +1,20 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
 export class UserJWTTokenDto {
-  @Expose() id: string;
-  @Expose() name: string;
-  @Expose() email: string;
-  @Expose() role: string;
+  @ApiProperty()
+  @Expose()
+  id: string;
+
+  @ApiProperty()
+  @Expose()
+  name: string;
+
+  @ApiProperty()
+  @Expose()
+  email: string;
+
+  @ApiProperty()
+  @Expose()
+  role: string;
 }

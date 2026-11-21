@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { API_URL } from "@/api";
-import { executeRecaptcha } from "@/providers/google-captcha-provider";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 type Input = {
   userPhone: string | null;
@@ -10,10 +10,24 @@ type Input = {
 
 type AuthStep = "idle" | "phone" | "otp";
 
+const post = (url: string, body: unknown) =>
+  fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
 export const useTwoFactorForm = ({
   userPhone,
   userTwoFactorEnabled,
 }: Input) => {
+  // confirmed: что реально сохранено на сервере; enabled: что показывает Switch
+  const [confirmed, setConfirmed] = useState<boolean>(
+    userTwoFactorEnabled ?? false,
+  );
   const [enabled, setEnabled] = useState<boolean>(
     userTwoFactorEnabled ?? false,
   );
@@ -21,76 +35,131 @@ export const useTwoFactorForm = ({
   const [step, setStep] = useState<AuthStep>("idle");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  // ключ i18n последней ошибки (корень сообщений)
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSwitchEnabled = async () => {
-    setLoading(true);
+  /** Сохраняет номер в профиле: SMS всегда уходит на номер из профиля */
+  const savePhone = async () => {
+    try {
+      const response = await fetch(API_URL.users.phone(), {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
 
-    if (enabled) {
-      const response = await sendSmsCode();
-
-      if (response?.ok) {
-        setStep("otp");
+      if (!response.ok) {
+        setError(apiErrorKey(await getApiErrorCode(response)));
+        return false;
       }
-    } else {
-      setStep("phone");
-      setEnabled(true);
+
+      return true;
+    } catch (cause) {
+      console.error(cause);
+      setError(apiErrorKey("INTERNAL"));
+      return false;
     }
   };
 
+  /** true, если SMS ушла; иначе выставляет error и возвращает false */
   const sendSmsCode = async () => {
+    try {
+      // тело пустое: номер берётся из профиля, captcha не нужна
+      const response = await post(API_URL.sms.sendSmsCode(), {});
+
+      if (!response.ok) {
+        setError(apiErrorKey(await getApiErrorCode(response)));
+        return false;
+      }
+
+      return true;
+    } catch (cause) {
+      console.error(cause);
+      setError(apiErrorKey("INTERNAL"));
+      return false;
+    }
+  };
+
+  const handleSwitchEnabled = async () => {
+    setError(null);
+
+    if (!confirmed) {
+      if (enabled) {
+        // подключение не завершено: Switch снова выключает, ничего не сохранено
+        setEnabled(false);
+        setStep("idle");
+        setOtp("");
+      } else {
+        setStep("phone");
+        setEnabled(true);
+      }
+      return;
+    }
+
     if (!phone) return;
 
-    const captchaToken = await executeRecaptcha("twoFactor");
+    setLoading(true);
 
     try {
-      return await fetch(API_URL.sms.sendSmsCode(), {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phoneNumber: phone,
-          captchaToken,
-        }),
-      });
-    } catch (error) {
-      console.error(error);
+      if (await sendSmsCode()) {
+        setStep("otp");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleConnectPhone = async () => {
     if (!checkPhoneValidation(phone)) return;
 
-    const response = await sendSmsCode();
+    setError(null);
+    setLoading(true);
 
-    if (response?.ok) {
-      setStep("otp");
+    try {
+      if ((await savePhone()) && (await sendSmsCode())) {
+        setStep("otp");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleEnterCode = async () => {
-    const nextUserTwoFactorEnabled = !userTwoFactorEnabled;
+    const nextTwoFactorEnabled = !confirmed;
+
+    setError(null);
+    setLoading(true);
 
     try {
-      await fetch(API_URL.users.setTwoFactor(), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          code: otp,
-          twoFactorEnabled: nextUserTwoFactorEnabled,
-        }),
+      const response = await post(API_URL.users.setTwoFactor(), {
+        phone,
+        code: otp,
+        twoFactorEnabled: nextTwoFactorEnabled,
       });
 
-      setPhone(nextUserTwoFactorEnabled ? phone : null);
+      if (!response.ok) {
+        setError(apiErrorKey(await getApiErrorCode(response)));
+        return;
+      }
+
+      const result = await response.json().catch(() => null);
+
+      // успех только при явном { success: true }
+      if (result?.success !== true) {
+        setError(apiErrorKey("INTERNAL"));
+        return;
+      }
+
+      setPhone(nextTwoFactorEnabled ? phone : null);
       setOtp("");
       setStep("idle");
-      setEnabled(nextUserTwoFactorEnabled);
+      setConfirmed(nextTwoFactorEnabled);
+      setEnabled(nextTwoFactorEnabled);
+    } catch (cause) {
+      console.error(cause);
+      setError(apiErrorKey("INTERNAL"));
+    } finally {
       setLoading(false);
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -105,6 +174,7 @@ export const useTwoFactorForm = ({
     step,
     otp,
     loading,
+    error,
   };
 };
 

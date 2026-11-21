@@ -2,8 +2,7 @@
 
 import React from "react";
 import { Gem, CheckSquare, CreditCard, Settings } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { Logo } from "../logo";
 import { ROUTE } from "@/constants";
 import { useTranslations } from "next-intl";
@@ -42,12 +41,14 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
 
         <nav className="p-2 space-y-0.5">
           {mainItems.map((item) => {
-            const isActive = pathname.includes(item.url);
+            const isActive = pathname.startsWith(item.url);
 
             return (
               <Link
                 key={item.title}
                 href={item.url}
+                aria-label={item.title}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-3 px-2.5 py-2 rounded-md text-sm font-medium transition-all group relative ${
                   isActive
                     ? "bg-primary/5 text-primary font-semibold"
@@ -73,7 +74,7 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
                 </span>
 
                 {!isOpen && (
-                  <span className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
+                  <span aria-hidden="true" className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
                     {item.title}
                   </span>
                 )}
@@ -85,12 +86,14 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
 
       <div className="p-2 pb-8 border-t border-muted/30 space-y-0.5 bg-muted/10">
         {systemItems.map((item) => {
-          const isActive = pathname.includes(item.url);
+          const isActive = pathname.startsWith(item.url);
 
           return (
             <Link
               key={item.title}
               href={item.url}
+              aria-label={item.title}
+              aria-current={isActive ? "page" : undefined}
               className={`flex items-center gap-3 px-2.5 py-2 rounded-md text-sm font-medium transition-all group relative ${
                 isActive
                   ? "bg-primary/5 text-primary font-semibold"
@@ -116,7 +119,7 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
               </span>
 
               {!isOpen && (
-                <span className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
+                <span aria-hidden="true" className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
                   {item.title}
                 </span>
               )}

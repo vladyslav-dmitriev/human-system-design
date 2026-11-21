@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "./auth.config";
 import { API_URL } from "./api";
+import { SESSION_COOKIE_NAME } from "./constants";
 
 export const result = NextAuth({
   ...authConfig,
@@ -12,10 +13,7 @@ export const result = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? `__Secure-next-auth.session-token`
-          : `next-auth.session-token`,
+      name: SESSION_COOKIE_NAME,
       options: {
         httpOnly: true,
         sameSite: "lax",
@@ -47,21 +45,23 @@ export const result = NextAuth({
     ...authConfig.providers,
 
     Credentials({
+      // Принимает только одноразовый loginTicket из login / verify-otp:
+      // пароль и OTP проверяет API до выдачи билета
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        const loginTicket = credentials?.loginTicket;
+
+        if (typeof loginTicket !== "string" || !loginTicket) return null;
 
         try {
           const response = await fetch(API_URL.auth.validate(), {
             method: "POST",
-            credentials: "include",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-            }),
+            body: JSON.stringify({ loginTicket }),
           });
+
+          if (!response.ok) return null;
 
           const data = await response.json();
 

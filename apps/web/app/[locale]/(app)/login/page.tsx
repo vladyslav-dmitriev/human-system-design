@@ -3,14 +3,31 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import * as amplitude from "@amplitude/analytics-browser";
-import { useRouter } from "next/navigation";
-import { ROUTE } from "@/constants";
 import { useTranslations } from "next-intl";
+
+import { useRouter } from "@/i18n/navigation";
+import { CALLBACK_URL_PARAM } from "@/constants";
+import { API_URL } from "@/api";
+import { getApiErrorCode } from "@/shared/lib/api-error";
+import { getFieldErrors, loginSchema } from "@/shared/lib/auth-schemas";
+import { getSafeCallbackUrl } from "@/shared/utils/guards";
+import {
+  AuthFlowError,
+  fromApiCode,
+  getAuthErrorKey,
+} from "@/widgets/auth/auth-errors";
+import { getCaptchaToken } from "@/widgets/auth/get-captcha-token";
 
 import { LoginAuthFormStep } from "./login-auth-form-step";
 import { LoginAuthOtpStep } from "./login-auth-otp-step";
-import { API_URL } from "@/api";
-import { executeRecaptcha } from "@/providers/google-captcha-provider";
+
+const post = (url: string, body: unknown) =>
+  fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -19,145 +36,119 @@ export default function LoginPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState<"form" | "otp">("form");
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
+
+  /** Единственное место, где вызывается signIn: только с одноразовым билетом */
+  const completeLogin = async (loginTicket: string | undefined) => {
+    if (!loginTicket) throw new AuthFlowError("errors.AUTH_TICKET_INVALID");
+
+    const result = await signIn("credentials", {
+      loginTicket,
+      redirect: false,
+    });
+
+    if (!result || result.error) {
+      throw new AuthFlowError("errors.AUTH_TICKET_INVALID");
+    }
+
+    amplitude.track("User Signed In", { sign_in_method: "credentials" });
+
+    const callbackUrl = getSafeCallbackUrl(
+      new URLSearchParams(window.location.search).get(CALLBACK_URL_PARAM),
+    );
+
+    router.replace(callbackUrl);
+    router.refresh();
+  };
+
+  const showError = (cause: unknown) => {
+    console.error(cause);
+    setError(t(getAuthErrorKey(cause)));
+  };
 
   const handleSubmitAuthForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setIsLoading(true);
+    const formData = new FormData(e.currentTarget);
+    const parsed = loginSchema.safeParse({
+      email: formData.get("email") ?? "",
+      password: formData.get("password") ?? "",
+    });
+
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const formEmail = (formData.get("email") as string) ?? "";
-    const formPassword = (formData.get("password") as string) ?? "";
-
-    setEmail(formEmail);
-    setPassword(formPassword);
-
-    if (!formEmail || !formPassword) {
-      throw new Error("Email and password are required");
+    if (!parsed.success) {
+      const errors = getFieldErrors(parsed.error);
+      setFieldErrors(
+        Object.fromEntries(Object.entries(errors).map(([k, v]) => [k, t(v)])),
+      );
+      return;
     }
 
-    try {
-      const captchaToken = await executeRecaptcha("login");
+    setFieldErrors({});
+    setIsLoading(true);
 
-      const response = await fetch(API_URL.auth.login(), {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formEmail,
-          password: formPassword,
-          captchaToken,
-        }),
+    try {
+      const captchaToken = await getCaptchaToken("login");
+
+      const response = await post(API_URL.auth.login(), {
+        ...parsed.data,
+        captchaToken,
       });
+
+      if (!response.ok) {
+        throw fromApiCode(await getApiErrorCode(response));
+      }
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.message);
-      }
-
-      if (result.twoFactorEnabled) {
-        setPhone(result.phone);
+      if (result.twoFactorRequired) {
+        setEmail(parsed.data.email);
+        setPhone(result.phoneMasked ?? "");
         setStep("otp");
-        setIsLoading(false);
-      } else {
-        await login({ email: formEmail, password: formPassword });
+        return;
       }
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
-  const login = async ({
-    email,
-    password,
-  }: {
-    email: string;
-    password: string;
-  }) => {
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setError(t("invalid_credentials") || "Неверный email или пароль");
+      await completeLogin(result.loginTicket);
+    } catch (cause) {
+      showError(cause);
+    } finally {
       setIsLoading(false);
-    } else {
-      amplitude.track("User Signed In", { sign_in_method: "credentials" });
-      router.push(ROUTE.DASHBOARD);
-      router.refresh();
-    }
-  };
-
-  const onCaptchaSuccess = () => {};
-
-  const checkCode = async (otp: string) => {
-    const captchaToken = await executeRecaptcha("2fa");
-
-    try {
-      const res = await fetch(API_URL.auth.twoFactor(), {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          code: otp,
-          captchaToken,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.message);
-      }
-
-      await login({ email, password });
-    } catch (error) {
-      console.error(error);
     }
   };
 
   const onVerify = async (otp: string) => {
-    try {
-      setIsLoading(true);
+    setIsLoading(true);
+    setError(null);
 
-      await checkCode(otp);
-      await login({ email, password });
-    } catch (error) {
-      console.error(error);
+    try {
+      const response = await post(API_URL.auth.twoFactor(), {
+        email,
+        code: otp,
+      });
+
+      // неверный код: вход останавливается, signIn не вызывается
+      if (!response.ok) {
+        throw fromApiCode(await getApiErrorCode(response));
+      }
+
+      const result = await response.json();
+
+      await completeLogin(result.loginTicket);
+    } catch (cause) {
+      showError(cause);
     } finally {
       setIsLoading(false);
     }
   };
 
   const onBack = () => {
+    setError(null);
     setStep("form");
   };
-
-  if (step === "form") {
-    return (
-      <LoginAuthFormStep
-        isLoading={isLoading}
-        error={error}
-        onSubmit={handleSubmitAuthForm}
-        onSignInGoogle={() => signIn("google")}
-        onSignInGithub={() => signIn("github")}
-      />
-    );
-  }
 
   if (step === "otp") {
     return (
@@ -167,10 +158,16 @@ export default function LoginPage() {
         phone={phone}
         onVerify={onVerify}
         onBack={onBack}
-        onCaptchaSuccess={onCaptchaSuccess}
       />
     );
   }
 
-  return null;
+  return (
+    <LoginAuthFormStep
+      isLoading={isLoading}
+      error={error}
+      fieldErrors={fieldErrors}
+      onSubmit={handleSubmitAuthForm}
+    />
+  );
 }

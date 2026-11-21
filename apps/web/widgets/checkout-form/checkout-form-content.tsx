@@ -10,7 +10,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { CreditCard, Mail, Plus, Loader2 } from "lucide-react";
 import { ROUTE } from "@/constants";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { Button } from "@/components/ui/button";
@@ -135,12 +135,16 @@ export function CheckoutFormContent({
       </div>
 
       <div className="space-y-2">
-        <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+        <label
+          htmlFor="checkout-email"
+          className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
+        >
           {t("checkout_email_label")}
         </label>
         <div className="mt-1 flex items-center gap-2 h-10 w-full rounded-md border px-3 bg-background">
           <Mail className="w-4 h-4 text-muted-foreground" />
           <input
+            id="checkout-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

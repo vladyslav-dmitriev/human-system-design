@@ -13,5 +13,7 @@
   "checkout_duration_value": "1 month",
   "checkout_monthly_price_label": "Monthly price",
   "checkout_pay_button": "Pay",
-  "checkout_payment_failed": "Payment failed: {error}"
+  "checkout_payment_failed": "Payment failed: {error}",
+  "checkout_load_failed": "Could not prepare the payment. Please try again later.",
+  "checkout_back_to_pricing": "Back to pricing"
 }

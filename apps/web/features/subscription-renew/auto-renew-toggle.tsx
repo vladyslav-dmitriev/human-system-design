@@ -32,6 +32,7 @@ export const AutoRenewToggle: React.FC<AutoRenewToggleProps> = ({
         type="button"
         role="switch"
         aria-checked={autoRenew}
+        aria-label={t("auto_renew_title")}
         disabled={isLoading}
         onClick={handleToggleRenew}
         className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-40 ${

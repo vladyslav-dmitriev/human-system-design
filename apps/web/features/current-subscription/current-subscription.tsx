@@ -11,7 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { API_URL } from "@/api";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 interface CurrentSubscriptionProps {
   planName?: string;
@@ -38,13 +40,20 @@ export function CurrentSubscription({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       });
+      if (!response.ok) {
+        const code = await getApiErrorCode(response);
+        toast.error(t("subscription_portal_failed"), {
+          description: t(apiErrorKey(code)),
+        });
+        return;
+      }
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url; // Перенаправляем на портал Stripe
       }
     } catch (error) {
       console.error(error);
-      alert("Не удалось открыть управление подпиской");
+      toast.error(t("subscription_portal_failed"));
     } finally {
       setPortalLoading(false);
     }

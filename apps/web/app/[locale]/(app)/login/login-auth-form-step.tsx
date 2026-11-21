@@ -1,7 +1,8 @@
-import { Loader2, ArrowRight, Github } from "lucide-react";
+import { useId } from "react";
+import { Loader2, ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -9,126 +10,99 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ROUTE } from "@/constants";
+import { AuthFormError } from "@/widgets/auth/auth-form-error";
+import { AuthFormInput } from "@/widgets/auth/auth-form-input";
 
 type LoginAuthFormStepProps = {
   isLoading: boolean;
   error: string | null;
+  fieldErrors?: Record<string, string>;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  onSignInGoogle: () => void;
-  onSignInGithub: () => void;
 };
 
 export const LoginAuthFormStep = ({
   isLoading,
   error,
+  fieldErrors = {},
   onSubmit,
-  onSignInGoogle,
-  onSignInGithub,
 }: LoginAuthFormStepProps) => {
   const t = useTranslations();
+  const errorId = useId();
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 bg-neutral-50/50">
+    <main
+      id="main"
+      className="flex min-h-screen items-center justify-center p-6 bg-neutral-50/50"
+    >
       <Card className="w-full max-w-sm border border-muted/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-background/60 backdrop-blur-md rounded-2xl overflow-hidden">
         <CardHeader className="space-y-1 pb-4 text-center">
           <CardTitle className="text-2xl font-semibold tracking-tight">
-            {t("login")}
+            <h1>{t("login")}</h1>
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {t.has("welcome_back")
-              ? t("welcome_back")
-              : "Welcome back to your account"}
+            {t("welcome_back")}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                data-testid="email-input"
+          <form onSubmit={onSubmit} noValidate className="space-y-4">
+            <div className="space-y-3">
+              <AuthFormInput
+                testId="email-input"
                 name="email"
                 type="email"
-                placeholder="Email"
-                required
-                className="h-10 rounded-lg bg-secondary/20"
+                label={t("email_label")}
+                autoComplete="email"
+                error={fieldErrors.email}
+                formErrorId={error ? errorId : undefined}
               />
-              <Input
-                data-testid="password-input"
+              <AuthFormInput
+                testId="password-input"
                 name="password"
                 type="password"
-                placeholder={t("password")}
-                required
-                className="h-10 rounded-lg bg-secondary/20"
+                label={t("password")}
+                autoComplete="current-password"
+                error={fieldErrors.password}
+                formErrorId={error ? errorId : undefined}
               />
             </div>
 
-            {error && (
-              <p className="text-[11px] text-destructive font-medium">
-                {error}
-              </p>
-            )}
+            <AuthFormError id={errorId} error={error} />
 
             <Button
               data-testid="login-button"
               type="submit"
               className="w-full rounded-lg h-10 font-medium"
               disabled={isLoading}
+              aria-busy={isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span className="sr-only">{t("loading")}</span>
+                </>
               ) : (
                 <>
-                  {t("login")} <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                  {t("login")}{" "}
+                  <ArrowRight className="ml-2 h-3.5 w-3.5" aria-hidden />
                 </>
               )}
             </Button>
           </form>
 
-          {/* Разделитель и OAuth кнопки теперь внизу */}
-          <div className="relative flex items-center gap-3 py-2">
-            <Separator className="flex-1" />
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              or
-            </span>
-            <Separator className="flex-1" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-lg"
-              onClick={onSignInGoogle}
+          <div className="pt-2 text-center text-xs text-muted-foreground">
+            {t("notHaveAccount")}{" "}
+            <Link
+              href={ROUTE.CREATE_ACCOUNT}
+              className="font-semibold text-foreground hover:underline"
             >
-              <span className="text-base">G</span> Google
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-lg"
-              onClick={onSignInGithub}
-            >
-              <Github className="h-4 w-4" /> GitHub
-            </Button>
-          </div>
-
-          <div className="pt-2 text-center text-xs text-muted-foreground space-y-2">
-            <a href={ROUTE.FORGOT_PASSWORD} className="hover:underline">
-              {t("forgot_password")}
-            </a>
-            <div>
-              {t("notHaveAccount")}{" "}
-              <a
-                href={ROUTE.CREATE_ACCOUNT}
-                className="font-semibold text-foreground hover:underline"
-              >
-                {t("createAccount")}
-              </a>
-            </div>
+              {t("createAccount")}
+            </Link>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 };

@@ -54,7 +54,25 @@ export class TodoService {
   }
 
   async deleteTodo(userId: string, params: TodoDeleteParamsDto) {
-    return this.todoRepository.deleteTodo(userId, params.todoId);
+    try {
+      return await this.todoRepository.deleteTodo(userId, params.todoId);
+    } catch (error) {
+      // Prisma P2025: запись не найдена (или чужая): отдаём 404, а не 500
+      if ((error as { code?: string } | null)?.code === 'P2025') {
+        throw new NotFoundException('Task not found');
+      }
+
+      throw error;
+    }
+  }
+
+  /** Чужая и несуществующая задача неотличимы: обе дают 404 */
+  async assertTodoOwner(userId: string, todoId: string): Promise<void> {
+    const todo = await this.todoRepository.getTodoById(todoId);
+
+    if (!todo || todo.userId !== userId) {
+      throw new NotFoundException('Task not found');
+    }
   }
 
   async updateTodoImage(

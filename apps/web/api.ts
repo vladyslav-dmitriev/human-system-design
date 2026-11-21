@@ -13,6 +13,8 @@ export const API_URL = {
     email: () => `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile`,
     password: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile/password`,
+    /** PUT {phone} -> {success: true}; номер для 2FA */
+    phone: () => `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile/phone`,
     setTwoFactor: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/user/profile/2fa`,
   },
@@ -24,10 +26,14 @@ export const API_URL = {
     userBilling: () => `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/user`,
     paymentMethods: () =>
       `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/payment-methods`,
+    /** Список карт из браузера (SSR использует paymentMethods) */
+    paymentMethodsClient: () =>
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-methods`,
     paymentMethodsById: (paymentMethodId: string) =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-methods/${paymentMethodId}`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-methods/${encodeURIComponent(paymentMethodId)}`,
     products: () =>
       `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/products`,
+    /** POST, только ADMIN; из web не вызывается при рендере страниц */
     syncProducts: () =>
       `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/products/sync`,
     subscriptionsUpgrade: () =>
@@ -37,7 +43,7 @@ export const API_URL = {
     checkout: () =>
       `${process.env.NEXT_PUBLIC_API_SERVER_URL}/billing/checkout`,
     paymentIntentCreate: (paymentIntentId: string) =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-intents/${paymentIntentId}`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/payment-intents/${encodeURIComponent(paymentIntentId)}`,
     createPortalSession: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/billing/create-portal-session`,
     invoices: () =>
@@ -45,18 +51,19 @@ export const API_URL = {
   },
   emails: {
     sendVerification: () =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/emails/send-verification`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/sender/emails/send-verification`,
     verifyEmail: () =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/emails/verify-email`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/sender/emails/verify-email`,
   },
   todos: {
+    /** Список грузит браузер (client component), поэтому публичный URL */
     list: (sortBy: string, sortOrder: string) =>
-      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/todos?sortBy=${sortBy}&sortOrder=${sortOrder}`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos?sortBy=${encodeURIComponent(sortBy)}&sortOrder=${encodeURIComponent(sortOrder)}`,
     create: () => `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos`,
     edit: (todoId: string) =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos/${todoId}`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos/${encodeURIComponent(todoId)}`,
     delete: (todoId: string) =>
-      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos/${todoId}`,
+      `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos/${encodeURIComponent(todoId)}`,
     uploadImage: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/todos/upload-image`,
   },

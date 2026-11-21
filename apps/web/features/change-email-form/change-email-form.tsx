@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Mail, Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { Mail, Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,10 +15,14 @@ import {
 } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
-import { getErrorMessage } from "@/shared/lib/error";
+import { Label } from "@/components/ui/label";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
+import { emailSchema, validateWith } from "@/shared/lib/auth-schemas";
+import { FieldError } from "@/shared/ui/field-error";
 
 interface EmailFormInputs {
   email: string;
+  currentPassword: string;
 }
 
 interface EmailFormProps {
@@ -29,6 +33,8 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const t = useTranslations();
+  const emailId = useId();
+  const passwordId = useId();
 
   const {
     register,
@@ -36,9 +42,11 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
     formState: { errors, isDirty },
     reset,
     watch,
+    setError,
   } = useForm<EmailFormInputs>({
     defaultValues: {
       email: currentEmail,
+      currentPassword: "",
     },
   });
 
@@ -49,30 +57,51 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
   const onSubmit = async (data: EmailFormInputs) => {
     setIsLoading(true);
 
+    const email = data.email.trim().toLowerCase();
+
     try {
       const response = await fetch(API_URL.users.email(), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: data.email }),
+        body: JSON.stringify({
+          email,
+          currentPassword: data.currentPassword,
+        }),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || "Не удалось обновить email");
+        const code = await getApiErrorCode(response);
+
+        if (code === "USER_INVALID_PASSWORD") {
+          setError("currentPassword", { message: apiErrorKey(code) });
+        } else if (code === "USER_EMAIL_TAKEN") {
+          setError("email", { message: apiErrorKey(code) });
+        } else {
+          toast.error(t("update_error_title"), {
+            description: t(apiErrorKey(code)),
+          });
+        }
+        return;
       }
 
+      // письмо подтверждения после смены не уходит само; сбой отправки не отменяет смену
+      fetch(API_URL.emails.sendVerification(), {
+        method: "POST",
+        credentials: "include",
+      }).catch((cause) => console.error(cause));
+
       // Элегантный Sonner тост вместо статичных блоков на пол-экрана
-      toast.success("Email успешно изменен", {
-        description: `Новый адрес: ${data.email.toLowerCase()}`,
+      toast.success(t("email_changed_title"), {
+        description: t("email_changed_description", { email }),
         duration: 4000,
       });
 
-      reset({ email: data.email });
+      reset({ email, currentPassword: "" });
     } catch (error) {
-      toast.error("Ошибка обновления", {
-        description: getErrorMessage(error),
+      console.error(error);
+      toast.error(t("update_error_title"), {
+        description: t(apiErrorKey("INTERNAL")),
       });
     } finally {
       setIsLoading(false);
@@ -93,20 +122,23 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
         </CardDescription>
       </CardHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4 pb-6">
           <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
             {/* Инпут контейнер */}
             <div className="relative flex-1 group">
+              <Label htmlFor={emailId} className="sr-only">
+                {t("email_label")}
+              </Label>
               <Input
+                id={emailId}
                 data-testid="email-change-input"
-                type="text"
+                type="email"
+                autoComplete="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? `${emailId}-error` : undefined}
                 {...register("email", {
-                  required: t("email_error_empty"),
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: t("email_error_invalid"),
-                  },
+                  validate: validateWith(emailSchema),
                 })}
                 className={`text-[13px] h-9 bg-secondary/20 border px-3 rounded-lg transition-all duration-200 focus-visible:ring-0 ${
                   errors.email
@@ -125,6 +157,32 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 </div>
               )}
+            </div>
+
+            <div className="relative flex-1">
+              <Label htmlFor={passwordId} className="sr-only">
+                {t("password_current_label")}
+              </Label>
+              <Input
+                id={passwordId}
+                data-testid="email-change-password-input"
+                type="password"
+                autoComplete="current-password"
+                aria-invalid={!!errors.currentPassword}
+                aria-describedby={
+                  errors.currentPassword ? `${passwordId}-error` : undefined
+                }
+                {...register("currentPassword", {
+                  required: "password_enter_current",
+                })}
+                className={`text-[13px] h-9 bg-secondary/20 border px-3 rounded-lg transition-all duration-200 focus-visible:ring-0 ${
+                  errors.currentPassword
+                    ? "border-destructive/40 focus:border-destructive/80"
+                    : "border-muted/60 focus:border-foreground/30"
+                }`}
+                placeholder={t("password_current_label")}
+                disabled={isLoading}
+              />
             </div>
 
             {/* Компактная кнопка в одну линию */}
@@ -151,13 +209,17 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
             </Button>
           </div>
 
-          {/* Анимация плавного появления текста ошибки валидации */}
-          {errors.email && (
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-destructive/90 pl-1 animate-[slide-down_0.15s_ease-out]">
-              <AlertCircle className="h-3 w-3 stroke-[2]" />
-              <span>{errors.email.message}</span>
-            </div>
-          )}
+          <FieldError
+            id={`${emailId}-error`}
+            message={errors.email?.message && t(errors.email.message)}
+          />
+          <FieldError
+            id={`${passwordId}-error`}
+            message={
+              errors.currentPassword?.message &&
+              t(errors.currentPassword.message)
+            }
+          />
         </CardContent>
       </form>
     </Card>

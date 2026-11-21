@@ -58,13 +58,21 @@ describe("SSR-запросы (utils.ts)", () => {
     await expect(fn()).resolves.toEqual(fallback);
   });
 
-  it("syncBillingProducts: не ok -> []", async () => {
+  it("syncBillingProducts: POST (не GET) с cookie, ответ API {synced} возвращается как есть", async () => {
+    fetchMock.mockReturnValue(ok({ synced: 3 }));
+    await expect(syncBillingProducts()).resolves.toEqual({ synced: 3 });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("http://server.test/api/billing/products/sync");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Cookie).toBe("session=abc");
+  });
+
+  it("syncBillingProducts: не ok (например 403 для USER) -> []", async () => {
     fetchMock.mockReturnValue(notOk());
     await expect(syncBillingProducts()).resolves.toEqual([]);
   });
 
-  // BUG: см. FIX.md "syncBillingProducts возвращает undefined при ошибке сети"
-  it.fails("syncBillingProducts: сетевая ошибка даёт [] (как при не ok)", async () => {
+  it("syncBillingProducts: сетевая ошибка даёт [] (как при не ok)", async () => {
     fetchMock.mockRejectedValue(new Error("down"));
     await expect(syncBillingProducts()).resolves.toEqual([]);
   });

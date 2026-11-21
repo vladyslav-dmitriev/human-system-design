@@ -11,26 +11,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getErrorMessage } from "@/shared/lib/error";
+import { useTranslations } from "next-intl";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 interface SubscriptionCancelBlockProps {
   status: string | null;
 }
 
 export function SubscriptionCancel({ status }: SubscriptionCancelBlockProps) {
+  const t = useTranslations();
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const isPremium = status === "active" || status === "past_due";
 
   // Если пользователь и так на бесплатном плане, скрываем блок отмены
   if (!isPremium) return null;
 
   const handleCancelSubscription = async () => {
-    // Для таких критических действий лучше вызвать нативный конфирм
-    const confirmCancel = window.confirm(
-      "Вы уверены, что хотите отменить подписку? Все премиальные лимиты будут заблокированы.",
-    );
-    if (!confirmCancel) return;
-
     setIsLoading(true);
     try {
       const response = await fetch("/api/billing/cancel-immediately", {
@@ -38,15 +36,23 @@ export function SubscriptionCancel({ status }: SubscriptionCancelBlockProps) {
         headers: { "Content-Type": "application/json" },
       });
 
-      if (!response.ok) throw new Error("Не удалось отменить подписку");
+      if (!response.ok) {
+        const code = await getApiErrorCode(response);
+        toast.error(t("subscription_cancel_failed"), {
+          description: t(apiErrorKey(code)),
+        });
+        return;
+      }
 
-      toast.success("Подписка успешно аннулирована", {
-        description: "Ваш аккаунт переведен на бесплатный тарифный план.",
+      toast.success(t("subscription_cancel_success"), {
+        description: t("subscription_cancel_success_description"),
       });
     } catch (error) {
-      toast.error("Ошибка отмены", { description: getErrorMessage(error) });
+      console.error(error);
+      toast.error(t("subscription_cancel_failed"));
     } finally {
       setIsLoading(false);
+      setIsConfirmOpen(false);
     }
   };
 
@@ -57,11 +63,10 @@ export function SubscriptionCancel({ status }: SubscriptionCancelBlockProps) {
           <div className="p-1.5 bg-secondary/50 rounded-md border border-muted/40">
             <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground/80 stroke-[1.5]" />
           </div>
-          Аннулирование подписки
+          {t("subscription_cancel_title")}
         </CardTitle>
         <CardDescription className="text-xs text-muted-foreground/80 leading-relaxed max-w-[90%]">
-          Полный отказ от премиум-функций. Все расширенные лимиты, аналитика и
-          доступ к AI-инструментам будут ограничены.
+          {t("subscription_cancel_description")}
         </CardDescription>
       </CardHeader>
 
@@ -70,20 +75,31 @@ export function SubscriptionCancel({ status }: SubscriptionCancelBlockProps) {
           <Button
             type="button"
             disabled={isLoading}
-            onClick={handleCancelSubscription}
+            onClick={() => setIsConfirmOpen(true)}
             className="w-full sm:w-auto h-9 px-4 rounded-lg font-medium text-xs transition-all duration-200 bg-secondary text-foreground border border-muted/40 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {isLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
             ) : (
               <span className="flex items-center gap-1.5">
-                Отменить подписку
+                {t("cancelSubscription")}
                 <ArrowRight className="h-3 w-3 opacity-60 transition-transform duration-200 group-hover:translate-x-0.5" />
               </span>
             )}
           </Button>
         </div>
       </CardContent>
+
+      <ConfirmDialog
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title={t("subscription_cancel_confirm_title")}
+        description={t("subscription_cancel_confirm_description")}
+        confirmLabel={t("cancelSubscription")}
+        destructive
+        isLoading={isLoading}
+        onConfirm={handleCancelSubscription}
+      />
     </Card>
   );
 }

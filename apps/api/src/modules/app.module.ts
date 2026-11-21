@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 // import { BullBoardModule } from '@bull-board/nestjs';
 // import { ExpressAdapter } from '@bull-board/express';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
 import { TodoModule } from './todo';
@@ -31,8 +31,10 @@ import { CaptchaModule } from './captcha';
 import { FeatureModule } from './billing/feature';
 import { ProductModule } from './billing/product';
 import { AppController } from './app.controller';
+import { AppThrottlerGuard } from './app.throttler.guard';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
+import { validationSchema } from 'config/validation';
 import { RabbitMQModule } from './rabbitmq';
 
 @Module({
@@ -41,12 +43,14 @@ import { RabbitMQModule } from './rabbitmq';
       isGlobal: true,
       envFilePath: 'apps/api/.env',
       load: [appConfig, databaseConfig],
+      validationSchema,
+      validationOptions: { abortEarly: false },
     }),
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],
       inject: [REDIS_CLIENT],
       useFactory: (redis: Redis) => ({
-        throttlers: [{ limit: 10, ttl: 60000 }],
+        throttlers: [{ limit: 100, ttl: 60000 }],
         storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
@@ -130,7 +134,7 @@ import { RabbitMQModule } from './rabbitmq';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AppThrottlerGuard,
     },
     AppService,
   ],

@@ -1,5 +1,11 @@
 import { Controller, Post, Body, UseGuards, Inject } from '@nestjs/common';
-import { ApiCookieAuth } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiCookieAuth,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 
 import { AuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
@@ -12,6 +18,9 @@ import {
 import { SubscriptionService } from './subscription.service';
 import { Serialize } from 'interceptors';
 
+@ApiTags('Subscriptions')
+@ApiCookieAuth()
+@ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('billing')
 @UseGuards(AuthGuard)
 export class SubscriptionsController {
@@ -21,7 +30,7 @@ export class SubscriptionsController {
   ) {}
 
   @Post('subscriptions/renew')
-  @ApiCookieAuth()
+  @ApiOkResponse({ type: SubscriptionRenewResponseDto })
   @Serialize(SubscriptionRenewResponseDto)
   async setAutoRenew(
     @GetUser('id') userId: string,
@@ -31,7 +40,10 @@ export class SubscriptionsController {
   }
 
   @Post('subscriptions/upgrade')
-  @ApiCookieAuth()
+  @ApiOkResponse({ type: SubscriptionUpgradeResponseDto })
+  @ApiBadRequestResponse({
+    description: 'VALIDATION_FAILED: unknown or inactive priceId',
+  })
   @Serialize(SubscriptionUpgradeResponseDto)
   async upgradeSubscription(
     @GetUser('id') userId: string,

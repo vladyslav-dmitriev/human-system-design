@@ -77,7 +77,6 @@ export class EmailProcessor extends WorkerHost {
 
     try {
       await this.emailService.sendEmail({
-        from: 'onboarding@resend.dev',
         to: email,
         subject:
           VERIFICATION_EMAIL_SUBJECT_MAPPING[locale] ??
@@ -110,7 +109,6 @@ export class EmailProcessor extends WorkerHost {
 
     try {
       await this.emailService.sendEmail({
-        from: 'onboarding@resend.dev',
         to: email,
         subject:
           INVOICE_EMAIL_SUBJECT_MAPPING[locale] ??

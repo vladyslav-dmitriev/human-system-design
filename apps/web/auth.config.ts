@@ -1,11 +1,12 @@
 // auth.config.ts
 import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
-import Github from "next-auth/providers/github";
 import { ROUTE } from "./constants";
+import { normalizePath } from "./shared/lib/normalize-path";
+import { isAuthRoute, isProtectedRoute } from "./shared/utils/guards";
 
 export const authConfig = {
-  providers: [Google, Github],
+  // OAuth (Google, GitHub) отключён до реализации привязки к Nest API
+  providers: [],
   basePath: "/api/auth",
   pages: {
     signIn: ROUTE.LOGIN,
@@ -13,17 +14,9 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isProtectedRoute = [ROUTE.DASHBOARD, ROUTE.TODOS].includes(
-        nextUrl.pathname,
-      );
+      const path = normalizePath(nextUrl.pathname);
 
-      const isOnAuthPage = [
-        ROUTE.HOME,
-        ROUTE.LOGIN,
-        ROUTE.CREATE_ACCOUNT,
-      ].includes(nextUrl.pathname);
-
-      if (isOnAuthPage) {
+      if (isAuthRoute(path)) {
         if (isLoggedIn) {
           return Response.redirect(new URL(ROUTE.DASHBOARD, nextUrl));
         }
@@ -31,7 +24,7 @@ export const authConfig = {
         return true;
       }
 
-      if (isProtectedRoute) {
+      if (isProtectedRoute(path)) {
         return isLoggedIn;
       }
 

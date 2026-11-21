@@ -1,8 +1,16 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 
 import type { ISMSService } from '../sms.interface';
+
+/** Код dev-мока при PAID_API != enabled (никогда не работает в production). */
+export const DEV_OTP_CODE = '123456';
 
 @Injectable()
 export class TwilioService implements ISMSService {
@@ -29,6 +37,10 @@ export class TwilioService implements ISMSService {
     }
   }
 
+  private isProduction() {
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
+
   private getVerifyService() {
     if (!this.twilio || !this.twilioVerifyServiceSid) {
       throw new Error('Twilio Verify is not configured');
@@ -45,7 +57,19 @@ export class TwilioService implements ISMSService {
         to: phoneNumber,
         channel: 'sms',
       });
+
+      return true;
     }
+
+    if (this.isProduction()) {
+      // Без Twilio в проде «успешно отправить» нельзя: не имитируем отправку
+      throw new ServiceUnavailableException('SMS provider is not enabled');
+    }
+
+    // Dev-мок: SMS не уходит, код фиксированный и пишется в лог
+    this.logger.warn(
+      `[DEV MOCK] SMS to ${phoneNumber} not sent (PAID_API != enabled). Use code ${DEV_OTP_CODE}`,
+    );
 
     return true;
   }
@@ -68,6 +92,7 @@ export class TwilioService implements ISMSService {
       return result.status === 'approved';
     }
 
-    return true;
+    // Мок только вне production и только с фиксированным кодом
+    return !this.isProduction() && code === DEV_OTP_CODE;
   }
 }

@@ -25,33 +25,17 @@ jobs:
 
     steps:
       - name: Delete old API container versions
-        uses: actions/delete-package-versions@v5
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
         with:
-          package-name: fullstack-api
+          package-name: human-system-design-api
           package-type: container
           owner: ${{ env.OWNER }}
 
           min-versions-to-keep: 20
 
+          # теги sha-* уникальны, поэтому чистим по количеству версий, не только untagged
           delete-only-untagged-versions: false
 
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  cleanup-web:
-    name: Cleanup WEB Images
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Delete old WEB container versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: fullstack-web
-          package-type: container
-          owner: ${{ env.OWNER }}
-
-          min-versions-to-keep: 20
-
-          delete-only-untagged-versions: false
-
-          token: ${{ secrets.GITHUB_TOKEN }}
+  # cleanup-web: добавить вместе с образом human-system-design-web

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await -- in-memory Redis fakes mimic the async client */
 import {
   BadRequestException,
   ConflictException,
@@ -6,31 +7,47 @@ import {
 import bcrypt from 'bcrypt';
 
 import { UserService } from './user.service';
+import { ErrorCode } from '../../common/errors';
+import { pendingPhoneKey } from '../sender/sms/sms.constants';
 
 // user.service импортирует через baseUrl-алиасы (modules/...), которых нет в конфиге jest
 jest.mock('modules/sender/sms', () => ({ SmsService: class {} }), {
   virtual: true,
 });
-jest.mock(
-  'modules/rabbitmq/rabbitmq.service',
-  () => ({ RabbitMQService: class {} }),
-  { virtual: true },
-);
+jest.mock('../redis', () => ({ REDIS_CLIENT: 'REDIS_CLIENT' }));
 jest.mock('./user.repository', () => ({ UserRepository: class {} }));
 
 describe('UserService', () => {
-  const emailProducer = { sendEmailUserCreate: jest.fn() };
-  const rabbit = { getEmailProducer: jest.fn(() => emailProducer) };
   const sms = { verifySmsCode: jest.fn() };
   const repo = {
     getUserById: jest.fn(),
     checkUserEmailExist: jest.fn(),
     updateUser: jest.fn(),
+    updateUserEmail: jest.fn(),
     updateUserTwoFactor: jest.fn(),
+  };
+  const store = new Map<string, string>();
+  const redis = {
+    set: jest.fn(async (k: string, v: string) => {
+      store.set(k, v);
+
+      return 'OK';
+    }),
+    get: jest.fn(async (k: string) => store.get(k) ?? null),
+    del: jest.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
   };
 
   let service: UserService;
   let oldHash: string;
+
+  const code = async (p: Promise<unknown>) =>
+    p.then(
+      () => null,
+      (e: { status: number; response: { code: string } }) => ({
+        status: e.status,
+        code: e.response?.code,
+      }),
+    );
 
   beforeAll(async () => {
     oldHash = await bcrypt.hash('old-password', 4);
@@ -38,8 +55,17 @@ describe('UserService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    rabbit.getEmailProducer.mockReturnValue(emailProducer);
-    service = new UserService(rabbit as never, sms as never, repo as never);
+    store.clear();
+    redis.set.mockImplementation(async (k: string, v: string) => {
+      store.set(k, v);
+
+      return 'OK';
+    });
+    redis.get.mockImplementation(async (k: string) => store.get(k) ?? null);
+    redis.del.mockImplementation(async (k: string) =>
+      store.delete(k) ? 1 : 0,
+    );
+    service = new UserService(sms as never, repo as never, redis as never);
   });
 
   describe('getUserProfile', () => {
@@ -57,50 +83,87 @@ describe('UserService', () => {
         NotFoundException,
       );
     });
-
-    // BUG: см. FIX.md «getUserProfile отправляет тестовое письмо на каждый запрос профиля»
-    it.failing('does not publish anything to RabbitMQ', async () => {
-      repo.getUserById.mockResolvedValue({ id: 'u1' });
-
-      await service.getUserProfile('u1');
-
-      expect(emailProducer.sendEmailUserCreate).not.toHaveBeenCalled();
-    });
   });
 
   describe('updateEmail', () => {
+    const dto = { email: '  New@Test.DEV ', currentPassword: 'old-password' };
+
+    beforeEach(() => {
+      repo.getUserById.mockResolvedValue({ id: 'u1', password: oldHash });
+    });
+
     it('normalizes (trim + lower case) and saves the new email', async () => {
       repo.checkUserEmailExist.mockResolvedValue(null);
 
-      await expect(
-        service.updateEmail('u1', { email: '  New@Test.DEV ' }),
-      ).resolves.toEqual({ success: true });
+      await expect(service.updateEmail('u1', dto)).resolves.toEqual({
+        success: true,
+      });
 
       expect(repo.checkUserEmailExist).toHaveBeenCalledWith(
         'u1',
         'new@test.dev',
       );
-      expect(repo.updateUser).toHaveBeenCalledWith(
-        { id: 'u1' },
-        { email: 'new@test.dev' },
+      expect(repo.updateUserEmail).toHaveBeenCalledWith('u1', 'new@test.dev');
+    });
+
+    it('wrong current password -> 400 USER_INVALID_PASSWORD, nothing is changed', async () => {
+      await expect(
+        code(service.updateEmail('u1', { ...dto, currentPassword: 'nope' })),
+      ).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.USER_INVALID_PASSWORD,
+      });
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
+      expect(repo.checkUserEmailExist).not.toHaveBeenCalled();
+    });
+
+    it('taken email -> 409 USER_EMAIL_TAKEN', async () => {
+      repo.checkUserEmailExist.mockResolvedValue({ id: 'u2' });
+
+      await expect(code(service.updateEmail('u1', dto))).resolves.toEqual({
+        status: 409,
+        code: ErrorCode.USER_EMAIL_TAKEN,
+      });
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
+    });
+
+    it('a unique-constraint race (P2002) also gives 409, not 500', async () => {
+      const { Prisma } = jest.requireActual('@prisma/client');
+
+      repo.checkUserEmailExist.mockResolvedValue(null);
+      repo.updateUserEmail.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(service.updateEmail('u1', dto)).rejects.toBeInstanceOf(
+        ConflictException,
       );
     });
 
-    it('throws Conflict and does not update when the email is taken', async () => {
-      repo.checkUserEmailExist.mockResolvedValue({ id: 'u2' });
+    it('unexpected DB errors are not swallowed', async () => {
+      repo.checkUserEmailExist.mockResolvedValue(null);
+      repo.updateUserEmail.mockRejectedValue(new Error('db'));
 
-      await expect(
-        service.updateEmail('u1', { email: 'taken@test.dev' }),
-      ).rejects.toBeInstanceOf(ConflictException);
-      expect(repo.updateUser).not.toHaveBeenCalled();
+      await expect(service.updateEmail('u1', dto)).rejects.toThrow('db');
     });
 
     it('always updates the caller own record (id comes from the session)', async () => {
       repo.checkUserEmailExist.mockResolvedValue(null);
 
-      await service.updateEmail('session-user', { email: 'a@b.dev' });
+      await service.updateEmail('session-user', dto);
 
-      expect(repo.updateUser.mock.calls[0][0]).toEqual({ id: 'session-user' });
+      expect(repo.updateUserEmail.mock.calls[0][0]).toBe('session-user');
+    });
+
+    it('unknown user -> 404', async () => {
+      repo.getUserById.mockResolvedValue(null);
+
+      await expect(service.updateEmail('x', dto)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -126,15 +189,17 @@ describe('UserService', () => {
       );
     });
 
-    it('rejects a wrong current password', async () => {
+    it('rejects a wrong current password with USER_INVALID_PASSWORD', async () => {
       repo.getUserById.mockResolvedValue({ id: 'u1', password: oldHash });
 
       await expect(
-        service.updatePassword('u1', {
-          ...dto,
-          currentPassword: 'wrong',
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+        code(
+          service.updatePassword('u1', { ...dto, currentPassword: 'wrong' }),
+        ),
+      ).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.USER_INVALID_PASSWORD,
+      });
       expect(repo.updateUser).not.toHaveBeenCalled();
     });
 
@@ -150,12 +215,25 @@ describe('UserService', () => {
       expect(repo.updateUser).not.toHaveBeenCalled();
     });
 
-    it('rejects an unknown user', async () => {
+    it('unknown user -> 404 (does not leak a password check)', async () => {
       repo.getUserById.mockResolvedValue(null);
 
       await expect(
         service.updatePassword('x', dto as never),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('setPendingPhone', () => {
+    it('stores the phone for this user only, with a TTL', async () => {
+      await service.setPendingPhone('u1', '+380501234567');
+
+      expect(redis.set).toHaveBeenCalledWith(
+        pendingPhoneKey('u1'),
+        '+380501234567',
+        'EX',
+        600,
+      );
     });
   });
 
@@ -166,7 +244,15 @@ describe('UserService', () => {
       twoFactorEnabled: true,
     };
 
-    it('enables 2FA and stores the phone when the code is valid', async () => {
+    beforeEach(() => {
+      repo.getUserById.mockResolvedValue({
+        id: 'u1',
+        profile: { phone: '' },
+      });
+      store.set(pendingPhoneKey('u1'), dto.phone);
+    });
+
+    it('enables 2FA, stores the phone and clears the pending phone', async () => {
       sms.verifySmsCode.mockResolvedValue(true);
 
       await expect(service.setTwoFactor('u1', dto)).resolves.toEqual({
@@ -181,13 +267,43 @@ describe('UserService', () => {
         phone: dto.phone,
         twoFactorEnabled: true,
       });
+      expect(store.has(pendingPhoneKey('u1'))).toBe(false);
     });
 
-    it('clears the phone when 2FA is being disabled', async () => {
+    it('the code is checked against the pending phone, not a phone supplied in the body', async () => {
+      sms.verifySmsCode.mockResolvedValue(true);
+
+      await expect(
+        code(service.setTwoFactor('u1', { ...dto, phone: '+380999999999' })),
+      ).resolves.toEqual({ status: 400, code: ErrorCode.USER_INVALID_OTP });
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('without any pending or saved phone the code is not checked', async () => {
+      store.clear();
+
+      await expect(code(service.setTwoFactor('u1', dto))).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.USER_INVALID_OTP,
+      });
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
+    });
+
+    it('disabling checks the code against the SAVED phone and clears it', async () => {
+      store.clear();
+      repo.getUserById.mockResolvedValue({
+        id: 'u1',
+        profile: { phone: '+380501234567' },
+      });
       sms.verifySmsCode.mockResolvedValue(true);
 
       await service.setTwoFactor('u1', { ...dto, twoFactorEnabled: false });
 
+      expect(sms.verifySmsCode).toHaveBeenCalledWith({
+        phoneNumber: '+380501234567',
+        code: '123456',
+      });
       expect(repo.updateUserTwoFactor).toHaveBeenCalledWith({
         userId: 'u1',
         phone: null,
@@ -195,38 +311,28 @@ describe('UserService', () => {
       });
     });
 
-    it('does not change settings with an invalid code', async () => {
+    it('invalid code -> 400 USER_INVALID_OTP and nothing changes', async () => {
       sms.verifySmsCode.mockResolvedValue(false);
 
-      await expect(service.setTwoFactor('u1', dto)).resolves.toEqual({
-        success: false,
+      await expect(code(service.setTwoFactor('u1', dto))).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.USER_INVALID_OTP,
       });
       expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+      expect(store.has(pendingPhoneKey('u1'))).toBe(true);
     });
 
-    it('does not change settings when the SMS provider fails', async () => {
+    it('fails closed (400) when the SMS provider throws', async () => {
       sms.verifySmsCode.mockRejectedValue(new Error('twilio down'));
 
-      await expect(service.setTwoFactor('u1', dto)).resolves.toEqual({
-        success: false,
+      await expect(code(service.setTwoFactor('u1', dto))).resolves.toEqual({
+        status: 400,
+        code: ErrorCode.USER_INVALID_OTP,
       });
       expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
     });
 
-    // BUG: см. FIX.md «setTwoFactor глотает ошибки и отвечает 200»
-    it.failing(
-      'reports an invalid code as 400 (BadRequestException)',
-      async () => {
-        sms.verifySmsCode.mockResolvedValue(false);
-
-        await expect(service.setTwoFactor('u1', dto)).rejects.toBeInstanceOf(
-          BadRequestException,
-        );
-      },
-    );
-
-    // BUG: см. FIX.md «setTwoFactor глотает ошибки и отвечает 200»
-    it.failing('does not report success when the DB write fails', async () => {
+    it('does not report success when the DB write fails', async () => {
       sms.verifySmsCode.mockResolvedValue(true);
       repo.updateUserTwoFactor.mockRejectedValue(new Error('db'));
 

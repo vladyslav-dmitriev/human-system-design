@@ -7,8 +7,9 @@ import { UsersController } from '../src/modules/user/users.controller';
 import { UserService } from '../src/modules/user/user.service';
 import { UserRepository } from '../src/modules/user/user.repository';
 import { SmsService } from '../src/modules/sender/sms/sms.service';
-import { RabbitMQService } from '../src/modules/rabbitmq/rabbitmq.service';
+import { REDIS_CLIENT } from '../src/modules/redis';
 import { createTestApp, sessionCookie, USER_A, USER_B } from './helpers/app';
+import { createFakeRedis } from './helpers/fake-redis';
 
 const OLD_PASSWORD = 'Old-Passw0rd-qa';
 
@@ -20,10 +21,11 @@ describe('UsersController (nest testing module, mocks)', () => {
     getUserById: jest.fn(),
     checkUserEmailExist: jest.fn(),
     updateUser: jest.fn(),
+    updateUserEmail: jest.fn(),
     updateUserTwoFactor: jest.fn(),
   };
   const sms = { verifySmsCode: jest.fn() };
-  const producer = { sendEmailUserCreate: jest.fn() };
+  let redis: ReturnType<typeof createFakeRedis>;
 
   beforeAll(async () => {
     cookieA = await sessionCookie(USER_A);
@@ -34,7 +36,7 @@ describe('UsersController (nest testing module, mocks)', () => {
   beforeEach(async () => {
     Object.values(repo).forEach((m) => m.mockReset());
     sms.verifySmsCode.mockReset();
-    producer.sendEmailUserCreate.mockReset().mockResolvedValue(undefined);
+    redis = createFakeRedis();
     repo.getUserById.mockImplementation(async (id: string) => ({
       id,
       email: `${id}@example.test`,
@@ -43,7 +45,7 @@ describe('UsersController (nest testing module, mocks)', () => {
       profile: { name: 'QA', phone: '+380501234567' },
       authSettings: {
         isVerified: false,
-        verifiedToken: 'secret-verify-token',
+        verifiedToken: 'secret-verify-token', // legacy-поле в БД: наружу отдаваться не должно
         twoFactorEnabled: false,
       },
       userBillingProfile: { stripeCustomerId: 'cus_test' },
@@ -55,10 +57,7 @@ describe('UsersController (nest testing module, mocks)', () => {
         UserService,
         { provide: UserRepository, useValue: repo },
         { provide: SmsService, useValue: sms },
-        {
-          provide: RabbitMQService,
-          useValue: { getEmailProducer: () => producer },
-        },
+        { provide: REDIS_CLIENT, useValue: redis },
       ],
     });
   });
@@ -72,6 +71,7 @@ describe('UsersController (nest testing module, mocks)', () => {
       ['get', '/user/profile'],
       ['patch', '/user/profile'],
       ['patch', '/user/profile/password'],
+      ['put', '/user/profile/phone'],
       ['post', '/user/profile/2fa'],
     ])('%s %s without cookie -> 401', async (method, url) => {
       const res = await (http() as any)[method](url).send({}).expect(401);
@@ -120,88 +120,97 @@ describe('UsersController (nest testing module, mocks)', () => {
       await http().get('/user/profile').set('Cookie', cookieA).expect(404);
     });
 
-    // BUG: новый, см. отчёт L2 (UserGetProfileResponseDto отдаёт authSettings.verifiedToken)
-    it.failing('does not leak the email verification token', async () => {
+    it('does not leak the email verification token', async () => {
       const res = await http()
         .get('/user/profile')
         .set('Cookie', cookieA)
         .expect(200);
       expect(JSON.stringify(res.body)).not.toContain('secret-verify-token');
+      expect(res.body.authSettings.verifiedToken).toBeUndefined();
     });
 
-    // BUG: см. FIX.md «getUserProfile отправляет тестовое письмо на каждый запрос профиля»
-    it.failing(
-      'does not publish a RabbitMQ message on a plain profile read',
-      async () => {
-        await http().get('/user/profile').set('Cookie', cookieA).expect(200);
-        expect(producer.sendEmailUserCreate).not.toHaveBeenCalled();
-      },
-    );
+    it('profile and authSettings are exposed as objects with the declared fields only', async () => {
+      const res = await http()
+        .get('/user/profile')
+        .set('Cookie', cookieA)
+        .expect(200);
+      expect(res.body).toEqual({
+        email: `${USER_A.id}@example.test`,
+        profile: { name: 'QA', phone: '+380501234567' },
+        authSettings: { isVerified: false, twoFactorEnabled: false },
+      });
+    });
   });
 
   describe('PATCH /user/profile (change email)', () => {
-    it('happy path normalizes email (trim + lowercase)', async () => {
+    const patch = (body: Record<string, unknown>) =>
+      http().patch('/user/profile').set('Cookie', cookieA).send(body);
+
+    it('happy path: normalizes email (trim + lowercase), responds {success:true}', async () => {
       repo.checkUserEmailExist.mockResolvedValue(null);
-      const res = await http()
-        .patch('/user/profile')
-        .set('Cookie', cookieA)
-        .send({ email: 'New.Mail@Example.test' })
-        .expect(200);
-      expect(res.status).toBe(200);
-      expect(repo.updateUser).toHaveBeenCalledWith(
-        { id: USER_A.id },
-        { email: 'new.mail@example.test' },
+      const res = await patch({
+        email: '  New.Mail@Example.test ',
+        currentPassword: OLD_PASSWORD,
+      }).expect(200);
+      expect(res.body).toEqual({ success: true });
+      expect(repo.updateUserEmail).toHaveBeenCalledWith(
+        USER_A.id,
+        'new.mail@example.test',
       );
     });
 
-    // BUG: новый, см. отчёт L2 (ResponseDto с @IsBoolean вместо @Expose: {success:true} превращается в {})
-    it.failing(
-      'responds with {success:true} as declared by the DTO',
-      async () => {
-        repo.checkUserEmailExist.mockResolvedValue(null);
-        const res = await http()
-          .patch('/user/profile')
-          .set('Cookie', cookieA)
-          .send({ email: 'x@example.test' })
-          .expect(200);
-        expect(res.body).toEqual({ success: true });
-      },
-    );
+    it('wrong currentPassword -> 400 USER_INVALID_PASSWORD, email is not changed (account takeover protection)', async () => {
+      const res = await patch({
+        email: 'attacker@example.test',
+        currentPassword: 'wrong',
+      }).expect(400);
+      expect(res.body.code).toBe('USER_INVALID_PASSWORD');
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
+    });
 
-    it('email already used by another user -> 409 and no update', async () => {
+    it('currentPassword is mandatory', async () => {
+      await patch({ email: 'attacker@example.test' }).expect(400);
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
+    });
+
+    it('email already used by another user -> 409 USER_EMAIL_TAKEN and no update', async () => {
       repo.checkUserEmailExist.mockResolvedValue({ id: USER_B.id });
-      await http()
-        .patch('/user/profile')
-        .set('Cookie', cookieA)
-        .send({ email: USER_B.email })
-        .expect(409);
-      expect(repo.updateUser).not.toHaveBeenCalled();
+      const res = await patch({
+        email: USER_B.email,
+        currentPassword: OLD_PASSWORD,
+      }).expect(409);
+      expect(res.body.code).toBe('USER_EMAIL_TAKEN');
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
     });
 
     it.each([
-      [{}],
-      [{ email: '' }],
-      [{ email: 'nope' }],
-      [{ email: 5 }],
-      [{ email: 'a@example.test', id: 'user-b' }],
+      [{ currentPassword: OLD_PASSWORD }],
+      [{ email: '', currentPassword: OLD_PASSWORD }],
+      [{ email: 'nope', currentPassword: OLD_PASSWORD }],
+      [{ email: 5, currentPassword: OLD_PASSWORD }],
+      [{ email: 'a@example.test', currentPassword: 123 }],
+      [
+        {
+          email: 'a@example.test',
+          currentPassword: OLD_PASSWORD,
+          id: 'user-b',
+        },
+      ],
     ])('invalid body %j -> 400', async (body) => {
-      const res = await http()
-        .patch('/user/profile')
-        .set('Cookie', cookieA)
-        .send(body)
-        .expect(400);
+      const res = await patch(body).expect(400);
       expect(res.body.statusCode).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
       expect(res.body.message.length).toBeGreaterThan(0);
     });
 
     it('cannot target another user via body id (whitelist)', async () => {
-      const res = await http()
-        .patch('/user/profile')
-        .set('Cookie', cookieA)
-        .send({ email: 'a@example.test', id: USER_B.id })
-        .expect(400);
+      const res = await patch({
+        email: 'a@example.test',
+        currentPassword: OLD_PASSWORD,
+        id: USER_B.id,
+      }).expect(400);
       expect(res.body.message).toContain('property id should not exist');
-      expect(repo.updateUser).not.toHaveBeenCalled();
+      expect(repo.updateUserEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -219,11 +228,20 @@ describe('UsersController (nest testing module, mocks)', () => {
       expect(await bcrypt.compare('New-Passw0rd-qa', data.password)).toBe(true);
     });
 
-    it('wrong current password -> 400, nothing saved', async () => {
-      await patch({
+    it('happy path responds {success:true}', async () => {
+      const res = await patch({
+        currentPassword: OLD_PASSWORD,
+        newPassword: 'New-Passw0rd-qa',
+      }).expect(200);
+      expect(res.body).toEqual({ success: true });
+    });
+
+    it('wrong current password -> 400 USER_INVALID_PASSWORD, nothing saved', async () => {
+      const res = await patch({
         currentPassword: 'wrong',
         newPassword: 'New-Passw0rd-qa',
       }).expect(400);
+      expect(res.body.code).toBe('USER_INVALID_PASSWORD');
       expect(repo.updateUser).not.toHaveBeenCalled();
     });
 
@@ -254,6 +272,21 @@ describe('UsersController (nest testing module, mocks)', () => {
       await patch(body).expect(400);
     });
 
+    it('password boundary: 72 bytes ok, 73 bytes -> 400, 37 two-byte chars (74 bytes) -> 400', async () => {
+      await patch({
+        currentPassword: OLD_PASSWORD,
+        newPassword: 'a'.repeat(72),
+      }).expect(200);
+      await patch({
+        currentPassword: OLD_PASSWORD,
+        newPassword: 'a'.repeat(73),
+      }).expect(400);
+      await patch({
+        currentPassword: OLD_PASSWORD,
+        newPassword: 'é'.repeat(37),
+      }).expect(400);
+    });
+
     it('non-string newPassword (number) -> 400', async () => {
       await patch({
         currentPassword: OLD_PASSWORD,
@@ -262,17 +295,43 @@ describe('UsersController (nest testing module, mocks)', () => {
     });
   });
 
+  describe('PUT /user/profile/phone', () => {
+    const put = (body: Record<string, unknown>) =>
+      http().put('/user/profile/phone').set('Cookie', cookieA).send(body);
+
+    it('stores a pending phone for the caller only (until the code is confirmed)', async () => {
+      const res = await put({ phone: '+380671112233' }).expect(200);
+      expect(res.body).toEqual({ success: true });
+      expect(redis.store.get(`pending-phone:${USER_A.id}`)).toBe(
+        '+380671112233',
+      );
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+      expect(repo.updateUser).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{}],
+      [{ phone: 'abc' }],
+      [{ phone: 5 }],
+      [{ phone: '+380671112233', id: 'x' }],
+    ])('invalid body %j -> 400', async (body) => {
+      await put(body).expect(400);
+    });
+  });
+
   describe('POST /user/profile/2fa', () => {
     const post = (body: Record<string, unknown>) =>
       http().post('/user/profile/2fa').set('Cookie', cookieA).send(body);
+    const enable = {
+      phone: '+380501234567',
+      code: '123456',
+      twoFactorEnabled: true,
+    };
 
-    it('valid code enables 2FA for the caller only', async () => {
+    it('valid code enables 2FA for the caller only -> 200 {success:true}', async () => {
       sms.verifySmsCode.mockResolvedValue(true);
-      await post({
-        phone: '+380501234567',
-        code: '123456',
-        twoFactorEnabled: true,
-      }).expect(201);
+      const res = await post(enable).expect(200);
+      expect(res.body).toEqual({ success: true });
       expect(repo.updateUserTwoFactor).toHaveBeenCalledWith({
         userId: USER_A.id,
         phone: '+380501234567',
@@ -280,36 +339,74 @@ describe('UsersController (nest testing module, mocks)', () => {
       });
     });
 
-    it('wrong code does not change settings', async () => {
+    it('wrong code -> 400 USER_INVALID_OTP so that the client can show an error, settings unchanged', async () => {
       sms.verifySmsCode.mockResolvedValue(false);
-      await post({
-        phone: '+380501234567',
-        code: '000000',
+      const res = await post({ ...enable, code: '000000' }).expect(400);
+      expect(res.body.code).toBe('USER_INVALID_OTP');
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('SMS provider failure does not enable 2FA (fail closed) -> 400', async () => {
+      sms.verifySmsCode.mockRejectedValue(new Error('twilio down'));
+      await post(enable).expect(400);
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('enrolment flow: PUT phone, then 2FA with the same phone enables it and stores THAT phone', async () => {
+      sms.verifySmsCode.mockResolvedValue(true);
+      await http()
+        .put('/user/profile/phone')
+        .set('Cookie', cookieA)
+        .send({ phone: '+380671112233' })
+        .expect(200);
+      await post({ ...enable, phone: '+380671112233' }).expect(200);
+      expect(sms.verifySmsCode).toHaveBeenCalledWith({
+        phoneNumber: '+380671112233',
+        code: '123456',
+      });
+      expect(repo.updateUserTwoFactor).toHaveBeenCalledWith({
+        userId: USER_A.id,
+        phone: '+380671112233',
         twoFactorEnabled: true,
       });
+      expect(redis.store.has(`pending-phone:${USER_A.id}`)).toBe(false);
+    });
+
+    it('a phone in the body that differs from the one the SMS went to is refused, code is not even checked', async () => {
+      await http()
+        .put('/user/profile/phone')
+        .set('Cookie', cookieA)
+        .send({ phone: '+380671112233' })
+        .expect(200);
+      sms.verifySmsCode.mockResolvedValue(true);
+      const res = await post({ ...enable, phone: '+380999999999' }).expect(400);
+      expect(res.body.code).toBe('USER_INVALID_OTP');
+      expect(sms.verifySmsCode).not.toHaveBeenCalled();
       expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('disabling 2FA requires a valid code as well', async () => {
+      sms.verifySmsCode.mockResolvedValue(false);
+      await post({ ...enable, twoFactorEnabled: false }).expect(400);
+      expect(repo.updateUserTwoFactor).not.toHaveBeenCalled();
+
+      sms.verifySmsCode.mockResolvedValue(true);
+      await post({ ...enable, twoFactorEnabled: false }).expect(200);
+      expect(repo.updateUserTwoFactor).toHaveBeenCalledWith({
+        userId: USER_A.id,
+        phone: null,
+        twoFactorEnabled: false,
+      });
     });
 
     it.each([
       [{ phone: 'abc', code: '123456', twoFactorEnabled: true }],
       [{ phone: '+380501234567', code: '123', twoFactorEnabled: true }],
+      [{ phone: '+380501234567', code: '1234567', twoFactorEnabled: true }],
       [{ phone: '+380501234567', code: '123456', twoFactorEnabled: 'yes' }],
       [{ phone: '+380501234567', code: '123456' }],
     ])('invalid body %j -> 400', async (body) => {
       await post(body).expect(400);
     });
-
-    // BUG: новый, см. отчёт L2 (неверный OTP -> 201 с пустым телом, web показывает «2FA включена»)
-    it.failing(
-      'wrong code -> 400 so that the client can show an error',
-      async () => {
-        sms.verifySmsCode.mockResolvedValue(false);
-        await post({
-          phone: '+380501234567',
-          code: '000000',
-          twoFactorEnabled: true,
-        }).expect(400);
-      },
-    );
   });
 });

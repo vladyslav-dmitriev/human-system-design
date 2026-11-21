@@ -127,7 +127,9 @@ export class RabbitMQModule implements OnModuleInit, OnModuleDestroy {
         inject: [RABBITMQ_CONNECTION, RABBITMQ_CONFIG, RABBITMQ_MODULE_OPTIONS],
       },
       RabbitMQService,
-      EmailConsumer,
+      // Алиас: EmailConsumer создаётся фабрикой выше; как класс Nest не может
+      // внедрить его зависимости (RabbitMQConfig — интерфейс)
+      { provide: EmailConsumer, useExisting: RABBITMQ_EMAIL_CONSUMER },
     ];
 
     return {

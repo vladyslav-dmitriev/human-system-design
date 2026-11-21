@@ -19,6 +19,7 @@ describe("API_URL", () => {
     expect(API_URL.auth.twoFactor()).toBe(`${CLIENT}/service-auth/verify-otp`);
     expect(API_URL.users.email()).toBe(`${CLIENT}/user/profile`);
     expect(API_URL.users.password()).toBe(`${CLIENT}/user/profile/password`);
+    expect(API_URL.users.phone()).toBe(`${CLIENT}/user/profile/phone`);
     expect(API_URL.users.setTwoFactor()).toBe(`${CLIENT}/user/profile/2fa`);
     expect(API_URL.sms.sendSmsCode()).toBe(`${CLIENT}/sender/sms/send`);
     expect(API_URL.billing.subscriptionsUpgrade()).toBe(
@@ -29,6 +30,9 @@ describe("API_URL", () => {
     );
     expect(API_URL.billing.createPortalSession()).toBe(
       `${CLIENT}/billing/create-portal-session`,
+    );
+    expect(API_URL.billing.paymentMethodsClient()).toBe(
+      `${CLIENT}/billing/payment-methods`,
     );
     expect(API_URL.todos.create()).toBe(`${CLIENT}/todos`);
     expect(API_URL.todos.uploadImage()).toBe(`${CLIENT}/todos/upload-image`);
@@ -57,8 +61,9 @@ describe("API_URL", () => {
     );
     expect(API_URL.todos.edit("t1")).toBe(`${CLIENT}/todos/t1`);
     expect(API_URL.todos.delete("t1")).toBe(`${CLIENT}/todos/t1`);
+    // список задач грузит браузер (client component): публичный CLIENT URL
     expect(API_URL.todos.list("createdAt", "desc")).toBe(
-      `${SERVER}/todos?sortBy=createdAt&sortOrder=desc`,
+      `${CLIENT}/todos?sortBy=createdAt&sortOrder=desc`,
     );
   });
 
@@ -67,9 +72,7 @@ describe("API_URL", () => {
     expect(API_URL.auth.login()).toBe("http://other.test/service-auth/login");
   });
 
-  // BUG: см. FIX.md "Контракт web <-> api: пути emails не совпадают"
-  // api: @Controller('sender/emails'), web: /emails/...
-  it.fails("пути emails совпадают с контроллером api (sender/emails)", () => {
+  it("пути emails совпадают с контроллером api (sender/emails)", () => {
     expect(API_URL.emails.sendVerification()).toBe(
       `${CLIENT}/sender/emails/send-verification`,
     );
@@ -78,13 +81,22 @@ describe("API_URL", () => {
     );
   });
 
-  // BUG: см. FIX.md "todos.list не кодирует query-параметры"
-  it.fails("todos.list кодирует спецсимволы в query", () => {
-    expect(API_URL.todos.list("a&b", "desc")).toContain("sortBy=a%26b");
+  it("todos.list кодирует спецсимволы в query", () => {
+    const url = API_URL.todos.list("a&b", "d c");
+
+    expect(url).toContain("sortBy=a%26b");
+    expect(url).toContain("sortOrder=d%20c");
   });
 
-  // BUG: см. FIX.md "paymentMethodsById не кодирует id"
-  it.fails("id в path кодируется", () => {
+  it("id в path кодируется", () => {
     expect(API_URL.todos.edit("../x")).not.toContain("../x");
+    expect(API_URL.todos.edit("../x")).toBe(`${CLIENT}/todos/..%2Fx`);
+    expect(API_URL.todos.delete("a/b?c")).toBe(`${CLIENT}/todos/a%2Fb%3Fc`);
+    expect(API_URL.billing.paymentMethodsById("pm/../1")).toBe(
+      `${CLIENT}/billing/payment-methods/pm%2F..%2F1`,
+    );
+    expect(API_URL.billing.paymentIntentCreate("pi 1")).toBe(
+      `${CLIENT}/billing/payment-intents/pi%201`,
+    );
   });
 });

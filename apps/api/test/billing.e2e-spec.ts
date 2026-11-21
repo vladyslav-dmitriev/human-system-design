@@ -22,11 +22,22 @@ import { PaymentsService } from '../src/modules/billing/payments/payments.servic
 import { StripeProvider } from '../src/modules/billing/payments/providers/stripe.provider';
 import { UserRepository } from '../src/modules/user/user.repository';
 import { AuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
-import { createTestApp, sessionCookie, USER_A, USER_B } from './helpers/app';
+import {
+  ADMIN,
+  createTestApp,
+  sessionCookie,
+  USER_A,
+  USER_B,
+} from './helpers/app';
 
 const CUS: Record<string, string> = {
   [USER_A.id]: 'cus_A',
   [USER_B.id]: 'cus_B',
+};
+/** Цены в allowlist (таблица Product) и их тип в Stripe. */
+const PRICES: Record<string, 'one_time' | 'recurring'> = {
+  price_1: 'one_time',
+  price_2: 'recurring',
 };
 const WEBHOOK_SECRET = 'whsec_test_secret_for_e2e_only';
 
@@ -110,12 +121,17 @@ function createFakeStripe() {
       attach: jest.fn(
         async (pm: string, { customer }: { customer: string }) => {
           const current = owners.get(pm);
+          // как настоящий SDK: StripeInvalidRequestError с типом
+          const stripeError = (message: string) =>
+            Object.assign(new Error(message), {
+              type: 'StripeInvalidRequestError',
+            });
           if (current && current !== customer)
-            throw new Error(
+            throw stripeError(
               'The payment method you provided has already been attached to a customer.',
             );
           if (!owners.has(pm))
-            throw new Error(`No such PaymentMethod: '${pm}'`);
+            throw stripeError(`No such PaymentMethod: '${pm}'`);
           owners.set(pm, customer);
           return { id: pm };
         },
@@ -140,12 +156,27 @@ function createFakeStripe() {
       ),
     },
     prices: {
-      retrieve: jest.fn(async (id: string) => ({
-        id,
-        unit_amount: 1000,
-        currency: 'usd',
-        product: { id: 'prod_1', name: 'Premium' },
-      })),
+      retrieve: jest.fn(async (id: string) => {
+        if (id === 'price_inactive') {
+          return {
+            id,
+            active: false,
+            type: 'recurring',
+            unit_amount: 1000,
+            currency: 'usd',
+            product: { id: 'prod_1', name: 'Premium' },
+          };
+        }
+        if (!PRICES[id]) throw new Error(`No such price: '${id}'`);
+        return {
+          id,
+          active: true,
+          type: PRICES[id],
+          unit_amount: 1000,
+          currency: 'usd',
+          product: { id: 'prod_1', name: 'Premium' },
+        };
+      }),
       list: jest.fn(async () => ({ data: [] })),
     },
     paymentIntents: {
@@ -175,6 +206,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
   let stripe: ReturnType<typeof createFakeStripe>;
   let cookieA: string;
   let cookieB: string;
+  let cookieAdmin: string;
   const productService = { getProducts: jest.fn(), syncProducts: jest.fn() };
   const invoiceRepo = { getUserInvoiceList: jest.fn() };
   const paymentHandler = {
@@ -182,11 +214,15 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
     handleSubscriptionUpgrade: jest.fn(),
     handleOneTimePurchase: jest.fn(),
   };
-  const subRepo = { changeAutoRenew: jest.fn() };
+  const isPriceAllowed = jest.fn(
+    async (id: string) => id in PRICES || id === 'price_inactive',
+  );
+  const subRepo = { changeAutoRenew: jest.fn(), isPriceAllowed };
 
   beforeAll(async () => {
     cookieA = await sessionCookie(USER_A);
     cookieB = await sessionCookie(USER_B);
+    cookieAdmin = await sessionCookie(ADMIN);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
@@ -199,7 +235,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
     productService.getProducts
       .mockReset()
       .mockResolvedValue({ recurring: [], oneTime: [] });
-    productService.syncProducts.mockReset().mockResolvedValue(undefined);
+    productService.syncProducts.mockReset().mockResolvedValue({ synced: 3 });
     invoiceRepo.getUserInvoiceList
       .mockReset()
       .mockImplementation(async (userId: string) => [
@@ -251,6 +287,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
         features: [],
       })),
       createUserBilling: jest.fn(),
+      isPriceAllowed,
     };
     const config = new Map<string, string>([
       ['STRIPE_SECRET_KEY', 'sk_test_e2e_not_real'],
@@ -321,7 +358,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       ['post', '/billing/payment-methods/pm_A'],
       ['delete', '/billing/payment-methods/pm_A'],
       ['get', '/billing/products'],
-      ['get', '/billing/products/sync'],
+      ['post', '/billing/products/sync'],
     ])('%s %s -> 401', async (method, url) => {
       const res = await (http() as any)[method](url).send({}).expect(401);
       expect(res.body.statusCode).toBe(401);
@@ -353,12 +390,20 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(stripe.owners.get('pm_free')).toBe('cus_A');
     });
 
-    it('add: card of another customer cannot be attached (Stripe refuses) -> 400', async () => {
-      const res = await http()
+    it('add: card of another customer cannot be attached -> 404 NOT_FOUND, same as an unknown card', async () => {
+      const foreign = await http()
         .post('/billing/payment-methods/pm_B')
         .set('Cookie', cookieA)
-        .expect(400);
-      expect(res.body.message).toContain('Stripe Attach Error');
+        .expect(404);
+      const unknown = await http()
+        .post('/billing/payment-methods/pm_unknown')
+        .set('Cookie', cookieA)
+        .expect(404);
+      expect(foreign.body).toMatchObject({
+        statusCode: 404,
+        code: 'NOT_FOUND',
+      });
+      expect(foreign.body.message).toBe(unknown.body.message);
       expect(stripe.owners.get('pm_B')).toBe('cus_B');
     });
 
@@ -370,38 +415,48 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(stripe.owners.get('pm_A')).toBeNull();
     });
 
-    // BUG: новый, см. отчёт L2 (IDOR: deletePaymentMethod игнорирует customer и делает paymentMethods.detach(id) для любого id)
-    it.failing('IDOR: user A cannot detach the card of user B', async () => {
+    it('IDOR: user A cannot detach the card of user B -> 404, the card stays attached', async () => {
       const res = await http()
         .delete('/billing/payment-methods/pm_B')
         .set('Cookie', cookieA);
-      expect([403, 404]).toContain(res.status);
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('NOT_FOUND');
+      expect(stripe.paymentMethods.detach).not.toHaveBeenCalled();
       expect(stripe.owners.get('pm_B')).toBe('cus_B');
     });
 
-    it('error responses use the unified Nest format {statusCode,message,error}', async () => {
+    it('deleting a card that does not exist gives the same 404 as a foreign card', async () => {
+      const foreign = await http()
+        .delete('/billing/payment-methods/pm_B')
+        .set('Cookie', cookieA);
+      const unknown = await http()
+        .delete('/billing/payment-methods/pm_nope')
+        .set('Cookie', cookieA);
+      expect(unknown.status).toBe(foreign.status);
+      expect(unknown.body.message).toBe(foreign.body.message);
+    });
+
+    it('error responses use the unified format {statusCode,message,error,code}', async () => {
       const res = await http()
         .post('/billing/payment-methods/pm_B')
         .set('Cookie', cookieA)
-        .expect(400);
+        .expect(404);
       expect(Object.keys(res.body).sort()).toEqual([
+        'code',
         'error',
         'message',
         'statusCode',
       ]);
     });
 
-    // BUG: новый, см. отчёт L2 (текст ошибки Stripe SDK уходит клиенту как есть: `Stripe Attach Error: Error: ...`)
-    it.failing(
-      'does not echo raw Stripe SDK error text to the client',
-      async () => {
-        const res = await http()
-          .post('/billing/payment-methods/pm_B')
-          .set('Cookie', cookieA)
-          .expect(400);
-        expect(res.body.message).not.toMatch(/Error: /);
-      },
-    );
+    it('does not echo raw Stripe SDK error text to the client', async () => {
+      const res = await http()
+        .post('/billing/payment-methods/pm_B')
+        .set('Cookie', cookieA);
+      expect(JSON.stringify(res.body)).not.toMatch(
+        /Error: |already been attached|No such PaymentMethod/,
+      );
+    });
   });
 
   describe('subscriptions', () => {
@@ -467,6 +522,50 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       });
     });
 
+    it('upgrade type=subscription creates a payment intent and returns clientSecret', async () => {
+      const res = await http()
+        .post('/billing/subscriptions/upgrade')
+        .set('Cookie', cookieA)
+        .send({ type: 'subscription', priceId: 'price_2' })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        clientSecret: 'pi_new_secret_x',
+        amount: 500,
+        currency: 'usd',
+      });
+      expect(stripe.paymentIntents.create).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['check', 'subscription'])(
+      'upgrade (%s) with a price outside the allowlist -> 400, Stripe preview/intent not called',
+      async (type) => {
+        const res = await http()
+          .post('/billing/subscriptions/upgrade')
+          .set('Cookie', cookieA)
+          .send({ type, priceId: 'price_not_in_catalog' })
+          .expect(400);
+        expect(res.body.code).toBe('VALIDATION_FAILED');
+        expect(stripe.invoices.createPreview).not.toHaveBeenCalled();
+        expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('upgrade to an inactive price -> 400', async () => {
+      await http()
+        .post('/billing/subscriptions/upgrade')
+        .set('Cookie', cookieA)
+        .send({ type: 'check', priceId: 'price_inactive' })
+        .expect(400);
+    });
+
+    it('upgrade to a one-time price (not a subscription plan) -> 400', async () => {
+      await http()
+        .post('/billing/subscriptions/upgrade')
+        .set('Cookie', cookieA)
+        .send({ type: 'check', priceId: 'price_1' })
+        .expect(400);
+    });
+
     it.each([
       [{ type: 'check' }],
       [{ priceId: 'p' }],
@@ -480,17 +579,16 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
         .expect(400);
     });
 
-    // BUG: новый, см. отчёт L2 (контракт: web checkout/page.tsx шлёт type:"payment", API принимает только subscription|check)
-    it.failing(
-      'upgrade accepts type "payment" as web checkout page sends it',
-      async () => {
-        await http()
-          .post('/billing/subscriptions/upgrade')
-          .set('Cookie', cookieA)
-          .send({ type: 'payment', priceId: 'price_2' })
-          .expect(201);
-      },
-    );
+    // Решение C2 (docs/fix-plan.md): enum остаётся subscription|check, web отправляет subscription
+    it('upgrade rejects type "payment" (contract is subscription|check)', async () => {
+      const res = await http()
+        .post('/billing/subscriptions/upgrade')
+        .set('Cookie', cookieA)
+        .send({ type: 'payment', priceId: 'price_2' })
+        .expect(400);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+      expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('invoices', () => {
@@ -515,12 +613,30 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(res.body).toEqual({ recurring: [], oneTime: [] });
     });
 
-    // BUG: новый, см. отчёт L2 (GET /billing/products/sync доступен любому пользователю; пишет в БД, дёргает Stripe, состояние меняет GET)
-    it.failing('products/sync is not available to a regular USER', async () => {
+    it('POST /billing/products/sync is not available to a regular USER -> 403', async () => {
       const res = await http()
-        .get('/billing/products/sync')
+        .post('/billing/products/sync')
         .set('Cookie', cookieA);
       expect(res.status).toBe(403);
+      expect(res.body.code).toBe('FORBIDDEN');
+      expect(productService.syncProducts).not.toHaveBeenCalled();
+    });
+
+    it('POST /billing/products/sync by ADMIN -> 201 {synced}', async () => {
+      const res = await http()
+        .post('/billing/products/sync')
+        .set('Cookie', cookieAdmin)
+        .expect(201);
+      expect(res.body).toEqual({ synced: 3 });
+      expect(productService.syncProducts).toHaveBeenCalledTimes(1);
+    });
+
+    it('GET /billing/products/sync no longer exists (state change only via POST)', async () => {
+      await http()
+        .get('/billing/products/sync')
+        .set('Cookie', cookieAdmin)
+        .expect(404);
+      expect(productService.syncProducts).not.toHaveBeenCalled();
     });
   });
 
@@ -551,6 +667,25 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
         .expect(400);
     });
 
+    it('checkout: priceId outside the allowlist -> 400, no payment intent is created', async () => {
+      const res = await http()
+        .post('/billing/checkout')
+        .set('Cookie', cookieA)
+        .send({ priceId: 'price_not_in_catalog', type: 'one-payment' })
+        .expect(400);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+      expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+    });
+
+    it('checkout one-payment with a recurring price -> 400 (kind must match)', async () => {
+      await http()
+        .post('/billing/checkout')
+        .set('Cookie', cookieA)
+        .send({ priceId: 'price_2', type: 'one-payment' })
+        .expect(400);
+      expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+    });
+
     it('checkout one-payment returns client secret, amount comes from Stripe price (not from client)', async () => {
       const res = await http()
         .post('/billing/checkout')
@@ -572,31 +707,42 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
         .expect(400);
     });
 
-    // BUG: новый, см. отчёт L2 (IDOR: GET payment-intents/:id не проверяет, что intent принадлежит caller; отдаёт чужие amount/customer/metadata)
-    it.failing(
-      'IDOR: user A cannot read payment intent of customer B',
-      async () => {
-        const res = await http()
-          .get('/billing/payment-intents/pi_B')
-          .set('Cookie', cookieA);
-        expect([403, 404]).toContain(res.status);
-      },
-    );
+    it('IDOR: user A cannot read payment intent of customer B -> 404, same as an unknown intent', async () => {
+      const foreign = await http()
+        .get('/billing/payment-intents/pi_B')
+        .set('Cookie', cookieA);
+      const unknown = await http()
+        .get('/billing/payment-intents/pi_nope')
+        .set('Cookie', cookieA);
+      expect(foreign.status).toBe(404);
+      expect(foreign.body).toEqual(unknown.body);
+      expect(JSON.stringify(foreign.body)).not.toContain('B-secret-product');
+    });
 
-    // BUG: новый, см. отчёт L2 (вложенный Metadata без @Expose: metadata.name/type обнуляются, /thank-you-payment не получает название товара)
-    it.failing(
-      'payment intent response keeps metadata.name / metadata.type',
-      async () => {
-        const res = await http()
-          .get('/billing/payment-intents/pi_B')
-          .set('Cookie', cookieB)
-          .expect(200);
-        expect(res.body.metadata).toMatchObject({
+    it('the owner reads the intent: metadata.name / metadata.type are kept, other metadata keys are not exposed', async () => {
+      stripe.paymentIntents.retrieve.mockResolvedValueOnce({
+        id: 'pi_B',
+        status: 'succeeded',
+        amount: 4900,
+        currency: 'usd',
+        customer: 'cus_B',
+        metadata: {
           name: 'B-secret-product',
           type: 'one_time',
-        });
-      },
-    );
+          subscriptionId: 'sub_B',
+          priceId: 'price_2',
+        },
+      });
+      const res = await http()
+        .get('/billing/payment-intents/pi_B')
+        .set('Cookie', cookieB)
+        .expect(200);
+      expect(res.body.metadata).toEqual({
+        name: 'B-secret-product',
+        type: 'one_time',
+      });
+      expect(res.body.customer).toBe('cus_B');
+    });
   });
 
   describe('POST /billing/webhook (Stripe signature)', () => {
@@ -651,7 +797,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(paymentHandler.handleOneTimePurchase).toHaveBeenCalledTimes(1);
     });
 
-    // BUG: см. FIX.md «Вебхуки Stripe ничего не делают» (нужна идемпотентность по event.id)
+    // BUG: волна 2, см. FIX.md «Вебхуки Stripe ничего не делают» (идемпотентность по event.id)
     it.failing('replay of the same event.id is processed once', async () => {
       const sig = sign(payload);
       await send(payload, sig).expect(200);
@@ -659,7 +805,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(paymentHandler.handleOneTimePurchase).toHaveBeenCalledTimes(1);
     });
 
-    // BUG: новый, см. отчёт L2 (400 на неверную подпись содержит полный текст исключения Stripe SDK)
+    // BUG: волна 2 (вебхуки, не входили в волну 1): 400 на неверную подпись содержит полный текст исключения Stripe SDK)
     it.failing(
       'error message for a bad signature does not contain SDK internals',
       async () => {

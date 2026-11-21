@@ -122,20 +122,39 @@ describe("AddCardForm", () => {
     await screen.findByText("x");
   });
 
-  // BUG: см. FIX.md "AddCardForm: кнопка зависает, если нет CardNumberElement"
-  it.fails("если CardNumberElement не найден, isProcessing сбрасывается", async () => {
+  it("если CardNumberElement не найден, кнопка не зависает: показывается ошибка из i18n, Stripe не вызывается", async () => {
     getElement.mockReturnValue(null);
     render(<AddCardForm onSuccess={vi.fn()} />);
     submit();
-    await waitFor(() => expect(screen.getByRole("button")).toBeEnabled());
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "payment_new_error_not_ready",
+    );
+    expect(screen.getByRole("button")).toBeEnabled();
+    expect(createPaymentMethod).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  // BUG: см. FIX.md "Захардкоженные тексты вместо i18n" (add-card-form)
-  it.fails("сообщение при пустом message Stripe идёт через i18n", async () => {
+  it("сообщение при пустом message Stripe идёт через i18n", async () => {
     createPaymentMethod.mockResolvedValue({ error: {} });
     render(<AddCardForm onSuccess={vi.fn()} />);
     submit();
-    await waitFor(() => expect(screen.getByText(/\S/, { selector: "p" })).toBeInTheDocument());
-    expect(screen.getByText(/\S/, { selector: "p" }).textContent).not.toMatch(/[А-Яа-я]/);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("payment_new_error_validation");
+    expect(alert.textContent).not.toMatch(/[А-Яа-я]/);
+  });
+
+  it("ответ API не JSON (502 от прокси): сообщение из i18n, а не необработанный reject", async () => {
+    createPaymentMethod.mockResolvedValue({ paymentMethod: { id: "pm_1" } });
+    fetchMock.mockReturnValue(
+      Promise.resolve({ ok: false, json: () => Promise.reject(new SyntaxError("x")) }),
+    );
+    const onSuccess = vi.fn();
+    render(<AddCardForm onSuccess={onSuccess} />);
+    submit();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "payment_new_error_save",
+    );
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByRole("button")).toBeEnabled();
   });
 });

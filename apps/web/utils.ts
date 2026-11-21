@@ -77,12 +77,17 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   }
 }
 
+/**
+ * Синхронизация продуктов со Stripe: POST, только ADMIN.
+ * Не вызывать при SSR страниц (каждый рендер = запрос в Stripe).
+ */
 export async function syncBillingProducts() {
   try {
     const cookieStore = await cookies();
     const cookieString = cookieStore.toString();
 
     const res = await fetch(API_URL.billing.syncProducts(), {
+      method: "POST",
       headers: {
         Cookie: cookieString,
       },
@@ -95,7 +100,8 @@ export async function syncBillingProducts() {
 
     return await res.json();
   } catch (err) {
-    console.error("Failed to load plans:", err);
+    console.error("Failed to sync products:", err);
+    return [];
   }
 }
 

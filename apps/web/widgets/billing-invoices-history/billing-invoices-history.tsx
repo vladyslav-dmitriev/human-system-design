@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { API_URL } from "@/api";
 
@@ -28,6 +28,7 @@ export function BillingInvoicesHistory() {
   const [isLoading, setIsLoading] = useState(true);
 
   const t = useTranslations();
+  const locale = useLocale();
 
   useEffect(() => {
     async function loadInvoices() {
@@ -85,7 +86,7 @@ export function BillingInvoicesHistory() {
             {invoices.map((invoice) => {
               const dateFormatted = new Date(
                 invoice.createdAt,
-              ).toLocaleDateString("ru-RU", {
+              ).toLocaleDateString(locale === "uk" ? "uk-UA" : "en-US", {
                 year: "numeric",
                 month: "short",
                 day: "numeric",
@@ -101,7 +102,7 @@ export function BillingInvoicesHistory() {
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-semibold tracking-tight text-foreground/90">
-                        {invoice.number || "Разовый платеж"}
+                        {invoice.number || t("payment_history_one_time")}
                       </span>
 
                       {/* Ультра-минималистичный статус */}
@@ -140,6 +141,7 @@ export function BillingInvoicesHistory() {
                         rel="noopener noreferrer"
                         className="h-8 w-8 rounded-lg bg-secondary text-foreground border border-muted/40 hover:bg-foreground hover:text-background hover:border-foreground flex items-center justify-center transition-all duration-200 group/btn"
                         title={t("payment_history_open_pdf")}
+                        aria-label={t("payment_history_open_pdf")}
                       >
                         <Download className="h-3.5 w-3.5 opacity-70 transition-all duration-200 group-hover/btn:scale-105 group-hover/btn:opacity-100 group-hover/btn:text-background" />
                       </a>

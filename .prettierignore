@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/playwright-report
+**/test-results
+pnpm-lock.yaml
+# .claude/** и CLAUDE.md правит только человек
+.claude
+CLAUDE.md
+# Сгенерированное
+apps/api/src/prisma/generated
+.playwright-mcp

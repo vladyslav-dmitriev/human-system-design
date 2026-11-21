@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 
 type ExtraFeatureCardProps = {
   priceId: string;
@@ -45,7 +45,7 @@ export const ExtraFeatureCard = ({
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-6 rounded-3xl border border-muted bg-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition-shadow">
+    <div className="w-full max-w-3xl mx-auto p-4 sm:p-6 rounded-3xl border border-muted bg-white shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4">
         <div className="p-2 bg-neutral-100 rounded-md text-neutral-900">
           {icon}

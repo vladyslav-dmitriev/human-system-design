@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { BillingPlan } from "./billing-plan";
 import { ROUTE } from "@/constants";
 import { useTranslations } from "next-intl";

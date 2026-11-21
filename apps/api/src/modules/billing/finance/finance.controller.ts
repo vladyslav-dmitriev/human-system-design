@@ -12,7 +12,13 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
-import { ApiTags, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Request } from 'express';
 
 import { AuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -26,6 +32,7 @@ import {
   PaymentIntentGetResponseDto,
   PortalSessionCreateResponseDto,
   UserGetBillingResponseDto,
+  WebhookResponseDto,
 } from './dto';
 import { Serialize } from 'interceptors';
 
@@ -34,6 +41,8 @@ interface RequestWithRawBody extends Request {
 }
 
 @ApiTags('Billing')
+@ApiCookieAuth()
+@ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('/billing')
 export class FinanceController {
   constructor(
@@ -43,7 +52,7 @@ export class FinanceController {
 
   @Get('user')
   @UseGuards(AuthGuard)
-  @ApiCookieAuth()
+  @ApiOkResponse({ type: UserGetBillingResponseDto })
   @Serialize(UserGetBillingResponseDto)
   async getUserBilling(@GetUser('id') userId: string) {
     return this.financeService.getUserBilling(userId);
@@ -51,6 +60,7 @@ export class FinanceController {
 
   @Post('create-portal-session')
   @UseGuards(AuthGuard)
+  @ApiOkResponse({ type: PortalSessionCreateResponseDto })
   @Serialize(PortalSessionCreateResponseDto)
   async createPortalSession(@GetUser('id') userId: string) {
     return this.financeService.createPortalSession(userId);
@@ -58,6 +68,8 @@ export class FinanceController {
 
   @Post('/webhook')
   @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: WebhookResponseDto })
+  @Serialize(WebhookResponseDto)
   async handleStripeWebhook(
     @Headers('stripe-signature') signature: string,
     @Req() req: RequestWithRawBody,
@@ -77,6 +89,7 @@ export class FinanceController {
 
   @Post('checkout')
   @UseGuards(AuthGuard)
+  @ApiOkResponse({ type: CheckoutCreateResponseDto })
   @Serialize(CheckoutCreateResponseDto)
   async createCheckout(
     @GetUser('id') userId: string,
@@ -87,8 +100,13 @@ export class FinanceController {
 
   @Get('payment-intents/:paymentIntentId')
   @UseGuards(AuthGuard)
+  @ApiOkResponse({ type: PaymentIntentGetResponseDto })
+  @ApiNotFoundResponse({ description: 'Not found or not owned by the user' })
   @Serialize(PaymentIntentGetResponseDto)
-  async getPaymentIntent(@Param() params: PaymentIntentGetParamsDto) {
-    return this.financeService.getPaymentIntent(params);
+  async getPaymentIntent(
+    @GetUser('id') userId: string,
+    @Param() params: PaymentIntentGetParamsDto,
+  ) {
+    return this.financeService.getPaymentIntent(userId, params);
   }
 }

@@ -1,7 +1,10 @@
 import { Expose, Type } from 'class-transformer';
 
 class Metadata {
+  @Expose()
   name: string;
+
+  @Expose()
   type: string;
 }
 

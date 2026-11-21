@@ -11,6 +11,7 @@ import type { EmailMessage, IEmailService } from '../email.interface';
 @Injectable()
 export class RecendService implements IEmailService {
   private readonly resend: Resend;
+  private readonly defaultFrom: string | undefined;
 
   constructor(
     @Inject(ConfigService) private readonly configService: ConfigService,
@@ -21,14 +22,22 @@ export class RecendService implements IEmailService {
       throw new Error('RESEND_API_KEY is not defined');
     }
 
+    // Проверяется при отправке: валидацию EMAIL_FROM в конфиге добавляет platform
+    this.defaultFrom = this.configService.get<string>('EMAIL_FROM');
     this.resend = new Resend(apiKey);
   }
 
-  // Отправитель пока зашит в провайдере, поле from из сообщения не используется
-  async sendEmail({ to, subject, html }: EmailMessage) {
+  // Отправитель из EMAIL_FROM, поле from сообщения его переопределяет
+  async sendEmail({ from, to, subject, html }: EmailMessage) {
+    const sender = from ?? this.defaultFrom;
+
+    if (!sender) {
+      throw new InternalServerErrorException('EMAIL_FROM is not configured');
+    }
+
     try {
       await this.resend.emails.send({
-        from: 'onboarding@resend.dev',
+        from: sender,
         to,
         subject,
         html,

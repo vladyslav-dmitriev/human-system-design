@@ -52,12 +52,17 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
     // Защита: если Stripe еще не загрузился, ничего не делаем
     if (!stripe || !elements) return;
 
-    setIsProcessing(true);
     setError(null);
 
-    // 3. Находим инпут номера карты (Stripe сам свяжет его со сроком и CVC внутри своего контекста)
+    // Находим инпут номера карты (Stripe сам свяжет его со сроком и CVC внутри своего контекста)
     const cardNumberElement = elements.getElement(CardNumberElement);
-    if (!cardNumberElement) return;
+    if (!cardNumberElement) {
+      // Кнопка не должна оставаться заблокированной: показываем ошибку и выходим
+      setError(t("payment_new_error_not_ready"));
+      return;
+    }
+
+    setIsProcessing(true);
 
     const { error: stripeError, paymentMethod } =
       await stripe.createPaymentMethod({
@@ -66,7 +71,7 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
       });
 
     if (stripeError) {
-      setError(stripeError.message || "Ошибка валидации карты");
+      setError(stripeError.message || t("payment_new_error_validation"));
       setIsProcessing(false);
       return;
     }
@@ -80,18 +85,18 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Не удалось сохранить карту на сервере",
+          data.message || t("payment_new_error_save"),
         );
       }
 
       onSuccess();
     } catch (err) {
       setError(
-        (err instanceof Error && err.message) || "Ошибка при отправке данных",
+        (err instanceof Error && err.message) || t("payment_new_error_submit"),
       );
     } finally {
       setIsProcessing(false);
@@ -162,7 +167,10 @@ export const AddCardForm: React.FC<AddCardFormProps> = ({ onSuccess }) => {
 
       {/* Ошибка под инпутами */}
       {error && (
-        <p className="text-[11px] text-destructive/90 pl-1 animate-in fade-in-50">
+        <p
+          role="alert"
+          className="text-[11px] text-destructive/90 pl-1 animate-in fade-in-50"
+        >
           {error}
         </p>
       )}

@@ -27,16 +27,12 @@ test("locale: switching back to EN keeps the page", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
 });
 
-test("locale: forgot-password keeps its path after switching", async ({
-  page,
-}) => {
-  await page.goto("/en/forgot-password");
-  await waitForPageReady(page);
-  const header = new HeaderPage(page);
+test("locale: <html lang> follows the locale of the page", async ({ page }) => {
+  await page.goto("/en/login");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
-  await header.selectLanguage("UA");
-
-  await expect(page).toHaveURL(/\/uk\/forgot-password$/);
+  await page.goto("/uk/login");
+  await expect(page.locator("html")).toHaveAttribute("lang", "uk");
 });
 
 test("locale: unsupported locale falls back to the not-found page", async ({
