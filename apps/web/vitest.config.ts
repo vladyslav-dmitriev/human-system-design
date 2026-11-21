@@ -8,10 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./vitest.setup.ts",
-    server: { deps: { inline: ['next-intl'] } },
+    server: { deps: { inline: ["next-intl"] } },
     alias: {
       "@": path.resolve(import.meta.dirname, "./"),
-      "server-only": path.resolve(import.meta.dirname, "./test-utils/server-only.ts"),
+      "server-only": path.resolve(
+        import.meta.dirname,
+        "./test-utils/server-only.ts",
+      ),
     },
     coverage: {
       provider: "v8",

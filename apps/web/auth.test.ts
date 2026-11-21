@@ -58,9 +58,11 @@ describe("auth.ts: authorize", () => {
 
   it("шлёт на validate X-Internal-Secret и X-Client-IP", async () => {
     vi.stubEnv("INTERNAL_API_SECRET", "s".repeat(32));
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ user: { id: "1", role: "USER" } })),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ user: { id: "1", role: "USER" } })),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const user = await provider().authorize(

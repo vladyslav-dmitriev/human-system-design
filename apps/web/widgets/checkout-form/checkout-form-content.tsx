@@ -129,26 +129,20 @@ export function CheckoutFormContent({
       }
 
       if (paymentOption === "saved" && selectedCardId) {
-        const result = await stripe!.confirmCardPayment(
-          clientSecret,
-          {
-            payment_method: selectedCardId,
-            setup_future_usage: "off_session",
-          },
-        );
+        const result = await stripe!.confirmCardPayment(clientSecret, {
+          payment_method: selectedCardId,
+          setup_future_usage: "off_session",
+        });
         handleResult(result);
       } else {
         const cardElement = elements!.getElement(CardNumberElement);
-        const result = await stripe!.confirmCardPayment(
-          clientSecret,
-          {
-            payment_method: {
-              card: cardElement!,
-              billing_details: { email },
-            },
-            setup_future_usage: "off_session",
+        const result = await stripe!.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: cardElement!,
+            billing_details: { email },
           },
-        );
+          setup_future_usage: "off_session",
+        });
         handleResult(result);
       }
     } catch (err) {
@@ -329,11 +323,7 @@ export function CheckoutFormContent({
               {t("checkout_monthly_price_label")}
             </div>
             <div className="font-bold">
-              {getFormattedPrice(
-                summary.amount,
-                summary.currency,
-                locale,
-              )}
+              {getFormattedPrice(summary.amount, summary.currency, locale)}
             </div>
           </div>
         </div>

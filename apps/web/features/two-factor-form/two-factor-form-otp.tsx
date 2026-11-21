@@ -86,7 +86,10 @@ export const TwoFactorFormOtp = ({
             ))}
           </InputOTPGroup>
         </InputOTP>
-        <Button onClick={handleEnterCode} disabled={loading || otp.length < 6 || !currentPassword}>
+        <Button
+          onClick={handleEnterCode}
+          disabled={loading || otp.length < 6 || !currentPassword}
+        >
           {t("two_factor_confirm_button")}
         </Button>
       </div>

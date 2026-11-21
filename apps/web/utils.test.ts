@@ -14,8 +14,10 @@ import {
 } from "./utils";
 
 const fetchMock = vi.fn();
-const ok = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
-const notOk = () => Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+const ok = (body: unknown) =>
+  Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
+const notOk = () =>
+  Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
 
 describe("SSR-запросы (utils.ts)", () => {
   beforeEach(() => {
@@ -44,20 +46,26 @@ describe("SSR-запросы (utils.ts)", () => {
     ["getUserBilling", getUserBilling, null],
     ["getPaymentMethods", getPaymentMethods, []],
     ["getBillingProducts", getBillingProducts, { recurring: [], oneTime: [] }],
-  ] as const)("%s: не ok -> безопасное значение по умолчанию", async (_n, fn, fallback) => {
-    fetchMock.mockReturnValue(notOk());
-    await expect(fn()).resolves.toEqual(fallback);
-  });
+  ] as const)(
+    "%s: не ok -> безопасное значение по умолчанию",
+    async (_n, fn, fallback) => {
+      fetchMock.mockReturnValue(notOk());
+      await expect(fn()).resolves.toEqual(fallback);
+    },
+  );
 
   it.each([
     ["getUserData", getUserData, null],
     ["getUserBilling", getUserBilling, null],
     ["getPaymentMethods", getPaymentMethods, []],
     ["getBillingProducts", getBillingProducts, { recurring: [], oneTime: [] }],
-  ] as const)("%s: сетевая ошибка не пробрасывается", async (_n, fn, fallback) => {
-    fetchMock.mockRejectedValue(new Error("down"));
-    await expect(fn()).resolves.toEqual(fallback);
-  });
+  ] as const)(
+    "%s: сетевая ошибка не пробрасывается",
+    async (_n, fn, fallback) => {
+      fetchMock.mockRejectedValue(new Error("down"));
+      await expect(fn()).resolves.toEqual(fallback);
+    },
+  );
 
   it("syncBillingProducts: POST (не GET) с cookie, ответ API {synced} возвращается как есть", async () => {
     fetchMock.mockReturnValue(ok({ synced: 3 }));

@@ -146,10 +146,10 @@ describe("LoginPage", () => {
   it("2FA: показывается OTP-шаг с замаскированным телефоном, signIn ещё не вызван", async () => {
     fetchMock.mockReturnValue(
       json({
-          twoFactorRequired: true,
-          phoneMasked: "**********33",
-          otpChallenge: "chal-123",
-        }),
+        twoFactorRequired: true,
+        phoneMasked: "**********33",
+        otpChallenge: "chal-123",
+      }),
     );
     render(<LoginPage />);
     fillAndSubmit();

@@ -15,7 +15,9 @@ describe("API_URL", () => {
 
   it("клиентские эндпоинты (браузер) строятся от NEXT_PUBLIC_API_CLIENT_URL", () => {
     expect(API_URL.auth.login()).toBe(`${CLIENT}/service-auth/login`);
-    expect(API_URL.auth.createAccount()).toBe(`${CLIENT}/service-auth/register`);
+    expect(API_URL.auth.createAccount()).toBe(
+      `${CLIENT}/service-auth/register`,
+    );
     expect(API_URL.auth.twoFactor()).toBe(`${CLIENT}/service-auth/verify-otp`);
     expect(API_URL.users.email()).toBe(`${CLIENT}/user/profile`);
     expect(API_URL.users.password()).toBe(`${CLIENT}/user/profile/password`);
