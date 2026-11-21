@@ -4,9 +4,10 @@ import { getE2eCredentials } from "../env";
 import { LoginPage } from "../pages/login-page";
 import { SettingsPage } from "../pages/settings-page";
 
-// Signs in through the UI in its own context: with a session restored from storageState the
-// session cookie was not cleared by Sign out in our runs, so the real login flow is used here.
-test("logout: Sign out ends the session and protected pages redirect to login", async ({
+// BUG: см. FIX.md "Sign out не завершает сессию (cookie next-auth.session-token остаётся)" [L3]
+// Intermittent (about 3 of 4 runs): POST /api/auth/signout answers 200 but the session cookie
+// stays, the user lands on /dashboard or /settings still signed in.
+test.fixme("logout: Sign out ends the session and protected pages redirect to login", async ({
   page,
 }) => {
   const { email, password } = getE2eCredentials();

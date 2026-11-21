@@ -48,7 +48,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
   // The target can be `next dev` (cold compiles, real reCAPTCHA round trip), so be generous.
-  timeout: 240_000,
+  timeout: 300_000,
   expect: { timeout: 20_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

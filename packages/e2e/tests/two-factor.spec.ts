@@ -12,8 +12,13 @@ test.beforeEach(async ({ page, freshUser }) => {
 async function openPhoneStep(page: import("@playwright/test").Page) {
   const settingsPage = new SettingsPage(page);
   await settingsPage.goto();
-  await page.getByRole("switch").click();
-  return page.getByPlaceholder("+380 (XX) XXX XX XX");
+  const phone = page.getByPlaceholder("+380 (XX) XXX XX XX");
+  // The page is server-rendered: a click before hydration is lost, so retry the click.
+  await expect(async () => {
+    await page.getByRole("switch").click();
+    await expect(phone).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
+  return phone;
 }
 
 test("2FA: enabling the switch shows the phone form", async ({ page }) => {

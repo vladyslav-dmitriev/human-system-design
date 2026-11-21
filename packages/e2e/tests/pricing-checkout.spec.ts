@@ -38,7 +38,6 @@ test("pricing: choosing a plan navigates to checkout with plan params", async ({
   await gotoAndWait(page, "/en/pricing", pricingHeading(page));
   // Checkout is rendered on the server and creates a Stripe PaymentIntent in the API.
   // Intercept the navigation so that no Stripe call is ever made.
-  const checkoutRequest = page.waitForRequest(/\/en\/checkout\?/);
   await page.route(/\/en\/checkout\?/, (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -46,12 +45,18 @@ test("pricing: choosing a plan navigates to checkout with plan params", async ({
     }),
   );
 
-  await page
-    .getByRole("button", { name: /Premium/ })
-    .first()
-    .click();
+  // The page is server-rendered: a click before hydration is lost, so retry the click.
+  let checkoutUrl = "";
+  await expect(async () => {
+    const request = page.waitForRequest(/\/en\/checkout\?/, { timeout: 5_000 });
+    await page
+      .getByRole("button", { name: /Premium/ })
+      .first()
+      .click();
+    checkoutUrl = (await request).url();
+  }).toPass({ timeout: 60_000 });
 
-  const url = new URL((await checkoutRequest).url());
+  const url = new URL(checkoutUrl);
   expect(url.pathname).toBe("/en/checkout");
   expect(url.searchParams.get("type")).toBe("subscription");
   expect(url.searchParams.get("billingOperation")).toMatch(/purchase|upgrade/);

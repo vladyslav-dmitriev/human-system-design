@@ -35,7 +35,7 @@ async function registerThroughUi(
     await createAccountPage.createAccount(user.name, user.email, user.password);
     const status = (await registerResponse).status();
     expect(status, "registration status (429 = throttled, retried)").toBe(201);
-  }).toPass({ intervals: [5_000, 10_000], timeout: 120_000 });
+  }).toPass({ intervals: [65_000], timeout: 240_000 });
 
   await page.waitForURL("**/dashboard");
   const storageState = await context.storageState();

@@ -25,5 +25,5 @@ export async function gotoAndWait(page: Page, url: string, ready: Locator) {
   await expect(async () => {
     await page.goto(url);
     await expect(ready).toBeVisible({ timeout: 10_000 });
-  }).toPass({ intervals: [5_000, 10_000, 15_000], timeout: 150_000 });
+  }).toPass({ intervals: [15_000, 30_000, 60_000], timeout: 200_000 });
 }

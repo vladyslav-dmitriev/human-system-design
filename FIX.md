@@ -65,7 +65,7 @@
 
 Прогон по уровням QA. Пометка в заголовке показывает, на каком уровне найдено: **L0** статика, **L1** unit, **L2** интеграция и контракт API, **L3** e2e Playwright, **L4** exploratory, **L5** security / a11y / инфраструктура. Стек: docker-compose из основного checkout (тот же коммит `ce46cf5`), `http://myapp.local`; внешние сервисы только на моках.
 
-**Статус уровней:** L0 ✅, L1 api ✅, L1 web ✅, L2 ✅, L3 ⚠️ (агент остановлен до финального отчёта, см. раздел L3), L4 ✅ (два прохода; не проверены S3, SMS, оплата), L5 a11y/UX ✅, L5 security ✅, **L5 infra ❌ не сделан**: агент `devops` остановлен из-за лимитов, сборка Docker-образа не доведена. Инфраструктурные находки отчасти закрыты разделом security (Dockerfile, `.dockerignore`, workflows, compose, helm). Не проверены: сборка образов, CI-шаги для тестов, `turbo.json`, версии `pnpm`/`node`, probes/resources в helm.
+**Статус уровней:** L0 ✅, L1 api ✅, L1 web ✅, L2 ✅, L3 ✅, L4 ✅ (два прохода; не проверены S3, SMS, оплата), L5 a11y/UX ✅, L5 security ✅, L5 infra ✅ (кроме web-образа: для web нет Dockerfile).
 
 ## L0. Статика: что прошло
 
@@ -89,11 +89,11 @@
 - **Нужно:** обновить `next`, `next-auth`/`@auth/core`, `@sentry/nextjs` до патченых версий, затем `@nestjs/*` (тянут `body-parser`, `multer`, `path-to-regexp`, `qs`), `axios`. После обновления прогнать полный набор проверок. Добавить `pnpm audit --prod --audit-level=high` в CI. Какие из уязвимостей реально эксплуатируемы в проекте, см. раздел L5-security.
 - **Кому чинить:** devops (корневые зависимости, CI) + frontend (`apps/web`) + backend (`apps/api`).
 
-## P2. Тесты не запускаются в CI, а api-скрипт `test:e2e` был битым [L0]
+## P2. CI запускает только unit-тесты, а api-скрипт `test:e2e` был битым [L0, уточнено на L5-infra]
 
-- **Где:** `.github/workflows/ci.yml`, `nightly.yml`; `apps/api/package.json` → `test:e2e` (`jest --config ./test/jest-e2e.json`).
-- **Сейчас:** CI гоняет только lint и typecheck. Ни jest, ни vitest, ни playwright не запускаются. Папки `apps/api/test` не было, поэтому `pnpm --filter api test:e2e` падал.
-- **Нужно:** добавить в CI шаги `pnpm --filter api test`, `pnpm --filter web test:run`, api e2e (конфиг создан на L2), позже playwright с сервисами. В `turbo.json` добавить таск `test`. Подробно см. раздел L5-infra.
+- **Где:** `.github/actions/verify-project/action.yml` (шаг `Unit Tests` → `pnpm turbo run test`), `turbo.json`; `apps/api/package.json` → `test:e2e` (`jest --config ./test/jest-e2e.json`).
+- **Сейчас:** CI запускает `turbo run test`, то есть jest в api и vitest в web, причём только после `build`. Интеграционные тесты api (`test:e2e`), `pnpm --filter e2e typecheck` и Playwright в CI не запускаются. Папки `apps/api/test` раньше не было, поэтому `pnpm --filter api test:e2e` падал (теперь исправлено на L2). *В первой версии этого пункта было написано, что CI тестов не запускает вовсе, это было неверно.*
+- **Нужно:** см. «CI не проверяет формат, api e2e и Playwright» в разделе L5-infra.
 - **Кому чинить:** devops.
 
 ## P3. `prettier --check` падает на 115 файлах, формат в CI не проверяется [L0]
@@ -190,14 +190,72 @@
 <!-- L3 -->
 ## L3. E2E Playwright (`packages/e2e`)
 
-Агент остановлен по запросу пользователя **до финального отчёта**, поэтому итог прогона и список багов от L3 не получены. Что есть в коде:
+**Итог:** два прогона подряд по 58 тестов, в каждом **49 passed, 9 fixme, 0 failed** (4.3 и 3.4 минуты), флаки нет. Разбивка по спекам (passed/fixme):
+
+| Спек | passed | fixme |
+|---|---|---|
+| auth.setup | 1 | 0 |
+| create-account | 2 | 0 |
+| login | 5 | 1 |
+| logout | 0 | 1 |
+| forgot-password | 4 | 1 |
+| auth-redirect | 6 | 3 |
+| locale | 4 | 0 |
+| locale-authenticated | 2 | 0 |
+| change-email | 3 | 0 |
+| change-password | 4 | 0 |
+| two-factor | 4 | 1 |
+| todos | 5 | 2 |
+| billing | 1 | 0 |
+| settings | 1 | 0 |
+| pricing-checkout | 4 | 0 |
+| smoke (Mobile Chrome) | 3 | 0 |
+
+**Починено как устаревшее или флаки:**
+- `billing.spec`: strict mode на `getByText("Billing")`;
+- `LoginPage`: без `waitForTimeout`;
+- `change-email` больше не меняет email общего аккаунта;
+- создание аккаунта ждёт загрузки `grecaptcha`;
+- на 429 ждём 65 с: частые повторы продлевают блокировку;
+- повторный клик до гидратации.
+
+**Вживую подтверждены:** вечный спиннер при неверном пароле (и при несуществующем email), forgot-password — заглушка, список todos не загружается (`http://api:3001`; остальные тесты todos перенаправляют GET на `/api/todos` через `page.route`), 2FA-форма считает неверный код успехом, DELETE todo даёт 403 владельцу (C4). Mobile 375px и валидацию DTO e2e-тесты не проверяют.
+
+**Нужные `data-testid` (frontend):**
+- Смена пароля: `password-current-input`, `password-new-input`, `password-submit-button`.
+- 2FA: `two-factor-switch`, `two-factor-phone-input`, `two-factor-send-code-button`, `two-factor-otp-input`, `two-factor-confirm-button`.
+- Todos: `todo-title-input`, `todo-submit-button`, `todo-item` (с `data-completed`), `todo-toggle-button`, `todo-delete-button`, `todos-empty-state`.
+- Остальное: `login-error`, `language-select`, `plan-button-<name>`, `logout-button`, `forgot-email-input`, `forgot-submit-button`.
+
+Сейчас тесты ищут элементы по placeholder, xpath, `div.overflow-hidden` и `svg.lucide-*`, а часть привязана к захардкоженным русским строкам.
+
+## P2. Sign out не всегда завершает сессию [L3]
+
+- **Где:** `apps/web/features/logout/logout.tsx` (`signOut()` + `router.replace`), `apps/web/proxy.ts` (имя cookie `next-auth.session-token`), конфиг next-auth.
+- **Шаги:** войти, открыть `/en/settings`, нажать «Sign out».
+- **Ожидается:** cookie сессии удалена, переход на `/en/login`.
+- **Фактически:** `POST /api/auth/signout` отвечает 200, но cookie остаётся, и пользователь остаётся на защищённой странице. Примерно в 3 запусках из 4 (`--repeat-each=4`: 1 passed, 3 failed).
+- **Предположение:** гонка с повторным запросом `/api/auth/session` после signout или расхождение имён cookie `authjs.*` и `next-auth.*`.
+- **Тест:** `tests/logout.spec.ts` (`test.fixme`).
+- **Кому чинить:** frontend.
+
+## P3. `/checkout` с параметрами открывается гостю пустой страницей [L3]
+
+- **Где:** `apps/web/constants/routes.ts` (`ROUTE.CHECKOUT` нет в `protected`), `checkout/page.tsx` (`return null`).
+- **Фактически:** `/en/checkout?priceId=x&type=subscription&billingOperation=purchase` без входа показывает пустую страницу. Без параметров происходит редирект на главную. Ожидается редирект на `/login`.
+- **Тест:** `auth-redirect.spec.ts` (`test.fixme`).
+- **Кому чинить:** frontend.
+
+Также подтверждено тестами (`test.fixme` в `auth-redirect.spec.ts`): гость на `/uk/dashboard` попадает на `/en/login`, а после входа всегда оказывается на `/dashboard` вместо запрошенной страницы (см. L5-ux «Редирект на логин меняет локаль»). Глобальный throttle режет SSR: «Не вдалося завантажити профіль користувача.» в `error-context.md` (см. L5-security «Rate limit общий на весь сайт»).
+
+**Что сделано в коде:**
 
 - `tests/auth.setup.ts` переписан: логин и пароль теперь берутся из `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` (`env.ts`, образец в `packages/e2e/.env.example`), реальный аккаунт убран. Добавлен `packages/e2e/.gitignore` (`playwright/.auth/`, `test-results/`, `playwright-report/`, `.env`). Закоммиченные сессия и трейсы убраны из git. История git их по-прежнему содержит, см. P1 L0: пароль всё равно нужно сменить.
 - 58 тестов в 16 файлах. Новые спеки: login, logout, forgot-password, auth-redirect, locale (с входом и без), todos, pricing-checkout, change-password, two-factor, smoke. Проекты конфига: `setup`, `no-auth`, `fresh-user` (сам регистрирует пользователя, `fixtures.ts`), `authenticated`, `Mobile Chrome` (Pixel 5). Новые page objects: header, todos, helpers. `reporter: list + html (open: never)`.
 - Добавлены `typecheck` (`tsc --noEmit`) и `@types/node` в `packages/e2e/package.json`. В `pnpm-lock.yaml` это заодно поменяло разрешение `@types/pg` → `@types/node@24`.
-- Проверено перед коммитом: `pnpm --filter e2e typecheck` зелёный, `playwright test --list` находит все 58 тестов. **Полный прогон на стеке не проверен**: какие спеки зелёные, а какие стоят как `test.fixme` на баги, нужно выяснить следующим запуском.
-- Ограничения стека, которые учтены в хелперах: глобальный throttle 10 запросов в минуту (у всех клиентов за nginx один IP), настоящая reCAPTCHA v3 без тестового режима (ждём `window.grecaptcha`), холодная компиляция в `next dev`.
-- **Запуск:** `E2E_USER_EMAIL=… E2E_USER_PASSWORD=… pnpm --filter e2e exec playwright test` (тестовый пользователь, зарегистрированный через `/en/create-account`). Проект `fresh-user` создаёт пользователей `qa-e2e-*@example.test` в БД.
+- Ограничения стека, которые учтены в хелперах: глобальный throttle 10 запросов в минуту (у всех клиентов за nginx один IP), настоящая reCAPTCHA v3 без тестового режима (ждём `window.grecaptcha`, нужен интернет), холодная компиляция в `next dev` (`timeout` 300 с, 2 воркера).
+- **Запуск:** `E2E_USER_EMAIL=… E2E_USER_PASSWORD=… pnpm --filter e2e exec playwright test --reporter=list`. Пользователь должен быть тестовым и зарегистрированным через `/en/create-account`.
+- **Тестовые данные в БД после L3** (удалить по маске `qa-e2e-%@example.test`): основной пользователь `qa-e2e-1795204830@example.test`, автоматически созданные `qa-e2e-<timestamp>-<rand>`, `qa-e2e-changed-*`, `qa-e2e-probe*`, `qa-e2e-dbg*` и их todo (`todo-<timestamp>`, `qa probe todo`, `dbg del`).
 
 <!-- L4 -->
 ## L4. Exploratory в браузере
@@ -535,6 +593,95 @@
 | остальное (`ws`, `socket.io`, `postcss`, `vite`, …) | Низкий риск |
 
 **Порядок обновлений:** 1) `next` ≥ 16.4.1; 2) `next-auth` ≥ 5.0.0-beta.32 и `@auth/core` ≥ 0.41.3 в api, в одном PR (формат JWE должен совпадать); 3) `@nestjs/platform-express`, `@nestjs/core` на свежие 11.x и лимиты multer; 4) удалить `@sentry/nextjs` из корня, `bull-board`, `bull`, `@bull-board/*`; 5) остальное через `pnpm update`, вернуть `pnpm audit --prod --audit-level=high` в CI.
+
+<!-- L5-INFRA -->
+## L5. Инфраструктура и CI/CD (`devops`, только чтение)
+
+Образ api собран локально (`qa-audit-api:local`, 397 с на холодном кэше, **5.94 GB**) и проверен, затем удалён. У web своего образа нет: compose запускает web тем же образом api с `pnpm run dev`. Подтверждены находки security: workflows, `.dockerignore`, порты compose, helm `securityContext`. Ниже то, что найдено дополнительно. Всё чинит **devops**, если не указано другое.
+
+## P1. Прод-образ api не стартует: `CMD` указывает на несуществующий файл [L5-infra]
+
+- **Где:** `Dockerfile` (`CMD ["node", "apps/api/dist/main.js"]`), `apps/api/package.json` (`start:prod: node dist/main`), `apps/api/tsconfig.build.json`, `apps/api/prisma.config.ts`.
+- **Сейчас:** `prisma.config.ts` лежит в корне пакета, поэтому `nest build` выносит rootDir на уровень пакета и кладёт сборку в `dist/src/main.js`. Контейнер сразу падает с `MODULE_NOT_FOUND`, деплой через `docker.yml` и helm уйдёт в CrashLoop. Если указать правильный путь, процесс стартует и падает с понятной ошибкой `REDIS_URL is not set`.
+- **Нужно:** исключить `prisma.config.ts` в `tsconfig.build.json` (`rootDir: ./src`) или поменять путь на `dist/src/main.js` в `CMD` и `start:prod`. В CI добавить smoke-проверку запуска собранного образа.
+- **Кому чинить:** devops + backend.
+
+## P1. Запущенный nginx работает на удалённом файле конфига [L5-infra]
+
+- **Где:** `docker-compose.yml` (`./nginx.conf:/etc/nginx/conf.d/default.conf:ro`).
+- **Сейчас:** подтверждено. `mountinfo` в контейнере показывает `…/nginx.conf//deleted`: git заменил файл, а bind mount одного файла держит старый inode. Отсюда `GET /api/metrics` → **200** наружу, хотя правило в репозитории есть. `nginx -s reload` в этом контейнере уже сломает конфиг (`open() default.conf failed`). Источник mount — основной checkout, не worktree.
+- **Нужно:** монтировать каталог (`./nginx/conf.d:/etc/nginx/conf.d:ro`) или собирать из `nginx.Dockerfile`. Затем `docker compose up -d --force-recreate nginx` (с подтверждения человека) и добавить smoke-проверку `/api/metrics → 404`.
+
+## P1. Финальный образ api тащит исходники всего репо, dev-зависимости и e2e-сессию [L5-infra, подтверждение L5-security]
+
+- **Где:** `Dockerfile` (`COPY --from=stage_builder /usr/src/app /usr/src/app` перекрывает выборочные COPY; `pnpm install --prod` в уже заполненном дереве не удаляет dev-пакеты), `.dockerignore`.
+- **Сейчас:** внутри образа `apps/web` целиком, `apps/api/src` и `test`, `.claude/`, `.amplitude/`, `.playwright-mcp/`, `infra/`, `.github/`, `FIX.md`, весь `packages/e2e` вместе с `playwright/.auth/user.json` (сессия с диска разработчика: из git файл убран, но на диске остался), `node_modules` на 2.1 GB с `@playwright/test` и eslint. `.git` и реальных `.env` в собранном образе нет, но шаблон `.env` действует только от корня, поэтому `apps/*/.env` попадёт в образ, если лежит локально. `chown -R` добавляет лишний слой (154 с). `npm install -g pnpm` ставит pnpm без версии, а в CI используется `pnpm@9.0.0`. Базовый образ не закреплён, `HEALTHCHECK` нет, `NODE_ENV=production` не задан.
+- **Нужно:** `pnpm deploy --filter api --prod /out` в builder-этапе, в финальный этап копировать только `/out`, `dist` и Prisma client; `COPY --chown`; кэш pnpm через `--mount=type=cache`; `corepack prepare pnpm@<packageManager>`; закрепить `node:22.x-alpine@sha256`; `.dockerignore` с шаблонами `**/…` (см. L5-security) плюс `.claude`, `.amplitude`, `.playwright-mcp`, `.github`, `infra`, `*.md`.
+
+## P1. CI не проверяет формат, api e2e и Playwright; деплой-цепочка ссылается на несуществующее [L5-infra]
+
+- **Где:** `.github/actions/verify-project/action.yml`, `.github/workflows/{ci,docker,helm,release,security,nightly,cleanup}.yml`, `turbo.json`.
+- **Сейчас:** `turbo run test` гоняет только unit-тесты, и только после `build`. `prettier --check` нигде нет. `lint` в api запускается с `--fix`, поэтому в CI молча правит файлы. Шаг Build Docker не запускает собранный образ, поэтому P1 про `CMD` CI не ловит. Имена образов в пяти workflow не совпадают: `fullstack`, `fullstack-api`/`-web`, `your-org/...`, `your-github-username/...`. `release.yml` собирает несуществующие `apps/*/Dockerfile`, а `changesets` в репо нет. `helm.yml` правит `helm/api` и `helm/web`, которых нет, в чужом репо `your-org/fullstack-gitops`, и подставляет `${{ github.event.workflow_run.head_sha }}` и ветку прямо в `run:` (script injection). В `security.yml` шаг dependency-review не выполнится никогда (условие `pull_request` при триггере `workflow_run`). `nightly.yml` сканирует чужие `docker.io/library/{api,web}`. Ни одна action не закреплена по SHA.
+- **Нужно:** 1) `pnpm format` один раз, затем `prettier --check .` с `.prettierignore`; 2) `lint:check` без `--fix`; 3) в `turbo.json` убрать `dependsOn: build` у `test`, добавить `test:e2e` (`cache: false`), `build.outputs` дополнить `dist/**` (сейчас warning `no output files found for task api#build`, кэш api не работает), `globalPassThroughEnv: ["NEXT_PUBLIC_*"]`; 4) job `api-e2e` (`services`: postgres, redis, rabbitmq; `prisma migrate deploy`; `pnpm --filter api test:e2e`); 5) job `playwright` со стеком, `myapp.local` в `/etc/hosts`, креды из GitHub Secrets, артефакт `playwright-report`; 6) smoke-запуск собранного образа; 7) единая схема имён `ghcr.io/<owner>/human-system-design-{api,web}`; починить или удалить `release.yml`, `cleanup.yml`, `helm.yml`; вынести `${{ }}` из `run:` в `env:`; пиннинг по SHA и Dependabot для actions; Trivy по нашим тегам с `exit-code: 1`; кэш `cache-from: type=gha`.
+
+## P1. Пароль Postgres открытым текстом в helm values [L5-infra]
+
+- **Где:** `infra/helm/values/prod/postgresql.yaml` (`auth.password`), `infra/helm/vendors/postgresql/values.yaml`. Пустые `infra/helm/secrets/{dev,prod}/*-secret.yaml` (6 файлов по 0 байт) закоммичены. Значение пароля в отчёт не выводилось.
+- **Нужно:** `auth.existingSecret`, секреты через External Secrets / Sealed Secrets / SOPS. Пароль сменить и считать скомпрометированным, раз он есть в истории git. Пустые `secrets/**` убрать из git и добавить в `.gitignore`.
+- **Кому чинить:** devops + человек (ротация).
+
+## P2. Нет Dockerfile для web [L5-infra]
+
+- **Где:** `apps/web` (Dockerfile нет, в `next.config.js` нет `output: "standalone"`), `.github/workflows/docker.yml` (в matrix только api).
+- **Нужно:** `apps/web/Dockerfile` (multi-stage, standalone, non-root, порт 3000), web в matrix `docker.yml`.
+- **Кому чинить:** devops + frontend (`output: "standalone"`).
+
+## P2. Helm-чарт `infra/helm/app` — шаблонная заготовка nginx, а не приложение [L5-infra]
+
+- **Где:** `infra/helm/app/**`, `infra/argocd/**`.
+- **Сейчас:** `helm template` рендерит `image: nginx:1.16.0` и `containerPort: 80`, хотя api слушает 3001, а web 3000. Ключи `api`, `web`, `worker`, `config` в values-файлах шаблоны не читают. Нет `env`/`envFrom`, миграций (`prisma migrate deploy`), PDB и `startupProbe`; probes смотрят в `/`. `resources: {}`, `securityContext: {}`. `argocd/applications/backend.yaml` и `frontend.yaml` пустые; Application `app` берёт `values-dev.yaml`, но деплоит в namespace `production`; в AppProject `sourceRepos: "*"` и `clusterResourceWhitelist: "*/*"`. `helm lint` проходит.
+- **Нужно:** два workload (api, web) с правильными портами, `envFrom.secretRef`, resources, `securityContext` (`runAsNonRoot`, `drop: [ALL]`, `readOnlyRootFilesystem`, `seccompProfile`), `automountServiceAccountToken: false`, probes на `/health`. Сузить AppProject, развести dev и prod по отдельным Applications. В CI `helm lint` и `kubeconform`.
+- **Кому чинить:** devops; health-эндпоинты — backend и frontend (сейчас `/health` отдаёт `{}`, см. L2).
+
+## P2. docker-compose и nginx: зависимости, healthchecks, лимиты, проксирование [L5-infra]
+
+- **compose:**
+  - healthcheck есть только у redis и rabbitmq, у db, api, web и nginx нет;
+  - `api` в `depends_on` не ждёт `db` и `rabbitmq`;
+  - смонтирован `./rabbitmq/rabbitmq.conf`, которого нет: Docker создаст на его месте каталог;
+  - у `label-backup` в `backup.conn` хост `postgres`, а сервис называется `db`, поэтому бэкап не работает;
+  - теги `label-backup` и `pgadmin4` не закреплены, restart policy и лимитов ресурсов нет;
+  - `apps/web` смонтирован дважды.
+- **nginx:**
+  - `client_max_body_size` не задан, по умолчанию 1 МБ, а api ждёт загрузки до 5 МБ;
+  - нет `proxy_read_timeout`/`proxy_connect_timeout`, `limit_req` и `server_tokens off`;
+  - `proxy_buffering off` стоит на весь Next;
+  - location статики отдаёт файлы не с диска, а перебивает `Cache-Control` от Next.
+- **Нужно:**
+  - compose: healthchecks (`pg_isready` для db), `depends_on: condition: service_healthy`, починить пути и хосты, закрепить теги образов;
+  - nginx: `client_max_body_size 10m`, таймауты, security-заголовки (см. L5-security).
+
+## P2. `engines.node >=18` не соответствует реальным требованиям; мусор Sentry в корне [L5-infra]
+
+- **Где:** корневой `package.json`, `next.config.js`, `instrumentation*.js`, `sentry.*.config.js`, `pages/` в корне.
+- **Сейчас:**
+  - Next 16 требует `>=20.9`, Prisma 7.8 — `^20.19 || ^22.12 || >=24`, а в `engines` указано `>=18`. Файлов `.nvmrc` / `.node-version` нет. Локально стоит Node 20.19, в CI и Docker — 22.
+  - В корне лежат остатки визарда Sentry: `@sentry/nextjs` в `dependencies`, корневой `next.config.js` и `pages/sentry-example-page.jsx`. Ничего из этого не работает, но пакет ставится при каждом `pnpm install` и попадает в образ api.
+- **Нужно:**
+  - `engines.node: ">=22.12"`, `.nvmrc` с 22, во всех workflow `node-version-file: .nvmrc`;
+  - удалить остатки Sentry из корня (или перенести Sentry в `apps/web`);
+  - перед переходом на pnpm 10 настроить `onlyBuiltDependencies` (prisma, esbuild, sharp).
+- **Кому чинить:** devops (+ frontend, если Sentry нужен).
+
+## P3. Гигиена репозитория и мелочи CI [L5-infra]
+
+- Добавить в корневой `.gitignore`: `**/playwright/.auth/`, `**/playwright-report/`, `**/test-results/`, `.playwright-mcp/`, `**/.env`, `**/.env.*` (с `!**/.env.example`), `*.tsbuildinfo`, `*.log`, `.idea/`. Добавить корневые `.prettierrc` и `.prettierignore`.
+- `apps/web/.github/workflows/playwright.yml` GitHub не выполняет, и файл вводит в заблуждение: удалить (frontend).
+- `ci.yml`: `timeout-minutes: 15` не хватит, когда добавятся тесты (сборка образа без кэша занимает около 7 минут); нужен кэш `.turbo`.
+- `nginx.Dockerfile`: базовый `nginx:alpine` без версии, запуск от root; лучше `nginxinc/nginx-unprivileged:<версия>`.
+- Решить, что делать с `amplitude-setup-report.md` в корне.
+
+**Не проверено (L5-infra):** сборка web-образа (нет Dockerfile), `actionlint`, `hadolint`, `trivy` (не установлены), `kubeconform` для `infra/k8s`, vendor-чарты (нужен `helm dependency build`), `infra/scripts/*.sh` целиком. Валидация DTO на живом api: проверить помешал throttler (429), вывод про tsx подтверждён экспериментом с esbuild (`design:paramtypes` не эмитится). Временные образы и контейнеры `qa-audit-*` удалены.
 
 <!-- L2 -->
 ## L2. Интеграция и контракт API

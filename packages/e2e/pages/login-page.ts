@@ -32,7 +32,8 @@ export class LoginPage {
 
   /**
    * Submits the form and returns the status of POST /service-auth/login.
-   * The API throttles login to 3 per minute per IP (429), so retry until the window frees up.
+   * The API throttles login to 3 per minute per IP (429), so retry once the window is over.
+   * Retry no faster than the 60s window: hits on a blocked key keep it blocked.
    */
   async loginAndGetStatus(email: string, password: string): Promise<number> {
     let status = 0;
@@ -42,7 +43,7 @@ export class LoginPage {
       await this.login(email, password);
       status = (await response).status();
       expect(status, "429 = throttled, retried").not.toBe(429);
-    }).toPass({ intervals: [5_000, 10_000], timeout: 120_000 });
+    }).toPass({ intervals: [65_000], timeout: 240_000 });
     return status;
   }
 }
