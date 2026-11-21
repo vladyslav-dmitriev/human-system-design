@@ -30,5 +30,12 @@
   "oauth_unlink_button": "Відключити",
   "oauth_connect_button": "Підключити",
   "oauth_linked_toast": "Акаунт {provider} підключено",
-  "oauth_unlinked_toast": "Акаунт {provider} відключено"
+  "oauth_unlinked_toast": "Акаунт {provider} відключено",
+  "password_max_length": "Пароль задовгий (максимум 72 байти)",
+  "update_error_title": "Не вдалося оновити",
+  "email_changed_title": "Email змінено",
+  "email_changed_description": "Нова адреса: {email}",
+  "password_changed_title": "Пароль змінено",
+  "password_changed_description": "Використовуйте новий пароль під час наступного входу.",
+  "two_factor_title": "Двофакторна автентифікація"
 }

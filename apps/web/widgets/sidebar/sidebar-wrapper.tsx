@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { AppSidebar } from "@/widgets/sidebar/sidebar";
 import { Header } from "../header";
@@ -15,6 +15,14 @@ export const useMySidebar = () => useContext(SidebarContext);
 export function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
   const { data: session, status } = useSession();
+
+  // На узких экранах сайдбар по умолчанию свёрнут (иначе он съедает 160px из 375)
+  useEffect(() => {
+    if (!window.matchMedia("(min-width: 768px)").matches) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- значение известно только в браузере
+      setIsOpen(false);
+    }
+  }, []);
 
   const toggle = () => setIsOpen(!isOpen);
 
@@ -42,12 +50,15 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
 
         <div
           className={`flex flex-col min-h-screen min-w-0 transition-all duration-300 ease-in-out ${
-            isOpen ? "pl-40" : "pl-13"
+            isOpen ? "pl-13 md:pl-40" : "pl-13"
           } w-full`}
         >
           <Header isOpenSidebar={isOpen} onToggleSidebar={toggle} />
 
-          <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-5xl w-full mx-auto">
+          <main
+            id="main"
+            className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-5xl w-full mx-auto"
+          >
             {children}
           </main>
         </div>

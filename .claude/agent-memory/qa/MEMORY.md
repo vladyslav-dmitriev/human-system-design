@@ -1,1 +1,2 @@
+- [test conventions](test-conventions.md) — jest virtual mocks, api test helpers, web nav mock, e2e text locators
 - [e2e env constraints](e2e-env-constraints.md) — throttle 10/min, real reCAPTCHA, dev-mode web, shell/pkill pitfalls for Playwright runs

@@ -1,21 +1,29 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 import { TodoItem } from "./todo-item";
 import { Todo } from "./types";
 
 interface TodosListPageProps {
   todos: Todo[];
+  canDelete: boolean;
   makeHandleEditTodo(id: string): () => void;
   makeHandleRemoveTodo: (id: string) => () => void;
 }
 
 export function TodosList({
   todos,
+  canDelete,
   makeHandleEditTodo,
   makeHandleRemoveTodo,
 }: TodosListPageProps) {
+  const t = useTranslations();
+
   if (todos.length === 0) {
     return (
       <div className="text-center py-10 text-sm text-muted-foreground border border-dashed rounded-xl">
-        Задач пока нет. Создайте первую!
+        {t("todos_empty")}
       </div>
     );
   }
@@ -26,6 +34,7 @@ export function TodosList({
         <TodoItem
           key={todo.id}
           todo={todo}
+          canDelete={canDelete}
           onEdit={makeHandleEditTodo(todo.id)}
           onRemove={makeHandleRemoveTodo(todo.id)}
         />

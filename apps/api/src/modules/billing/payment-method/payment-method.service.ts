@@ -11,6 +11,7 @@ import { PaymentMethodRepository } from './payment-method.repository';
 import { PaymentMethod } from './payment-method.interface';
 import { PaymentMethodAddParamsDto, PaymentMethodDeleteParamsDto } from './dto';
 import { FinanceService } from '../finance';
+import { ErrorCode } from '../../../common/errors';
 
 @Injectable()
 export class PaymentMethodService {
@@ -64,17 +65,28 @@ export class PaymentMethodService {
         stripeCustomerId,
         paymentMethodId,
       );
-
-      await this.updateDefaultPaymentMethod(
-        userId,
-        stripeCustomerId,
-        paymentMethodId,
-      );
-
-      return { success: true };
     } catch (error) {
-      throw new BadRequestException(`Stripe Attach Error: ${error}`);
+      // Чужой или несуществующий payment method (Stripe: invalid_request_error)
+      // неотличим от «не найден»; текст Stripe клиенту не отдаём.
+      console.error('Stripe attach payment method failed:', error);
+
+      if ((error as { type?: string })?.type === 'StripeInvalidRequestError') {
+        throw new NotFoundException({
+          code: ErrorCode.NOT_FOUND,
+          message: 'Payment method not found',
+        });
+      }
+
+      throw new BadRequestException('Stripe Attach Error');
     }
+
+    await this.updateDefaultPaymentMethod(
+      userId,
+      stripeCustomerId,
+      paymentMethodId,
+    );
+
+    return { success: true };
   }
 
   async deletePaymentMethod(
@@ -89,30 +101,44 @@ export class PaymentMethodService {
       throw new NotFoundException('User not found');
     }
 
+    const { stripeCustomerId } = user.userBillingProfile;
+
+    // Владелец проверяется по списку карт Stripe-клиента пользователя:
+    // чужая и несуществующая карта дают одинаковый 404.
+    const ownPaymentMethods =
+      await this.paymentsService.getPaymentMethods(stripeCustomerId);
+
+    if (!ownPaymentMethods.data.some((pm) => pm.id === paymentMethodId)) {
+      throw new NotFoundException({
+        code: ErrorCode.NOT_FOUND,
+        message: 'Payment method not found',
+      });
+    }
+
     try {
       if (user.userBillingProfile.defaultPaymentMethodId === paymentMethodId) {
-        const paymentMethods = await this.getPaymentMethods(userId);
-        const nextPaymentMethodId = paymentMethods.find(
+        const nextPaymentMethodId = ownPaymentMethods.data.find(
           (pm) => pm.id !== paymentMethodId,
         )?.id;
 
         if (nextPaymentMethodId) {
           await this.updateDefaultPaymentMethod(
             userId,
-            user.userBillingProfile.stripeCustomerId,
+            stripeCustomerId,
             nextPaymentMethodId,
           );
         }
       }
 
       await this.paymentsService.deletePaymentMethod(
-        user.userBillingProfile.stripeCustomerId,
+        stripeCustomerId,
         paymentMethodId,
       );
 
       return { success: true };
     } catch (error) {
-      throw new BadRequestException(`Stripe Detach Error: ${error}`);
+      console.error('Stripe detach payment method failed:', error);
+      throw new BadRequestException('Stripe Detach Error');
     }
   }
 

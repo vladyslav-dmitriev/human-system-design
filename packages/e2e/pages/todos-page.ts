@@ -2,21 +2,25 @@ import { Page, Locator } from "@playwright/test";
 
 import { gotoAndWait } from "./helpers";
 
-// NOTE: todo texts are hardcoded in Russian in the product (see report, i18n finding),
-// and the todo cards have no data-testid. Replace with testids once frontend adds them.
+// English texts (packages/i18n todo.json). Cards have no data-testid, but the action
+// buttons have accessible names that include the title.
 export class TodosPage {
   readonly page: Page;
   readonly titleInput: Locator;
   readonly fileInput: Locator;
   readonly submitButton: Locator;
   readonly emptyState: Locator;
+  readonly imagePreview: Locator;
+  readonly createFailedToast: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.titleInput = page.getByPlaceholder("Например: Купить продукты...");
-    this.fileInput = page.locator('input[type="file"]');
-    this.submitButton = page.getByRole("button", { name: "Создать задачу" });
-    this.emptyState = page.getByText("Задач пока нет. Создайте первую!");
+    this.titleInput = page.getByLabel("Task title");
+    this.fileInput = page.getByLabel("Attach a photo to the task (optional)");
+    this.submitButton = page.getByRole("button", { name: "Create task" });
+    this.emptyState = page.getByText("No tasks yet. Create the first one!");
+    this.imagePreview = page.getByAltText("Image preview");
+    this.createFailedToast = page.getByText("Could not create the task");
   }
 
   async goto(locale = "en") {
@@ -28,19 +32,16 @@ export class TodosPage {
     await this.submitButton.click();
   }
 
-  card(title: string): Locator {
-    // No testid on the card yet: the outer Card is the first overflow-hidden block with the title.
-    return this.page
-      .locator("div.overflow-hidden")
-      .filter({ hasText: title })
-      .first();
+  title(title: string): Locator {
+    return this.page.getByText(title, { exact: true });
   }
 
   toggleButton(title: string): Locator {
-    return this.card(title).locator("svg.lucide-square-check");
+    return this.page.getByRole("button", { name: `Mark "${title}" as done` });
   }
 
+  /** Visible only for ADMIN. */
   deleteButton(title: string): Locator {
-    return this.card(title).locator("svg.lucide-trash");
+    return this.page.getByRole("button", { name: `Delete "${title}"` });
   }
 }

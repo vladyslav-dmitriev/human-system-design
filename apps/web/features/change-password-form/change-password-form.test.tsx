@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { toast } = vi.hoisted(() => ({
+const { toast, expireSession } = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn() },
+  expireSession: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast }));
 vi.mock("next-intl", () => ({ useTranslations: () => (k: string) => k }));
+vi.mock("@/shared/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/lib/api-client")>()),
+  expireSession,
+}));
 
 import { ChangePasswordForm } from "./change-password-form";
 
@@ -25,8 +30,8 @@ const userEvent = {
 };
 
 const fetchMock = vi.fn();
-const json = (body: unknown, ok = true) =>
-  Promise.resolve({ ok, json: () => Promise.resolve(body) });
+const json = (body: unknown, ok = true, status = 200) =>
+  Promise.resolve({ ok, status, json: () => Promise.resolve(body) });
 
 const setup = () => {
   const user = userEvent.setup();
@@ -44,6 +49,7 @@ describe("ChangePasswordForm", () => {
     fetchMock.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    expireSession.mockReset();
     vi.stubGlobal("fetch", fetchMock);
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -100,16 +106,93 @@ describe("ChangePasswordForm", () => {
     expect(next).toHaveValue("");
   });
 
-  it("неверный текущий пароль (API 400): toast.error с сообщением, поля остаются", async () => {
-    fetchMock.mockReturnValue(json({ message: "Wrong password" }, false));
+  it("граница сверху: 72 байта проходят, 73 байта: ошибка password_max_length", async () => {
+    fetchMock.mockReturnValue(json({ success: true }));
+    const { user, current, next, button } = setup();
+    await user.type(current, "oldpass123");
+    await user.type(next, "a".repeat(73));
+    await user.click(button);
+    expect(await screen.findByText("password_max_length")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.type(next, "a".repeat(72));
+    await user.click(button);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("после успешной смены сессия завершается сразу, при ошибке нет", async () => {
+    fetchMock.mockReturnValueOnce(
+      json({ code: "USER_INVALID_PASSWORD" }, false, 400),
+    );
     const { user, current, next, button } = setup();
     await user.type(current, "wrongpass1");
     await user.type(next, "newpass456");
     await user.click(button);
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(toast.error.mock.calls[0]![1]).toEqual({ description: "Wrong password" });
+    await screen.findByText("errors.USER_INVALID_PASSWORD");
+    expect(expireSession).not.toHaveBeenCalled();
+
+    fetchMock.mockReturnValue(json({ success: true }));
+    await user.type(current, "oldpass123");
+    await user.click(button);
+    await waitFor(() => expect(expireSession).toHaveBeenCalledTimes(1));
+  });
+
+  it("лимит считается в байтах: 37 двухбайтовых символов (74 байта) отклоняются", async () => {
+    const { user, current, next, button } = setup();
+    await user.type(current, "oldpass123");
+    await user.type(next, "é".repeat(37));
+    await user.click(button);
+    expect(await screen.findByText("password_max_length")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("USER_INVALID_PASSWORD (API 400): ошибка у поля текущего пароля, поля остаются, toast.success нет", async () => {
+    fetchMock.mockReturnValue(
+      json(
+        { code: "USER_INVALID_PASSWORD", message: "Wrong password" },
+        false,
+        400,
+      ),
+    );
+    const { user, current, next, button } = setup();
+    await user.type(current, "wrongpass1");
+    await user.type(next, "newpass456");
+    await user.click(button);
+    expect(
+      await screen.findByText("errors.USER_INVALID_PASSWORD"),
+    ).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
     expect(current).toHaveValue("wrongpass1");
+    expect(next).toHaveValue("newpass456");
+  });
+
+  it("прочая ошибка API (500): toast.error с текстом из i18n по коду, не из тела ответа", async () => {
+    fetchMock.mockReturnValue(
+      json({ code: "INTERNAL", message: "raw server text" }, false, 500),
+    );
+    const { user, current, next, button } = setup();
+    await user.type(current, "oldpass123");
+    await user.type(next, "newpass456");
+    await user.click(button);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(toast.error.mock.calls[0]![1]).toEqual({
+      description: "errors.INTERNAL",
+    });
+    expect(current).toHaveValue("oldpass123");
+  });
+
+  it("сетевая ошибка: toast.error (INTERNAL), кнопка разблокируется", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockRejectedValue(new Error("Failed to fetch"));
+    const { user, current, next, button } = setup();
+    await user.type(current, "oldpass123");
+    await user.type(next, "newpass456");
+    await user.click(button);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(toast.error.mock.calls[0]![1]).toEqual({
+      description: "errors.INTERNAL",
+    });
+    await waitFor(() => expect(button).toBeEnabled());
   });
 
   it("повторная отправка блокируется, пока запрос выполняется", async () => {
@@ -126,14 +209,14 @@ describe("ChangePasswordForm", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
 
-  // BUG: см. FIX.md "Захардкоженные тексты вместо i18n"
-  it.fails("тексты toast идут через i18n, а не русские строки", async () => {
-    fetchMock.mockReturnValue(json({}));
+  it("тексты toast идут через i18n (ключи), а не русские строки", async () => {
+    fetchMock.mockReturnValue(json({ success: true }));
     const { user, current, next, button } = setup();
     await user.type(current, "oldpass123");
     await user.type(next, "newpass456");
     await user.click(button);
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
     expect(toast.success.mock.calls[0]![0]).not.toMatch(/[А-Яа-я]/);
+    expect(toast.success.mock.calls[0]![0]).toBe("password_changed_title");
   });
 });

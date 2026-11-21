@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import { apiFetch, expireSession } from "@/shared/lib/api-client";
+import React, { useId, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Lock, Loader2, AlertCircle, ArrowRight } from "lucide-react";
+import { Lock, Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,10 @@ import {
 } from "@/components/ui/card";
 import { useTranslations } from "next-intl";
 import { API_URL } from "@/api";
-import { getErrorMessage } from "@/shared/lib/error";
+import { Label } from "@/components/ui/label";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
+import { newPasswordSchema, validateWith } from "@/shared/lib/auth-schemas";
+import { FieldError } from "@/shared/ui/field-error";
 
 interface PasswordFormInputs {
   currentPassword: string;
@@ -26,6 +30,8 @@ export function ChangePasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const t = useTranslations();
+  const currentId = useId();
+  const newId = useId();
 
   const {
     register,
@@ -33,6 +39,7 @@ export function ChangePasswordForm() {
     formState: { errors, isDirty },
     watch,
     reset,
+    setError,
   } = useForm<PasswordFormInputs>({
     defaultValues: {
       currentPassword: "",
@@ -50,29 +57,40 @@ export function ChangePasswordForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(API_URL.users.password(), {
+      const response = await apiFetch(API_URL.users.password(), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || "Не удалось обновить пароль");
+        const code = await getApiErrorCode(response);
+
+        if (code === "USER_INVALID_PASSWORD") {
+          setError("currentPassword", { message: apiErrorKey(code) });
+        } else {
+          toast.error(t("update_error_title"), {
+            description: t(apiErrorKey(code)),
+          });
+        }
+        return;
       }
 
-      toast.success("Пароль успешно изменен", {
-        description: "Используйте новый пароль при следующем входе.",
+      toast.success(t("password_changed_title"), {
+        description: t("password_changed_description"),
         duration: 4000,
       });
 
       // Полностью очищаем форму
       reset({ currentPassword: "", newPassword: "" });
+
+      // api отозвал текущую сессию: выходим сразу и просим войти заново
+      await expireSession();
     } catch (error) {
-      toast.error("Ошибка обновления", {
-        description: getErrorMessage(error),
+      console.error(error);
+      toast.error(t("update_error_title"), {
+        description: t(apiErrorKey("INTERNAL")),
       });
     } finally {
       setIsLoading(false);
@@ -93,15 +111,24 @@ export function ChangePasswordForm() {
         </CardDescription>
       </CardHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-3 pb-6">
           <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
             {/* Поле: Текущий пароль */}
             <div className="relative flex-1">
+              <Label htmlFor={currentId} className="sr-only">
+                {t("password_current_label")}
+              </Label>
               <Input
+                id={currentId}
                 type="password"
+                autoComplete="current-password"
+                aria-invalid={!!errors.currentPassword}
+                aria-describedby={
+                  errors.currentPassword ? `${currentId}-error` : undefined
+                }
                 {...register("currentPassword", {
-                  required: t("password_enter_current"),
+                  required: "password_enter_current",
                 })}
                 className={`text-[13px] h-9 bg-secondary/20 border px-3 rounded-lg transition-all duration-200 focus-visible:ring-0 ${
                   errors.currentPassword
@@ -115,14 +142,19 @@ export function ChangePasswordForm() {
 
             {/* Поле: Новый пароль */}
             <div className="relative flex-1">
+              <Label htmlFor={newId} className="sr-only">
+                {t("password_new_label")}
+              </Label>
               <Input
+                id={newId}
                 type="password"
+                autoComplete="new-password"
+                aria-invalid={!!errors.newPassword}
+                aria-describedby={
+                  errors.newPassword ? `${newId}-error` : undefined
+                }
                 {...register("newPassword", {
-                  required: t("password_enter_new"),
-                  minLength: {
-                    value: 8,
-                    message: t("password_min_length"),
-                  },
+                  validate: validateWith(newPasswordSchema),
                 })}
                 className={`text-[13px] h-9 bg-secondary/20 border px-3 rounded-lg transition-all duration-200 focus-visible:ring-0 ${
                   errors.newPassword
@@ -159,23 +191,21 @@ export function ChangePasswordForm() {
             </Button>
           </div>
 
-          {/* Валидационные ошибки под инпутами */}
-          {(errors.currentPassword || errors.newPassword) && (
-            <div className="space-y-1 pt-1">
-              {errors.currentPassword && (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-destructive/90 pl-1 animate-[slide-down_0.15s_ease-out]">
-                  <AlertCircle className="h-3 w-3 stroke-[2]" />
-                  <span>{errors.currentPassword.message}</span>
-                </div>
-              )}
-              {errors.newPassword && (
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-destructive/90 pl-1 animate-[slide-down_0.15s_ease-out]">
-                  <AlertCircle className="h-3 w-3 stroke-[2]" />
-                  <span>{errors.newPassword.message}</span>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="space-y-1 pt-1">
+            <FieldError
+              id={`${currentId}-error`}
+              message={
+                errors.currentPassword?.message &&
+                t(errors.currentPassword.message)
+              }
+            />
+            <FieldError
+              id={`${newId}-error`}
+              message={
+                errors.newPassword?.message && t(errors.newPassword.message)
+              }
+            />
+          </div>
         </CardContent>
       </form>
     </Card>

@@ -31,9 +31,19 @@ describe("authConfig.callbacks.authorized", () => {
     expect(authConfig.pages.signIn).toBe("/login");
   });
 
-  // BUG: см. FIX.md "Защита маршрутов: списки расходятся"
-  // proxy.ts защищает ещё /settings, /billing, /pricing; здесь их нет
-  it.fails("гость на /settings не авторизован", () => {
-    expect(run("/settings", false)).toBe(false);
+  it("гость на /settings, /billing, /pricing, /checkout не авторизован (список общий с proxy)", () => {
+    for (const p of ["/settings", "/billing", "/pricing", "/checkout"]) {
+      expect(run(p, false)).toBe(false);
+    }
+  });
+  it("гость на вложенной защищённой странице не авторизован", () => {
+    expect(run("/settings/security", false)).toBe(false);
+  });
+  it("локаль в пути не мешает защите: /uk/settings", () => {
+    expect(run("/uk/settings", false)).toBe(false);
+    expect(run("/uk/settings", true)).toBe(true);
+  });
+  it("OAuth-провайдеры отключены до реализации", () => {
+    expect(authConfig.providers).toEqual([]);
   });
 });

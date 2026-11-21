@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -26,6 +26,7 @@ export function TwoFactorForm({
   userTwoFactorEnabled = false,
 }: TwoFactorFormProps) {
   const t = useTranslations();
+  const errorId = useId();
 
   const {
     handleSwitchEnabled,
@@ -33,11 +34,15 @@ export function TwoFactorForm({
     handleEnterCode,
     setPhone,
     setOtp,
+    setCurrentPassword,
+    currentPassword,
+    passwordError,
     enabled,
     phone,
     step,
     otp,
     loading,
+    error,
   } = useTwoFactorForm({
     userPhone,
     userTwoFactorEnabled,
@@ -51,13 +56,17 @@ export function TwoFactorForm({
             <div className="p-1.5 bg-secondary/50 rounded-md border border-muted/40">
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </div>
-            Two-factor authentication
+            {t("two_factor_title")}
           </CardTitle>
           <CardDescription>{t("two_factor_description")}</CardDescription>
         </div>
 
         {!loading && (
-          <Switch checked={enabled} onCheckedChange={handleSwitchEnabled} />
+          <Switch
+            checked={enabled}
+            onCheckedChange={handleSwitchEnabled}
+            aria-label={t("two_factor_title")}
+          />
         )}
       </CardHeader>
 
@@ -78,8 +87,23 @@ export function TwoFactorForm({
               phone={phone}
               otp={otp}
               setOtp={setOtp}
+              currentPassword={currentPassword}
+              setCurrentPassword={setCurrentPassword}
+              passwordError={passwordError}
               handleEnterCode={handleEnterCode}
+              loading={loading}
+              errorId={errorId}
             />
+          )}
+
+          {error && (
+            <p
+              id={errorId}
+              role="alert"
+              className="mt-2 text-xs font-medium text-destructive"
+            >
+              {t(error)}
+            </p>
           )}
         </CardContent>
       )}

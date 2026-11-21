@@ -6,5 +6,5 @@ export {
   TodoUploadImageBodyDto,
   TodoDeleteParamsDto,
 } from './request';
-export { TodoGetListResponseDto } from './response';
+export { TodoGetListResponseDto, TodoUploadImageResponseDto } from './response';
 export { TodoItemDto } from './common';

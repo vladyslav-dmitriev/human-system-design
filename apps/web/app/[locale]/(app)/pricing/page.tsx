@@ -1,35 +1,24 @@
 import React from "react";
 import { BillingPlans } from "@/features/billing-plans";
 import { ExtraFeatureCard } from "@/widgets/extra-feature-card";
-import {
-  getBillingProducts,
-  getUserData,
-  getUserBilling,
-  // syncBillingProducts,
-} from "@/utils";
+import { getBillingProducts, getUserData, getUserBilling } from "@/utils";
 import { getTranslations } from "next-intl/server";
-import { cookies } from "next/headers";
+import { serverApiFetch } from "@/shared/lib/api-server";
 import { Archive, Headphones } from "lucide-react";
 import { API_URL } from "@/api";
 
 const upgradeProduct = async (priceId: string) => {
-  const cookieStore = await cookies();
-  const cookieString = cookieStore.toString();
-
-  const res = await fetch(API_URL.billing.subscriptionsUpgrade(), {
+  const res = await serverApiFetch(API_URL.billing.subscriptionsUpgrade(), {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookieString,
     },
-    cache: "no-store",
     body: JSON.stringify({ type: "check", priceId }),
   });
 
-  const data = await res.json();
-
   if (!res.ok) return;
+
+  const data = await res.json();
 
   return {
     clientSecret: data.clientSecret,
@@ -45,19 +34,20 @@ export default async function PricingPage() {
     getUserBilling(),
     getBillingProducts(),
     getTranslations(),
-    // syncBillingProducts(),
   ]);
-
-  console.log("userData p", userData);
-  console.log("userBilling p", userBilling);
-  console.log("billingProducts p", billingProducts);
 
   const lastPriceId = billingProducts.recurring?.find(
     (p) => p.name === "Pro",
   )?.priceId;
 
-  if (!userBilling) {
-    return null;
+  if (!userBilling || !userData) {
+    return (
+      <div className="container mx-auto px-2 max-w-5xl py-6">
+        <p role="alert" className="text-sm text-destructive">
+          {t("page_load_failed")}
+        </p>
+      </div>
+    );
   }
 
   const paymentResponse =
@@ -79,10 +69,6 @@ export default async function PricingPage() {
     }),
   };
 
-  if (!userData) {
-    return null;
-  }
-
   const prioritySupport = billingProducts.oneTime.find(
     (p) => p.name === "Priority Support",
   );
@@ -97,10 +83,10 @@ export default async function PricingPage() {
     <div className="container mx-auto px-2 max-w-5xl py-6">
       <section className="pb-4">
         <div className="text-center space-y-3 mb-4">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {t("pricing_page_badge")}
           </span>
-          <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-neutral-900">
+          <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground">
             {t("pricing_page_title")}
           </h2>
         </div>
@@ -114,15 +100,15 @@ export default async function PricingPage() {
 
       <section className="border-t border-neutral-100 pt-8 space-y-8">
         <div className="space-y-2 text-center md:text-left">
-          <h3 className="text-2xl font-semibold text-neutral-900">
+          <h3 className="text-2xl font-semibold text-foreground">
             {t("pricing_page_customize_title")}
           </h3>
-          <p className="text-neutral-500">
+          <p className="text-muted-foreground">
             {t("pricing_page_customize_description")}
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-4 mb-10">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-10">
           {prioritySupport && (
             <ExtraFeatureCard
               key={prioritySupport.priceId}

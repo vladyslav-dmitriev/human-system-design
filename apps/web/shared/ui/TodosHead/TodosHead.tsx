@@ -15,14 +15,16 @@ export const TodosHead = ({ title, todos }: TodosHeadProps) => {
   return (
     <div className="pb-2">
       <div className="flex gap-2 mb-1">
-        <TypographyP className="text-gray-600 font-bold">{title}</TypographyP>
+        <TypographyP className="text-muted-foreground font-bold">
+          {title}
+        </TypographyP>
 
         <Badge
           variant="secondary"
           className={cn(
             "text-white",
-            { "bg-blue-500": !isEveryItemChecked },
-            { "bg-green-500": isEveryItemChecked },
+            { "bg-primary": !isEveryItemChecked },
+            { "bg-emerald-600 dark:bg-emerald-500": isEveryItemChecked },
           )}
         >
           {isEveryItemChecked ? "Done" : "Progress"}

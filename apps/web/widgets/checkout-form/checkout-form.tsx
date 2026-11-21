@@ -5,7 +5,8 @@ import { Elements } from "@stripe/react-stripe-js";
 import { CheckoutFormContent } from "./checkout-form-content";
 import type { StripeElementsOptions } from "@stripe/stripe-js";
 import type {
-  CheckoutPaymentData,
+  CheckoutRequest,
+  CheckoutSummary,
   PaymentMethod,
 } from "@/shared/types/billing";
 import { stripePromise } from "@/shared/lib/stripe";
@@ -20,20 +21,23 @@ const options: StripeElementsOptions = {
 type CheckoutFormProps = {
   userEmail?: string;
   paymentMethods: PaymentMethod[];
-  paymentData: CheckoutPaymentData;
+  summary: CheckoutSummary;
+  request: CheckoutRequest;
 };
 
 export function CheckoutForm({
   userEmail,
   paymentMethods,
-  paymentData,
+  summary,
+  request,
 }: CheckoutFormProps) {
   return (
     <Elements stripe={stripePromise} options={options}>
       <CheckoutFormContent
         userEmail={userEmail}
         paymentMethods={paymentMethods}
-        paymentData={paymentData}
+        summary={summary}
+        request={request}
       />
     </Elements>
   );

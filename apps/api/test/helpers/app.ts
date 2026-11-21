@@ -8,6 +8,12 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+
+import { AllExceptionsFilter } from '../../src/common/filters';
+import { getTrustProxy } from '../../src/config/app.config';
+import { REDIS_CLIENT } from '../../src/modules/redis';
+import { createFakeRedis } from './fake-redis';
 
 export const TEST_AUTH_SECRET = 'e2e-test-secret-not-a-real-secret-0123456789';
 
@@ -16,21 +22,36 @@ export type TestUser = {
   email: string;
   name?: string;
   role?: string;
+  sessionVersion?: number;
 };
 
 /**
  * Поднимает Nest-приложение с теми же глобальными настройками, что и main.ts
- * (cookie-parser, ValidationPipe whitelist+forbidNonWhitelisted, ClassSerializerInterceptor).
+ * (trust proxy, cookie-parser, AllExceptionsFilter, ValidationPipe whitelist+forbidNonWhitelisted, ClassSerializerInterceptor).
  */
 export async function createTestApp(
   metadata: ModuleMetadata,
 ): Promise<INestApplication> {
   process.env.AUTH_SECRET = TEST_AUTH_SECRET;
 
-  const moduleRef = await Test.createTestingModule(metadata).compile();
+  // AuthGuard сверяет sessionVersion с Redis: без своего Redis в тесте подставляем пустой fake (версия 0)
+  const hasRedis = (metadata.providers ?? []).some(
+    (p) => (p as { provide?: unknown }).provide === REDIS_CLIENT,
+  );
+  const moduleRef = await Test.createTestingModule({
+    ...metadata,
+    providers: [
+      ...(metadata.providers ?? []),
+      ...(hasRedis
+        ? []
+        : [{ provide: REDIS_CLIENT, useValue: createFakeRedis() }]),
+    ],
+  }).compile();
   const app = moduleRef.createNestApplication({ rawBody: true });
 
+  (app as NestExpressApplication).set('trust proxy', getTrustProxy());
   app.use(cookieParser());
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(app.get(Reflector), {
       strategy: 'excludeAll',

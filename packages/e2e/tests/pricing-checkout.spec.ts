@@ -71,10 +71,10 @@ test("pricing: Free plan has no purchase button", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Free/ })).toHaveCount(0);
 });
 
-test("checkout: opening it without params redirects to home", async ({
+test("checkout: opening it without params sends a signed-in user to the pricing page", async ({
   page,
 }) => {
   await page.goto("/en/checkout");
 
-  await expect(page).not.toHaveURL(/checkout/);
+  await expect(page).toHaveURL(/\/en\/pricing$/);
 });

@@ -5,4 +5,5 @@ export {
   PaymentIntentGetResponseDto,
   PortalSessionCreateResponseDto,
   UserGetBillingResponseDto,
+  WebhookResponseDto,
 } from './response';

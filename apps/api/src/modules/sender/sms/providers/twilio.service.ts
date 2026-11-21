@@ -1,8 +1,16 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import twilio from 'twilio';
 
 import type { ISMSService } from '../sms.interface';
+
+/** Код dev-мока: только при SMS_DEV_MOCK=true и не в production (Joi запрещает флаг в production). */
+export const DEV_OTP_CODE = '123456';
 
 @Injectable()
 export class TwilioService implements ISMSService {
@@ -29,6 +37,16 @@ export class TwilioService implements ISMSService {
     }
   }
 
+  private isProduction() {
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  private isDevMock() {
+    const flag = this.configService.get<string | boolean>('SMS_DEV_MOCK');
+
+    return !this.isProduction() && (flag === true || flag === 'true');
+  }
+
   private getVerifyService() {
     if (!this.twilio || !this.twilioVerifyServiceSid) {
       throw new Error('Twilio Verify is not configured');
@@ -45,7 +63,19 @@ export class TwilioService implements ISMSService {
         to: phoneNumber,
         channel: 'sms',
       });
+
+      return true;
     }
+
+    if (!this.isDevMock()) {
+      // Без Twilio и без явного SMS_DEV_MOCK «успешно отправить» нельзя: не имитируем отправку
+      throw new ServiceUnavailableException('SMS provider is not enabled');
+    }
+
+    // Dev-мок: SMS не уходит, код фиксированный; номер в лог не пишем
+    this.logger.warn(
+      `[DEV MOCK] SMS not sent (SMS_DEV_MOCK=true). Use code ${DEV_OTP_CODE}`,
+    );
 
     return true;
   }
@@ -68,6 +98,7 @@ export class TwilioService implements ISMSService {
       return result.status === 'approved';
     }
 
-    return true;
+    // Мок только при SMS_DEV_MOCK=true вне production и только с фиксированным кодом
+    return this.isDevMock() && code === DEV_OTP_CODE;
   }
 }

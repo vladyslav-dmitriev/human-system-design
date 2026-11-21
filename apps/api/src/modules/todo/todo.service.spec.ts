@@ -80,21 +80,25 @@ describe('TodoService', () => {
       expect(repo.deleteTodo).toHaveBeenCalledWith('u1', 't1');
     });
 
-    // BUG: см. FIX.md «deleteTodo: чужая или несуществующая задача даёт 500»
-    it.failing(
-      'answers NotFound when the repository finds nothing to delete (Prisma P2025)',
-      async () => {
-        repo.deleteTodo.mockRejectedValue(
-          Object.assign(new Error('Record to delete does not exist.'), {
-            code: 'P2025',
-          }),
-        );
+    it('answers NotFound when the repository finds nothing to delete (Prisma P2025)', async () => {
+      repo.deleteTodo.mockRejectedValue(
+        Object.assign(new Error('Record to delete does not exist.'), {
+          code: 'P2025',
+        }),
+      );
 
-        await expect(
-          service.deleteTodo('u1', { todoId: 'foreign' }),
-        ).rejects.toBeInstanceOf(NotFoundException);
-      },
-    );
+      await expect(
+        service.deleteTodo('u1', { todoId: 'foreign' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('does not hide other repository errors', async () => {
+      repo.deleteTodo.mockRejectedValue(new Error('db down'));
+
+      await expect(service.deleteTodo('u1', { todoId: 't1' })).rejects.toThrow(
+        'db down',
+      );
+    });
   });
 
   describe('updateTodoImage', () => {

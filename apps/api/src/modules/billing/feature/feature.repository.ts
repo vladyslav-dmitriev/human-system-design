@@ -11,4 +11,13 @@ export class FeatureRepository {
       data: { userId, priceId },
     });
   }
+
+  async hasUserFeature(userId: string, priceId: string) {
+    const feature = await this.prisma.userFeature.findFirst({
+      where: { userId, priceId },
+      select: { id: true },
+    });
+
+    return feature !== null;
+  }
 }

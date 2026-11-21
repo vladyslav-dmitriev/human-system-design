@@ -1,1 +1,1 @@
-export { EmailSendVerificationBodyDto } from './email-send-verification.body.dto';
+export { EmailVerifyQueryDto } from './email-verify.query.dto';

@@ -79,10 +79,12 @@ describe('TwilioService', () => {
   });
 
   describe('PAID_API is not "enabled"', () => {
+    const mock = { SMS_DEV_MOCK: 'true', NODE_ENV: 'development' };
+
     it.each([undefined, 'disabled', 'ENABLED', ''])(
-      'does not call Twilio when PAID_API=%p',
+      'does not call Twilio when PAID_API=%p (dev mock)',
       async (paid) => {
-        const service = build({ ...base, PAID_API: paid });
+        const service = build({ ...base, ...mock, PAID_API: paid });
 
         await service.sendSmsCode({ phoneNumber: '+1' });
         await service.verifySmsCode({ phoneNumber: '+1', code: '1' });
@@ -92,32 +94,65 @@ describe('TwilioService', () => {
       },
     );
 
-    // BUG: см. FIX.md «Без PAID_API=enabled любой SMS-код считается верным»
-    it.failing(
-      'does not accept an arbitrary code when PAID_API is unset',
-      async () => {
-        const service = build({ ...base, PAID_API: undefined });
+    it('without SMS_DEV_MOCK the dev code 123456 is NOT accepted, even in development', async () => {
+      for (const flag of [undefined, 'false', '']) {
+        const service = build({
+          ...base,
+          PAID_API: undefined,
+          NODE_ENV: 'development',
+          SMS_DEV_MOCK: flag,
+        });
 
         await expect(
-          service.verifySmsCode({ phoneNumber: '+1', code: 'anything' }),
+          service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
         ).resolves.toBe(false);
-      },
-    );
-
-    // BUG: см. FIX.md «Без PAID_API=enabled любой SMS-код считается верным»
-    it.failing('does not accept an arbitrary code in production', async () => {
-      const prev = process.env.NODE_ENV;
-
-      process.env.NODE_ENV = 'production';
-      try {
-        const service = build({ ...base, PAID_API: 'disabled' });
-
         await expect(
-          service.verifySmsCode({ phoneNumber: '+1', code: '000000' }),
-        ).resolves.toBe(false);
-      } finally {
-        process.env.NODE_ENV = prev;
+          service.sendSmsCode({ phoneNumber: '+1' }),
+        ).rejects.toThrow('SMS provider is not enabled');
       }
+    });
+
+    it('with SMS_DEV_MOCK=true accepts only the fixed dev code', async () => {
+      const service = build({ ...base, ...mock, PAID_API: undefined });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(true);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: 'anything' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '000000' }),
+      ).resolves.toBe(false);
+    });
+
+    it('does not accept even the dev code in production, even with SMS_DEV_MOCK=true', async () => {
+      const service = build({
+        ...base,
+        PAID_API: 'disabled',
+        NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
+      });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '000000' }),
+      ).resolves.toBe(false);
+    });
+
+    it('refuses to fake-send an SMS in production', async () => {
+      const service = build({
+        ...base,
+        PAID_API: undefined,
+        NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
+      });
+
+      await expect(service.sendSmsCode({ phoneNumber: '+1' })).rejects.toThrow(
+        'SMS provider is not enabled',
+      );
     });
   });
 });

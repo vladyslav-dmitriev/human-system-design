@@ -1,6 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from "next-themes";
 
 import { GBProvider } from "./growth-book-provider";
 
@@ -10,8 +11,10 @@ type ProvidersProps = {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <SessionProvider>
-      <GBProvider>{children}</GBProvider>
-    </SessionProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <SessionProvider>
+        <GBProvider>{children}</GBProvider>
+      </SessionProvider>
+    </ThemeProvider>
   );
 }

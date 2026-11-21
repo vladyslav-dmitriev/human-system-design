@@ -53,3 +53,22 @@ infra/helm/**/charts/
 # Claude Code local state
 .claude/settings.local.json
 .claude/worktrees/
+.playwright-mcp/
+
+# Playwright / e2e: сессии, трейсы, отчёты
+**/playwright/.auth/
+**/playwright-report/
+**/test-results/
+
+# Локальные env-файлы в любом пакете (образцы .env.example остаются в git)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Манифесты секретов Kubernetes: только через Sealed/External Secrets, не в git
+infra/helm/secrets/
+
+# Прочее
+*.tsbuildinfo
+*.log
+.idea/

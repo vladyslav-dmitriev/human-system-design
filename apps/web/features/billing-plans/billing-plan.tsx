@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 
 type BillingPlanProps = {
@@ -39,6 +39,7 @@ export const BillingPlan = ({
   buttonText,
 }: BillingPlanProps) => {
   const t = useTranslations();
+  const locale = useLocale();
 
   return (
     <Card
@@ -46,7 +47,7 @@ export const BillingPlan = ({
       className={`flex flex-col justify-between relative ${isUnactive ? "muted-foreground/20" : "border-primary"}`}
     >
       {isPopular && (
-        <div className="absolute -top-3 right-4 bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-0.5 rounded-full">
+        <div className="absolute -top-3 right-4 bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-0.5 rounded-full">
           {t("popular")}
         </div>
       )}
@@ -56,7 +57,7 @@ export const BillingPlan = ({
         <CardDescription>{t(plan.description)}</CardDescription>
 
         <div className="mt-4 text-3xl font-bold">
-          <span>{getFormattedPrice(plan.amount, plan.currency)}</span>
+          <span>{getFormattedPrice(plan.amount, plan.currency, locale)}</span>
 
           {plan.interval && (
             <span className="text-sm font-normal text-muted-foreground">
@@ -69,7 +70,8 @@ export const BillingPlan = ({
       <CardContent className="space-y-3 flex-1">
         {plan.features.map((feature) => (
           <div key={feature} className="flex items-center gap-2 text-sm">
-            <Check className="h-4 w-4 text-green-500" /> <span>{feature}</span>
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />{" "}
+            <span>{feature}</span>
           </div>
         ))}
       </CardContent>

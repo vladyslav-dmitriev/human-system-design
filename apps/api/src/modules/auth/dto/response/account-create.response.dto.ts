@@ -1,12 +1,8 @@
-import { Optional } from '@nestjs/common';
+import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
 export class AccountCreateResponseDto {
+  @ApiProperty()
   @Expose()
-  @Optional()
-  success?: boolean;
-
-  @Expose()
-  @Optional()
-  error?: string;
+  success: boolean;
 }

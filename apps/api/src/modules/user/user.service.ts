@@ -3,9 +3,12 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import type Redis from 'ioredis';
 
 import { UserRepository } from './user.repository';
 import {
@@ -14,37 +17,69 @@ import {
   UserSetTwoFactorBodyDto,
 } from './dto';
 import { SmsService } from 'modules/sender/sms';
-import { RabbitMQService } from 'modules/rabbitmq/rabbitmq.service';
+import {
+  PENDING_PHONE_TTL_SECONDS,
+  pendingPhoneKey,
+} from '../sender/sms/sms.constants';
+import { EmailService } from '../sender/email/email.service';
+import { EmailVerificationService } from '../sender/email/email-verification.service';
+import { REDIS_CLIENT, bumpSessionVersion } from '../redis';
+import { ErrorCode } from '../../common/errors';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
-    @Inject(RabbitMQService) private readonly rabbitMQService: RabbitMQService,
     @Inject(SmsService) private readonly smsService: SmsService,
+    @Inject(EmailService) private readonly emailService: EmailService,
+    @Inject(EmailVerificationService)
+    private readonly emailVerification: EmailVerificationService,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async getUserProfile(userId: string) {
-    const emailProducer = this.rabbitMQService.getEmailProducer();
-
-    await emailProducer.sendEmailUserCreate({
-      to: 'test@example.com',
-      subject: 'Тестовое письмо из API',
-      body: 'Привет! Это тестовое сообщение из API',
-      userId: 'test-user-123',
-    });
-
     const user = await this.userRepository.getUserById(userId);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException({
+        code: ErrorCode.NOT_FOUND,
+        message: 'User not found',
+      });
     }
 
     return user;
   }
 
-  async updateEmail(userId: string, dto: UserUpdateEmailBodyDto) {
+  private async assertCurrentPassword(userId: string, password: string) {
+    const user = await this.userRepository.getUserById(userId);
+
+    if (!user) {
+      throw new NotFoundException({
+        code: ErrorCode.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+
+    if (!(await bcrypt.compare(password, user.password))) {
+      throw new BadRequestException({
+        code: ErrorCode.USER_INVALID_PASSWORD,
+        message: 'Current password is incorrect',
+      });
+    }
+
+    return user;
+  }
+
+  async updateEmail(
+    userId: string,
+    dto: UserUpdateEmailBodyDto,
+    locale: 'uk' | 'en' = 'en',
+  ) {
     const newEmail = dto.email.toLowerCase().trim();
+
+    await this.assertCurrentPassword(userId, dto.currentPassword);
 
     const exists = await this.userRepository.checkUserEmailExist(
       userId,
@@ -52,33 +87,51 @@ export class UserService {
     );
 
     if (exists) {
-      throw new ConflictException(
-        'Этот email адрес уже используется в системе',
-      );
+      throw this.emailTaken();
     }
 
-    await this.userRepository.updateUser({ id: userId }, { email: newEmail });
+    try {
+      await this.userRepository.updateUserEmail(userId, newEmail);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw this.emailTaken();
+      }
+
+      throw error;
+    }
+
+    // Смена email отзывает ранее выданные сессии
+    await bumpSessionVersion(this.redis, userId);
+
+    try {
+      await this.emailService.sendVerificationEmail(
+        {
+          email: newEmail,
+          token: this.emailVerification.createToken(userId, newEmail),
+        },
+        locale,
+      );
+    } catch (error) {
+      // Email уже изменён: письмо можно запросить повторно через send-verification
+      this.logger.error(`Verification email failed: ${String(error)}`);
+    }
 
     return { success: true };
   }
 
   async updatePassword(userId: string, dto: UserUpdatePasswordBodyDto) {
-    const user = await this.userRepository.getUserById(userId);
-
-    if (!user) throw new BadRequestException('User not found');
-
-    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
-
-    if (!isMatch) {
-      throw new BadRequestException('Неверно указан текущий пароль');
-    }
+    const user = await this.assertCurrentPassword(userId, dto.currentPassword);
 
     const isSameAsOld = await bcrypt.compare(dto.newPassword, user.password);
 
     if (isSameAsOld) {
-      throw new BadRequestException(
-        'Новый пароль не должен совпадать со старым',
-      );
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'New password must differ from the current one',
+      });
     }
 
     const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
@@ -87,30 +140,82 @@ export class UserService {
       { id: userId },
       { password: hashedNewPassword },
     );
+    await bumpSessionVersion(this.redis, userId);
+
+    return { success: true };
+  }
+
+  /** Запоминает номер, на который SMS уйдёт при включении 2FA (до подтверждения кодом). */
+  async setPendingPhone(userId: string, phone: string) {
+    await this.redis.set(
+      pendingPhoneKey(userId),
+      phone,
+      'EX',
+      PENDING_PHONE_TTL_SECONDS,
+    );
 
     return { success: true };
   }
 
   async setTwoFactor(userId: string, dto: UserSetTwoFactorBodyDto) {
+    // Включать и выключать 2FA можно только зная текущий пароль (украденная сессия не годится)
+    const user = await this.assertCurrentPassword(userId, dto.currentPassword);
+
+    if (dto.twoFactorEnabled && user.authSettings?.twoFactorEnabled) {
+      // Сменить номер: выключить кодом со старого номера и включить заново
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Two-factor authentication is already enabled',
+      });
+    }
+
+    // Включение: номер должен быть тем, на который отправили код (pending, иначе профиль).
+    // Выключение: код приходит на номер профиля, pending-номер не используется.
+    const phone = dto.twoFactorEnabled
+      ? ((await this.redis.get(pendingPhoneKey(userId))) ?? user.profile?.phone)
+      : user.profile?.phone;
+
+    if (!phone || (dto.twoFactorEnabled && phone !== dto.phone)) {
+      throw this.invalidOtp();
+    }
+
+    let isCodeValid = false;
+
     try {
-      const isCodeValid = await this.smsService.verifySmsCode({
-        phoneNumber: dto.phone,
+      isCodeValid = await this.smsService.verifySmsCode({
+        phoneNumber: phone,
         code: dto.code,
       });
-
-      if (!isCodeValid) {
-        throw new BadRequestException('Invalid code');
-      }
-
-      await this.userRepository.updateUserTwoFactor({
-        userId,
-        phone: dto.twoFactorEnabled ? dto.phone : null,
-        twoFactorEnabled: dto.twoFactorEnabled,
-      });
-
-      return { success: true };
     } catch {
-      return { success: false };
+      isCodeValid = false;
     }
+
+    if (!isCodeValid) {
+      throw this.invalidOtp();
+    }
+
+    await this.userRepository.updateUserTwoFactor({
+      userId,
+      phone: dto.twoFactorEnabled ? phone : null,
+      twoFactorEnabled: dto.twoFactorEnabled,
+    });
+    await this.redis.del(pendingPhoneKey(userId));
+    await bumpSessionVersion(this.redis, userId);
+
+    return { success: true };
+  }
+
+  private emailTaken() {
+    return new ConflictException({
+      code: ErrorCode.USER_EMAIL_TAKEN,
+      message: 'Email is already in use',
+    });
+  }
+
+  private invalidOtp() {
+    return new BadRequestException({
+      code: ErrorCode.USER_INVALID_OTP,
+      message: 'Invalid or expired code',
+    });
   }
 }

@@ -1,16 +1,14 @@
-import { IsEmail, IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, Length } from 'class-validator';
 
 export class AccountTwoFactorBodyDto {
-  @IsEmail()
-  email: string;
-
+  @ApiProperty({ description: 'otpChallenge из ответа login' })
   @IsString()
-  password: string;
+  @Length(20, 200)
+  otpChallenge: string;
 
+  @ApiProperty({ minLength: 6, maxLength: 6 })
   @IsString()
-  @Length(6)
+  @Length(6, 6)
   code: string;
-
-  @IsString()
-  captchaToken: string;
 }

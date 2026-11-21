@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { X, ArrowRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,8 @@ import {
 import { ROUTE } from "@/constants";
 
 export default function BillingCanceledPage() {
+  const t = useTranslations();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[75vh] px-4 antialiased selection:bg-muted">
       {/* Контейнер карточки: идентичен success-странице по структуре, но с нейтральными акцентами */}
@@ -25,12 +28,11 @@ export default function BillingCanceledPage() {
           </div>
 
           <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
-            Оплата отменена
+            {t("billing_canceled_title")}
           </CardTitle>
 
           <p className="text-muted-foreground text-[13px] mt-1.5 max-w-[280px] mx-auto leading-relaxed">
-            Процесс оформления подписки был прерван. Никакие средства не были
-            списаны с вашей карты.
+            {t("billing_canceled_description")}
           </p>
         </CardHeader>
 
@@ -41,20 +43,18 @@ export default function BillingCanceledPage() {
               <HelpCircle className="h-4 w-4 text-muted-foreground/80 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="text-xs font-medium text-foreground">
-                  Возникли проблемы с оплатой?
+                  {t("billing_canceled_help_title")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Если Stripe отклонил карту, проверьте лимиты на
-                  интернет-покупки или обратитесь в поддержку.
+                  {t("billing_canceled_help_description")}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="text-center">
-            <p className="text-[11px] text-muted-foreground/80 leading-normal max-w-[280px] mx-auto">
-              Ваш текущий тариф остается в силе. Вы по-прежнему имеете доступ ко
-              всем вашим текущим данным.
+            <p className="text-xs text-muted-foreground/80 leading-normal max-w-[280px] mx-auto">
+              {t("billing_canceled_note")}
             </p>
           </div>
         </CardContent>
@@ -62,21 +62,25 @@ export default function BillingCanceledPage() {
         <div className="h-[1px] bg-gradient-to-r from-transparent via-border/40 to-transparent w-full my-1" />
 
         <CardFooter className="pb-8 pt-4 px-6 flex flex-col gap-2">
-          <Button className="w-full bg-foreground text-background hover:bg-foreground/90 font-medium text-[13px] h-9 shadow-sm group rounded-md">
+          <Button
+            asChild
+            className="w-full bg-foreground text-background hover:bg-foreground/90 font-medium text-[13px] h-9 shadow-sm group rounded-md"
+          >
             <Link
               href={ROUTE.PRICING}
               className="flex items-center justify-center gap-1.5"
             >
-              <span>Перейти к тарифам</span>
+              <span>{t("billing_canceled_to_pricing")}</span>
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>
 
           <Button
+            asChild
             variant="ghost"
             className="w-full text-muted-foreground hover:text-foreground text-[13px] h-9 rounded-md transition-colors"
           >
-            <Link href="/dashboard/todos">Продолжить работу в TaskFlow</Link>
+            <Link href={ROUTE.TODOS}>{t("billing_canceled_continue")}</Link>
           </Button>
         </CardFooter>
       </Card>

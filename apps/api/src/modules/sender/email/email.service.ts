@@ -1,7 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
-// import { InjectQueue } from '@nestjs/bullmq';
-// import { Queue } from 'bullmq';
-// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+import { createHash } from 'crypto';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
+import type Redis from 'ioredis';
+
+import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+import { REDIS_CLIENT } from '../../redis';
 import type { EmailMessage, IEmailService } from './email.interface';
 
 type Locale = 'uk' | 'en';
@@ -17,37 +21,78 @@ export type SendInvoiceEmailParams = {
   locale: Locale;
 };
 
+/** Повторный запрос письма подтверждения для того же адреса в этом окне не ставится в очередь. */
+export const VERIFICATION_EMAIL_COOLDOWN_SECONDS = 60;
+
+export const verificationCooldownKey = (email: string) =>
+  `email-verification-sent:${createHash('sha256').update(email).digest('hex')}`;
+
 /**
- * Очередь писем (BullMQ) сейчас отключена, поэтому методы — заглушки,
- * которые ничего не отправляют. Код постановки в очередь оставлен в комментариях.
+ * Письма уходят через очередь BullMQ (`EmailProcessor` рендерит шаблон и вызывает
+ * провайдера с ретраями). `sendEmail` отправляет сразу и нужен только процессору.
  */
 @Injectable()
 export class EmailService implements IEmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(
     @Inject('EMAIL_PROVIDER') private readonly emailProvider: IEmailService,
-    // @InjectQueue(QUEUE.EmailQueue) private readonly emailQueue: Queue,
+    @InjectQueue(QUEUE.EmailQueue) private readonly emailQueue: Queue,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  sendEmail(_message: EmailMessage): Promise<void> {
-    // await this.emailProvider.sendEmail(message);
-    return Promise.resolve();
+  sendEmail(message: EmailMessage): Promise<void> {
+    return this.emailProvider.sendEmail(message);
   }
 
-  sendVerificationEmail(
-    _params: SendVerificationEmailParams,
-    _locale: Locale,
+  /**
+   * Дубли гасятся окном `VERIFICATION_EMAIL_COOLDOWN_SECONDS` на адрес
+   * (регистрация, смена email и запрос web приходят почти одновременно).
+   */
+  async sendVerificationEmail(
+    { email, token }: SendVerificationEmailParams,
+    locale: Locale,
   ): Promise<void> {
-    // await this.emailQueue.add(
-    //   QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail,
-    //   { data: { email, token, locale } },
-    // );
-    return Promise.resolve();
+    const key = verificationCooldownKey(email);
+    const claimed = await this.redis.set(
+      key,
+      '1',
+      'EX',
+      VERIFICATION_EMAIL_COOLDOWN_SECONDS,
+      'NX',
+    );
+
+    if (claimed === null) {
+      this.logger.log('Verification email skipped: sent recently');
+
+      return;
+    }
+
+    try {
+      await this.emailQueue.add(
+        QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail,
+        { email, token, locale },
+        { removeOnComplete: true },
+      );
+    } catch (error) {
+      await this.redis.del(key).catch(() => undefined);
+      throw error;
+    }
   }
 
-  sendInvoiceEmail(_params: SendInvoiceEmailParams): Promise<void> {
-    // await this.emailQueue.add(QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail, {
-    //   data: { email, invoiceNumber, amount, currency, pdfUrl, locale },
-    // });
-    return Promise.resolve();
+  async sendInvoiceEmail({
+    email,
+    invoiceNumber,
+    amount,
+    currency,
+    pdfUrl,
+    locale,
+  }: SendInvoiceEmailParams): Promise<void> {
+    await this.emailQueue.add(
+      QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail,
+      { email, invoiceNumber, amount, currency, pdfUrl, locale },
+      // Один номер счёта: одно письмо, повторная постановка игнорируется
+      { jobId: `invoice-email-${invoiceNumber}` },
+    );
   }
 }

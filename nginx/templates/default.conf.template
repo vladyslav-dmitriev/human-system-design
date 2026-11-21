@@ -1,0 +1,71 @@
+# WebSocket: Connection: upgrade только если клиент прислал Upgrade
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ""      "";
+}
+
+# HSTS только для https: напрямую или через балансировщик (X-Forwarded-Proto).
+# Пустое значение add_header не отправляет.
+map "$scheme:$http_x_forwarded_proto" $hsts {
+    default                  "";
+    "~^https:"               "max-age=31536000; includeSubDomains";
+    "~:https$"               "max-age=31536000; includeSubDomains";
+}
+
+server {
+    listen ${NGINX_PORT};
+    server_name myapp.local;
+
+    server_tokens off;
+    # Для web (Server Actions и т.п.); для api ниже задано отдельно
+    client_max_body_size 1m;
+
+    # Проверка живости самого nginx (healthcheck в compose)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Закрыто снаружи. Регулярки идут раньше общего /api/ и не зависят от регистра
+    # (Express принимает /Metrics, /metrics/ и т.д.).
+    #  - validate вызывается только сервером web по внутреннему адресу api;
+    #  - метрики собирает Prometheus внутри кластера;
+    #  - Swagger (/docs, /docs-json, /docs-yaml) на проде не нужен.
+    location ~* ^/api/service-auth/validate/?$ {
+        return 404;
+    }
+    location ~* ^/api/metrics/?$ {
+        return 404;
+    }
+    location ~* ^/api/docs {
+        return 404;
+    }
+
+    # 1. Запросы NextAuth (обслуживает web)
+    location /api/auth/ {
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
+        proxy_pass http://web:3000;
+    }
+
+    # 2. Остальные запросы к API (префикс /api/ срезается)
+    location /api/ {
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
+        # api принимает загрузки до 5 МБ (+ multipart-обвязка)
+        client_max_body_size 6m;
+        proxy_set_header Cookie $http_cookie;
+        proxy_pass_header Set-Cookie;
+        proxy_pass http://api:3001/;
+    }
+
+    # 3. Всё остальное - Next. Cache-Control выставляет сам Next
+    # (X-Accel-Buffering: no он добавляет сам для стриминговых ответов).
+    location / {
+        include /etc/nginx/snippets/proxy.inc;
+        include /etc/nginx/snippets/security-headers.inc;
+        include /etc/nginx/snippets/csp-report-only.inc;
+        proxy_pass http://web:3000;
+    }
+}

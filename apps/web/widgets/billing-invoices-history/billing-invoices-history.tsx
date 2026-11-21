@@ -1,5 +1,7 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useEffect, useState } from "react";
 import { FileText, Download, CheckCircle2, AlertCircle } from "lucide-react";
 import {
@@ -9,8 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
-import { getFormattedPrice } from "@/shared/lib/price";
+import { useLocale, useTranslations } from "next-intl";
+import { formatDate, getFormattedPrice } from "@/shared/lib/price";
 import { API_URL } from "@/api";
 
 interface Invoice {
@@ -28,11 +30,12 @@ export function BillingInvoicesHistory() {
   const [isLoading, setIsLoading] = useState(true);
 
   const t = useTranslations();
+  const locale = useLocale();
 
   useEffect(() => {
     async function loadInvoices() {
       try {
-        const response = await fetch(API_URL.billing.invoices(), {
+        const response = await apiFetch(API_URL.billing.invoices(), {
           credentials: "include",
         });
 
@@ -52,10 +55,15 @@ export function BillingInvoicesHistory() {
   if (isLoading) {
     return (
       <Card className="max-w-xl border border-muted/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-background/60 backdrop-blur-md rounded-xl overflow-hidden">
-        <div className="p-6 space-y-3 animate-pulse">
-          <div className="h-4 w-32 bg-muted/40 rounded" />
-          <div className="h-3 w-48 bg-muted/20 rounded" />
-          <div className="h-12 bg-muted/10 rounded-lg mt-4" />
+        <div
+          role="status"
+          aria-busy="true"
+          className="p-6 space-y-3 motion-safe:animate-pulse"
+        >
+          <span className="sr-only">{t("loading")}</span>
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
+          <Skeleton className="h-12 rounded-lg mt-4" />
         </div>
       </Card>
     );
@@ -83,13 +91,7 @@ export function BillingInvoicesHistory() {
         ) : (
           <div className="border border-muted/30 rounded-lg bg-background/30 overflow-hidden mb-4 divide-y divide-muted/30">
             {invoices.map((invoice) => {
-              const dateFormatted = new Date(
-                invoice.createdAt,
-              ).toLocaleDateString("ru-RU", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              });
+              const dateFormatted = formatDate(invoice.createdAt, locale);
               const isPaid = invoice.status === "paid";
 
               return (
@@ -101,15 +103,15 @@ export function BillingInvoicesHistory() {
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-semibold tracking-tight text-foreground/90">
-                        {invoice.number || "Разовый платеж"}
+                        {invoice.number || t("payment_history_one_time")}
                       </span>
 
                       {/* Ультра-минималистичный статус */}
                       <span
-                        className={`text-[10px] font-bold tracking-wider uppercase px-1.5 py-1 rounded flex items-center gap-1 ${
+                        className={`text-xs font-bold tracking-wider uppercase px-1.5 py-1 rounded flex items-center gap-1 ${
                           isPaid
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-amber-500/10 text-amber-600"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         }`}
                       >
                         {isPaid ? (
@@ -130,7 +132,11 @@ export function BillingInvoicesHistory() {
 
                   <div className="flex items-center gap-4">
                     <div className="text-sm font-bold text-foreground/90 tracking-tight">
-                      {getFormattedPrice(invoice.amount, invoice.currency)}
+                      {getFormattedPrice(
+                        invoice.amount,
+                        invoice.currency,
+                        locale,
+                      )}
                     </div>
 
                     {invoice.pdfUrl && (
@@ -140,6 +146,7 @@ export function BillingInvoicesHistory() {
                         rel="noopener noreferrer"
                         className="h-8 w-8 rounded-lg bg-secondary text-foreground border border-muted/40 hover:bg-foreground hover:text-background hover:border-foreground flex items-center justify-center transition-all duration-200 group/btn"
                         title={t("payment_history_open_pdf")}
+                        aria-label={t("payment_history_open_pdf")}
                       >
                         <Download className="h-3.5 w-3.5 opacity-70 transition-all duration-200 group-hover/btn:scale-105 group-hover/btn:opacity-100 group-hover/btn:text-background" />
                       </a>

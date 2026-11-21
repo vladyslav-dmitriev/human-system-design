@@ -7,7 +7,7 @@ export const AuthForm = ({ onSubmit, children }: AuthFormProps) => {
   return (
     <form
       onSubmit={onSubmit}
-      className="w-full max-w-md bg-white p-8 rounded shadow-md space-y-4"
+      className="w-full max-w-md bg-card text-card-foreground p-8 rounded-lg border shadow-sm space-y-4"
     >
       {children}
     </form>

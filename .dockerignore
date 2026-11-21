@@ -1,17 +1,41 @@
-# prettier-ignore
-node_modules
-**/node_modules
-dist
-**/dist
+# Контекст сборки: только исходники, без секретов, артефактов и служебных папок.
+# Шаблоны вида **/ действуют на любой глубине (в отличие от одиночных имён).
+
+# VCS и CI
 .git
-.env
-.next
+.github
+.gitignore
+
+# Секреты: любые .env кроме образцов
+**/.env
+**/.env.*
+!**/.env.example
+
+# Зависимости и сборка
+**/node_modules
+**/dist
 **/.next
-.output
-.turbo
+**/.output
 **/.turbo
-coverage
+**/*.tsbuildinfo
 **/coverage
-test-results
-playwright-report
-npm-debug.log
+
+# E2E: сессии, трейсы, отчёты (package.json оставляем: нужен для pnpm install --frozen-lockfile)
+packages/e2e/*
+!packages/e2e/package.json
+**/playwright
+**/playwright-report
+**/test-results
+**/.auth
+.playwright-mcp
+
+# Служебное
+.claude
+.amplitude
+.idea
+.DS_Store
+infra
+docs
+/*.md
+**/*.log
+**/*.pem

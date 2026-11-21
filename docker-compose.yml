@@ -1,16 +1,38 @@
 services:
   nginx:
-    image: nginx:alpine
+    image: nginx:1.31-alpine
+    restart: unless-stopped
     ports:
       - "80:80"
+    environment:
+      NGINX_PORT: "80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Каталоги, а не файлы: bind mount одного файла держит старый inode, когда git заменяет файл.
+      # conf.d не монтируем: туда envsubst пишет готовый default.conf.
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      # Шаблон: официальный образ подставляет $NGINX_PORT через envsubst в /etc/nginx/conf.d/default.conf
+      - ./nginx/templates:/etc/nginx/templates:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     depends_on:
-      - web
-      - api
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
 
   api:
-    build: .
+    build:
+      context: .
+      target: dev # prod-образ собирается без target (см. Dockerfile)
+    restart: unless-stopped
     volumes:
       - ./apps/api:/usr/src/app/apps/api
     env_file:
@@ -30,13 +52,39 @@ services:
       - RABBITMQ_RECONNECT_INTERVAL=5000
     working_dir: /usr/src/app/apps/api
     command: pnpm run start:dev
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1536M
 
   db:
     image: postgres:16-alpine
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydb
       POSTGRES_USER: user
@@ -50,12 +98,12 @@ services:
       backup.enabled: "true"
       backup.cron: "0 2 * * *"      # Каждый день в 2 часа ночи
       backup.type: "postgres"
-      backup.conn: "postgresql://user:password@postgres:5432/mydb"
+      backup.conn: "postgresql://user:password@db:5432/mydb"
       backup.dest: "remote"         # В S3 или MinIO
       backup.retention: "7d"        # Хранить 7 дней
 
   label-backup:   # ← Добавьте ЭТОТ сервис
-    image: resulgg/label-backup
+    image: resulgg/label-backup@sha256:d48b1a266d73e9a125b4c4b441f4157f9b563506adc401ffdf984005e7f3f9d4
     environment:
       LOCAL_BACKUP_PATH: "/backups"
       GLOBAL_RETENTION_PERIOD: "30d"
@@ -64,23 +112,44 @@ services:
       - ./backups:/backups
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
 
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4@sha256:40fa840c5bb7c8463957f1255b01283732c2d8c9396a956d180f8e6c296753b3
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: root
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-root}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80" # только локально
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     # ports:
     #   - "6379:6379"
+    # session-version и идемпотентность вебхуков живут только в Redis: AOF и без вытеснения ключей
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
       - redisdata:/data
     healthcheck:
@@ -95,9 +164,9 @@ services:
     hostname: rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"      # AMQP порт для приложения
-      - "15672:15672"    # Management UI
-      - "15692:15692"    # Prometheus metrics (опционально)
+      - "127.0.0.1:5672:5672"      # AMQP порт для приложения (только локально)
+      - "127.0.0.1:15672:15672"    # Management UI
+      - "127.0.0.1:15692:15692"    # Prometheus metrics (опционально)
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-admin123}
@@ -107,7 +176,6 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - rabbitmq_logs:/var/log/rabbitmq
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -119,16 +187,37 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
 
   web:
-    build: .
+    build:
+      context: .
+      target: dev
+    restart: unless-stopped
     volumes:
       - ./apps/web:/usr/src/app/apps/web
-      - ./apps/web:/app
     env_file:
       - ./apps/web/.env
     working_dir: /usr/src/app/apps/web
     command: pnpm run dev
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 3G
 
 volumes:
   pgdata:

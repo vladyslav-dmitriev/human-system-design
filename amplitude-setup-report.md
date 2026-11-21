@@ -13,12 +13,15 @@
 ## What was done
 
 ### 1. SDK installed
+
 `@amplitude/analytics-browser` added to `apps/web/package.json` dependencies via `pnpm --filter web add`.
 
 ### 2. Environment variable
+
 `NEXT_PUBLIC_AMPLITUDE_API_KEY` written to `apps/web/.env.local` (gitignored, never committed).
 
 ### 3. Amplitude initialized
+
 `instrumentation-client.js` — Amplitude init added alongside existing Sentry init. Uses Next.js 15.3+ `instrumentation-client` pattern for automatic client-side setup on every page load. Autocapture enabled (page views, sessions, form interactions, element clicks).
 
 ```js
@@ -35,17 +38,19 @@ amplitude.init(process.env.NEXT_PUBLIC_AMPLITUDE_API_KEY, {
 
 ### Instrumented (4 / 4)
 
-| Event | File | Properties |
-|-------|------|------------|
-| **Account Created** | `apps/web/app/create-account/page.tsx` | `sign_up_method` ("credentials" \| "google" \| "github") |
-| **User Signed In** | `apps/web/app/login/page.tsx` | `sign_in_method` ("credentials" \| "google" \| "github") |
-| **Todo Completed** | `apps/web/shared/ui/TodosList/TodosList.tsx` | `todo_title`, `set_title` |
-| **Todo Set Finished** | `apps/web/shared/ui/TodosSet/TodosSet.tsx` | `set_title`, `todo_count` |
+| Event                 | File                                         | Properties                                               |
+| --------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| **Account Created**   | `apps/web/app/create-account/page.tsx`       | `sign_up_method` ("credentials" \| "google" \| "github") |
+| **User Signed In**    | `apps/web/app/login/page.tsx`                | `sign_in_method` ("credentials" \| "google" \| "github") |
+| **Todo Completed**    | `apps/web/shared/ui/TodosList/TodosList.tsx` | `todo_title`, `set_title`                                |
+| **Todo Set Finished** | `apps/web/shared/ui/TodosSet/TodosSet.tsx`   | `set_title`, `todo_count`                                |
 
 ### Covered by autocapture (0)
+
 No approved plan events were dropped to autocapture.
 
 ### Dropped (0)
+
 All approved plan events were instrumented.
 
 ---
@@ -53,6 +58,7 @@ All approved plan events were instrumented.
 ## Autocapture (enabled)
 
 The following are captured automatically — no custom `track()` calls needed:
+
 - `[Amplitude] Page Viewed` — all page navigations
 - `[Amplitude] Start Session` / `[Amplitude] End Session` — sessions
 - `[Amplitude] Form Started` / `[Amplitude] Form Submitted` — login & create-account forms
@@ -63,15 +69,15 @@ The following are captured automatically — no custom `track()` calls needed:
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `instrumentation-client.js` | Added Amplitude init (EU region, autocapture on) |
-| `apps/web/app/login/page.tsx` | Added `User Signed In` track (credentials + OAuth) |
-| `apps/web/app/create-account/page.tsx` | Added `Account Created` track (credentials + OAuth) |
-| `apps/web/shared/ui/TodosList/TodosList.tsx` | Added `Todo Completed` track + `todoSetTitle` prop |
-| `apps/web/shared/ui/TodosSet/TodosSet.tsx` | Added `Todo Set Finished` track, passes `title` to TodosList |
-| `apps/web/.env.local` | Created with `NEXT_PUBLIC_AMPLITUDE_API_KEY` |
-| `apps/web/package.json` | Added `@amplitude/analytics-browser@^2.42.5` |
+| File                                         | Change                                                       |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| `instrumentation-client.js`                  | Added Amplitude init (EU region, autocapture on)             |
+| `apps/web/app/login/page.tsx`                | Added `User Signed In` track (credentials + OAuth)           |
+| `apps/web/app/create-account/page.tsx`       | Added `Account Created` track (credentials + OAuth)          |
+| `apps/web/shared/ui/TodosList/TodosList.tsx` | Added `Todo Completed` track + `todoSetTitle` prop           |
+| `apps/web/shared/ui/TodosSet/TodosSet.tsx`   | Added `Todo Set Finished` track, passes `title` to TodosList |
+| `apps/web/.env.local`                        | Created with `NEXT_PUBLIC_AMPLITUDE_API_KEY`                 |
+| `apps/web/package.json`                      | Added `@amplitude/analytics-browser@^2.42.5`                 |
 
 ---
 

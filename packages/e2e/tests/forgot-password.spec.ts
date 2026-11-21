@@ -1,57 +1,23 @@
 import { test, expect } from "@playwright/test";
 
-import { waitForPageReady } from "../pages/helpers";
+import { LoginPage } from "../pages/login-page";
 
-test.beforeEach(async ({ page }) => {
-  await page.goto("/en/forgot-password");
-  await waitForPageReady(page);
-});
+// Password reset is not implemented yet (decision in docs/fix-plan.md): the page is hidden
+// and redirects to the login page of the same locale; no link to it on the login page.
+for (const locale of ["en", "uk"]) {
+  test(`forgot password: /${locale}/forgot-password redirects to /${locale}/login`, async ({
+    page,
+  }) => {
+    await page.goto(`/${locale}/forgot-password`);
 
-test("forgot password: page shows the reset form", async ({ page }) => {
-  await expect(page.getByText("Reset password")).toBeVisible();
-  await expect(page.getByPlaceholder("name@domain.com")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Back to login" }),
-  ).toHaveAttribute("href", /\/login$/);
-});
+    await expect(page).toHaveURL(new RegExp(`/${locale}/login$`));
+  });
+}
 
-test("forgot password: empty email shows 'Email is required'", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: "Send instructions" }).click();
+test("forgot password: the login page has no link to it", async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
 
-  await expect(page.getByText("Email is required")).toBeVisible();
-});
-
-test("forgot password: malformed email shows 'Invalid email'", async ({
-  page,
-}) => {
-  await page.getByPlaceholder("name@domain.com").fill("not-an-email");
-  await page.getByRole("button", { name: "Send instructions" }).click();
-
-  await expect(page.getByText("Invalid email")).toBeVisible();
-});
-
-test("forgot password: valid email shows the confirmation state", async ({
-  page,
-}) => {
-  await page
-    .getByPlaceholder("name@domain.com")
-    .fill("qa-e2e-nobody@example.test");
-  await page.getByRole("button", { name: "Send instructions" }).click();
-
-  await expect(page.getByText("Check your email")).toBeVisible();
-});
-
-// BUG: см. FIX.md "Forgot password не обращается к API" [L3]
-// The form only fakes a 1.5s delay, shows success and never calls the API.
-test.fixme("forgot password: a request to the API is sent", async ({
-  page,
-}) => {
-  const request = page.waitForRequest(/forgot|reset/i, { timeout: 5_000 });
-  await page
-    .getByPlaceholder("name@domain.com")
-    .fill("qa-e2e-nobody@example.test");
-  await page.getByRole("button", { name: "Send instructions" }).click();
-  await request;
+  await expect(loginPage.forgotPasswordLink).toHaveCount(0);
+  await expect(page.locator('a[href*="forgot-password"]')).toHaveCount(0);
 });

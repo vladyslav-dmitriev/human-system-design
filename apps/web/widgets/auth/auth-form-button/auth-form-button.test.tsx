@@ -23,4 +23,20 @@ describe("AuthFormButton Component", () => {
     // Проверяем HTML-атрибут кнопки
     expect(buttonElement).toHaveAttribute("type", "submit");
   });
+
+  it("isLoading: кнопка заблокирована и помечена aria-busy (нет двойной отправки)", () => {
+    render(<AuthFormButton buttonText="Отправить" isLoading />);
+
+    const buttonElement = screen.getByRole("button", { name: /отправить/i });
+    expect(buttonElement).toBeDisabled();
+    expect(buttonElement).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("без isLoading кнопка активна", () => {
+    render(<AuthFormButton buttonText="Отправить" />);
+
+    const buttonElement = screen.getByRole("button");
+    expect(buttonElement).toBeEnabled();
+    expect(buttonElement).toHaveAttribute("aria-busy", "false");
+  });
 });

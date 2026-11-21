@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { SmsService } from './sms.service';
 import { TwilioService } from './providers/twilio.service';
 import { SmsController } from './sms.controller';
-import { CaptchaModule } from '../../captcha';
+import { UserModule } from '../../user';
 
 @Module({
-  imports: [CaptchaModule],
+  imports: [forwardRef(() => UserModule)],
   providers: [
     {
       provide: 'SMS_PROVIDER',
