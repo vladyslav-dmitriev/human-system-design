@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useState } from "react";
 import { CreditCard, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { API_URL } from "@/api";
+import { formatDate } from "@/shared/lib/price";
 import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 interface CurrentSubscriptionProps {
@@ -35,7 +37,7 @@ export function CurrentSubscription({
     setPortalLoading(true);
 
     try {
-      const response = await fetch(API_URL.billing.createPortalSession(), {
+      const response = await apiFetch(API_URL.billing.createPortalSession(), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -64,11 +66,11 @@ export function CurrentSubscription({
       <CardHeader className="space-y-1.5 pb-5 relative">
         <div className="absolute top-6 right-6">
           {planName ? (
-            <div className="text-[11px] font-bold tracking-wider uppercase px-4 py-2 rounded-md bg-foreground text-background shadow-[0_3px_12px_rgba(0,0,0,0.08)] border border-foreground/10 flex items-center gap-1.5 transition-all">
+            <div className="text-xs font-bold tracking-wider uppercase px-4 py-2 rounded-md bg-foreground text-background shadow-[0_3px_12px_rgba(0,0,0,0.08)] border border-foreground/10 flex items-center gap-1.5 transition-all">
               {planName}
             </div>
           ) : (
-            <div className="text-[11px] font-semibold tracking-wider uppercase px-4 py-2 rounded-md bg-secondary/40 text-muted-foreground/60 border border-muted/30">
+            <div className="text-xs font-semibold tracking-wider uppercase px-4 py-2 rounded-md bg-secondary/40 text-muted-foreground/60 border border-muted/30">
               Free
             </div>
           )}
@@ -102,26 +104,21 @@ export function CurrentSubscription({
               {status === "active" && currentPeriodEnd && (
                 <span className="text-[13px] text-muted-foreground/70 mt-1 flex items-center gap-1">
                   {t("subscription_status_paid_until", {
-                    date: new Date(currentPeriodEnd).toLocaleDateString(
-                      locale === "uk" ? "uk-UA" : "en-US",
-                      {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      },
-                    ),
+                    date: formatDate(currentPeriodEnd, locale, {
+                      dateStyle: "long",
+                    }),
                   })}
                 </span>
               )}
 
               {status === "past_due" && (
-                <span className="text-[11px] text-destructive/80 mt-1 flex items-center gap-1">
+                <span className="text-xs text-destructive/80 mt-1 flex items-center gap-1">
                   {t("subscription_status_access_restricted")}
                 </span>
               )}
 
               {status !== "active" && status !== "past_due" && (
-                <span className="text-[11px] text-muted-foreground/50 mt-1 flex items-center gap-1">
+                <span className="text-xs text-muted-foreground/50 mt-1 flex items-center gap-1">
                   {t("subscription_status_no_active_periods")}
                 </span>
               )}

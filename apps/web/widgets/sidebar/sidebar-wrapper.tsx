@@ -55,7 +55,10 @@ export function SidebarWrapper({ children }: { children: React.ReactNode }) {
         >
           <Header isOpenSidebar={isOpen} onToggleSidebar={toggle} />
 
-          <main id="main" className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-5xl w-full mx-auto">
+          <main
+            id="main"
+            className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-5xl w-full mx-auto"
+          >
             {children}
           </main>
         </div>

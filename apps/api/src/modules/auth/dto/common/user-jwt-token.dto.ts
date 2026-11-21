@@ -17,4 +17,11 @@ export class UserJWTTokenDto {
   @ApiProperty()
   @Expose()
   role: string;
+
+  @ApiProperty({
+    description:
+      'Версия сессий пользователя; web кладёт её в JWT как `sessionVersion`',
+  })
+  @Expose()
+  sessionVersion: number;
 }

@@ -35,5 +35,6 @@
     "UNAUTHORIZED": "Please sign in again",
     "CONFLICT": "This conflicts with existing data",
     "PAYLOAD_TOO_LARGE": "The file is too large (max 5 MB)"
-  }
+  },
+  "theme_toggle": "Toggle dark theme"
 }

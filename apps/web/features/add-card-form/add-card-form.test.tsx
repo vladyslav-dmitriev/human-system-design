@@ -49,7 +49,9 @@ describe("AddCardForm", () => {
   });
 
   it("успех: createPaymentMethod -> POST payment-methods/:id -> onSuccess", async () => {
-    createPaymentMethod.mockResolvedValue({ paymentMethod: { id: "pm_test_1" } });
+    createPaymentMethod.mockResolvedValue({
+      paymentMethod: { id: "pm_test_1" },
+    });
     fetchMock.mockReturnValue(json({}));
     const onSuccess = vi.fn().mockResolvedValue(undefined);
     render(<AddCardForm onSuccess={onSuccess} />);
@@ -73,29 +75,39 @@ describe("AddCardForm", () => {
     const onSuccess = vi.fn();
     render(<AddCardForm onSuccess={onSuccess} />);
     submit();
-    expect(await screen.findByText("Your card number is incomplete.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Your card number is incomplete."),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.getByRole("button")).toBeEnabled();
   });
 
-  it("ошибка API: показывает сообщение сервера, onSuccess не вызывается", async () => {
+  it("ошибка API: показывает перевод по code, а не сырой message сервера", async () => {
     createPaymentMethod.mockResolvedValue({ paymentMethod: { id: "pm_1" } });
-    fetchMock.mockReturnValue(json({ message: "Card already attached" }, false));
+    fetchMock.mockReturnValue(
+      json({ message: "Card already attached", code: "NOT_FOUND" }, false),
+    );
     const onSuccess = vi.fn();
     render(<AddCardForm onSuccess={onSuccess} />);
     submit();
-    expect(await screen.findByText("Card already attached")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "errors.NOT_FOUND",
+    );
+    expect(screen.queryByText("Card already attached")).not.toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.getByRole("button")).toBeEnabled();
   });
 
-  it("сетевая ошибка: показывает message ошибки", async () => {
+  it("сетевая ошибка: сообщение из i18n, а не текст исключения", async () => {
     createPaymentMethod.mockResolvedValue({ paymentMethod: { id: "pm_1" } });
     fetchMock.mockRejectedValue(new Error("Failed to fetch"));
     render(<AddCardForm onSuccess={vi.fn()} />);
     submit();
-    expect(await screen.findByText("Failed to fetch")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "payment_new_error_submit",
+    );
+    expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument();
   });
 
   it("ошибка очищается при повторной отправке", async () => {
@@ -107,7 +119,9 @@ describe("AddCardForm", () => {
     submit();
     await screen.findByText("bad card");
     submit();
-    await waitFor(() => expect(screen.queryByText("bad card")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText("bad card")).not.toBeInTheDocument(),
+    );
   });
 
   it("повторная отправка блокируется, пока идёт запрос", async () => {
@@ -146,13 +160,16 @@ describe("AddCardForm", () => {
   it("ответ API не JSON (502 от прокси): сообщение из i18n, а не необработанный reject", async () => {
     createPaymentMethod.mockResolvedValue({ paymentMethod: { id: "pm_1" } });
     fetchMock.mockReturnValue(
-      Promise.resolve({ ok: false, json: () => Promise.reject(new SyntaxError("x")) }),
+      Promise.resolve({
+        ok: false,
+        json: () => Promise.reject(new SyntaxError("x")),
+      }),
     );
     const onSuccess = vi.fn();
     render(<AddCardForm onSuccess={onSuccess} />);
     submit();
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "payment_new_error_save",
+      "errors.INTERNAL",
     );
     expect(onSuccess).not.toHaveBeenCalled();
     expect(screen.getByRole("button")).toBeEnabled();

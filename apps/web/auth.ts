@@ -19,7 +19,10 @@ export const result = NextAuth({
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: ".myapp.local",
+        // Без AUTH_COOKIE_DOMAIN cookie host-only: работает на localhost
+        ...(process.env.AUTH_COOKIE_DOMAIN
+          ? { domain: process.env.AUTH_COOKIE_DOMAIN }
+          : {}),
       },
     },
   },
@@ -28,6 +31,7 @@ export const result = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.sessionVersion = user.sessionVersion ?? 0;
       }
 
       return token;
@@ -76,6 +80,8 @@ export const result = NextAuth({
             name: user.name,
             email: user.email,
             role: user.role,
+            sessionVersion:
+              typeof user.sessionVersion === "number" ? user.sessionVersion : 0,
           };
         } catch (error) {
           console.error(error);

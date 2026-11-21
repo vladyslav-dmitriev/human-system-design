@@ -25,11 +25,25 @@ describe('GET /health (nest testing module, fake Redis)', () => {
     expect(res.body).toEqual({ status: 'ok', redis: 'up' });
   });
 
-  it('Redis is down -> 503 in the unified error format, no internals', async () => {
+  it('Redis is down -> 503 {status:"error", redis:"down"} without internals', async () => {
     redis.ping.mockRejectedValue(new Error('ECONNREFUSED 10.0.0.1:6379'));
     const res = await request(app.getHttpServer()).get('/health').expect(503);
-    expect(res.body).toMatchObject({ statusCode: 503, code: 'INTERNAL' });
-    expect(JSON.stringify(res.body)).not.toContain('ECONNREFUSED');
+    expect(res.body).toEqual({ status: 'error', redis: 'down' });
+  });
+
+  it('no connection (status != ready) -> 503 without sending PING', async () => {
+    const offline = { status: 'reconnecting', ping: jest.fn() };
+    const offlineApp = await createTestApp({
+      controllers: [AppController],
+      providers: [{ provide: REDIS_CLIENT, useValue: offline }],
+    });
+
+    const res = await request(offlineApp.getHttpServer())
+      .get('/health')
+      .expect(503);
+    expect(res.body).toEqual({ status: 'error', redis: 'down' });
+    expect(offline.ping).not.toHaveBeenCalled();
+    await offlineApp.close();
   });
 
   it('an unexpected PING reply is also treated as down', async () => {

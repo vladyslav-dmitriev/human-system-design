@@ -21,12 +21,7 @@ interface TodoItemProps {
   onRemove: () => void;
 }
 
-export function TodoItem({
-  todo,
-  canDelete,
-  onEdit,
-  onRemove,
-}: TodoItemProps) {
+export function TodoItem({ todo, canDelete, onEdit, onRemove }: TodoItemProps) {
   const t = useTranslations();
   const [imageLoading, setImageLoading] = useState(true);
 

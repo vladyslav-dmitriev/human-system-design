@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
 import { defaultLocale, locales, routing } from "@repo/i18n";
 import { getToken } from "next-auth/jwt";
-import { ROUTE, SESSION_COOKIE_NAME } from "./constants";
+import { ROUTE, SESSION_COOKIE_NAME, SESSION_EXPIRED_PARAM } from "./constants";
 import { getPathLocale, normalizePath } from "./shared/lib/normalize-path";
 import {
   buildLoginHref,
@@ -40,6 +40,24 @@ export default async function middleware(req: NextRequest) {
   const isLoggedIn = !!token;
 
   const locale = resolveLocale(req, pathname);
+
+  // api отозвал сессию (401 UNAUTHORIZED): cookie ещё валидна для getToken,
+  // поэтому сбрасываем её здесь и пускаем на страницу входа без редиректа в кабинет
+  if (
+    isLoggedIn &&
+    isAuthRoute(path) &&
+    req.nextUrl.searchParams.get(SESSION_EXPIRED_PARAM) === "1"
+  ) {
+    const response = intlMiddleware(req);
+    response.cookies.set(SESSION_COOKIE_NAME, "", {
+      maxAge: 0,
+      path: "/",
+      ...(process.env.AUTH_COOKIE_DOMAIN
+        ? { domain: process.env.AUTH_COOKIE_DOMAIN }
+        : {}),
+    });
+    return response;
+  }
 
   if (isLoggedIn && isAuthRoute(path)) {
     return NextResponse.redirect(

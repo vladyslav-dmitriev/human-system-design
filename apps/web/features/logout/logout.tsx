@@ -29,7 +29,7 @@ export function Logout() {
   };
 
   return (
-    <div className="w-full p-5 bg-white dark:bg-zinc-950 border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
+    <div className="w-full p-5 bg-card border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
         <div className="flex flex-col space-y-3 flex-1 pl-0.5">
           <div className="flex items-center gap-2.5">

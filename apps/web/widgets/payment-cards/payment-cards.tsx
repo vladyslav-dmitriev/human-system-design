@@ -1,5 +1,7 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiFetch } from "@/shared/lib/api-client";
 import { useState } from "react";
 import { CreditCard, Loader2, Trash2, ShieldCheck, Plus } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
@@ -41,7 +43,7 @@ export const PaymentCards = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch(API_URL.billing.paymentMethodsClient(), {
+      const res = await apiFetch(API_URL.billing.paymentMethodsClient(), {
         credentials: "include",
         cache: "no-store",
       });
@@ -62,7 +64,7 @@ export const PaymentCards = ({
     setDeletingId(id);
 
     try {
-      const res = await fetch(API_URL.billing.paymentMethodsById(id), {
+      const res = await apiFetch(API_URL.billing.paymentMethodsById(id), {
         method: "DELETE",
         credentials: "include",
         headers: {
@@ -119,11 +121,13 @@ export const PaymentCards = ({
 
       <CardContent className="pb-6 space-y-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/60" />
+          <div role="status" aria-busy="true" className="space-y-2 py-1">
+            <span className="sr-only">{t("loading")}</span>
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
           </div>
         ) : cards.length === 0 ? (
-          <div className="p-3 border border-dashed border-muted/40 rounded-lg text-center text-[11px] text-muted-foreground/70">
+          <div className="p-3 border border-dashed border-muted/40 rounded-lg text-center text-xs text-muted-foreground/70">
             {t("payment_methods_empty")}
           </div>
         ) : (
@@ -138,7 +142,7 @@ export const PaymentCards = ({
                     <span className="text-[13px] font-medium text-foreground/80 leading-none capitalize flex items-center gap-2">
                       {card.brand} •••• {card.last4}
                       {card.isDefault && (
-                        <span className="text-[10px] font-bold tracking-wider uppercase px-1.5 py-1 rounded flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <span className="text-xs font-bold tracking-wider uppercase px-1.5 py-1 rounded flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <ShieldCheck className="h-2.5 w-2.5 stroke-[2.5]" />
                           {t("payment_methods_card_primary")}
                         </span>
@@ -190,7 +194,7 @@ export const PaymentCards = ({
                 type="button"
                 variant="link"
                 onClick={() => setShowAddForm(false)}
-                className="text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors mr-1"
+                className="min-h-6 text-xs text-muted-foreground hover:text-foreground transition-colors mr-1"
               >
                 {t("payment_methods_cancel")}
               </Button>

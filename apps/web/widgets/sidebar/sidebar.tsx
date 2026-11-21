@@ -74,7 +74,10 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
                 </span>
 
                 {!isOpen && (
-                  <span aria-hidden="true" className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none"
+                  >
                     {item.title}
                   </span>
                 )}
@@ -119,7 +122,10 @@ export function AppSidebar({ isOpen }: AppSidebarProps) {
               </span>
 
               {!isOpen && (
-                <span aria-hidden="true" className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-12 bg-popover/95 backdrop-blur-sm text-popover-foreground text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg border border-border/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-30 pointer-events-none"
+                >
                   {item.title}
                 </span>
               )}

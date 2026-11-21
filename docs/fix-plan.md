@@ -102,3 +102,26 @@
 - `docker compose up -d --force-recreate nginx` после правок nginx; пересборка api-образа.
 - Удалить тестовые данные из dev-БД (`qa-e2e-%@example.test`, `qa-explore-*`, их задачи, тестовый клиент Stripe).
 - Отформатировать `.claude/**`, удалить `.playwright-mcp/`.
+
+## Волна 2: детали (после коммита волны 1)
+
+Docker сейчас недоступен (диск был заполнен, демон отвечает I/O error), поэтому всё, что требует миграции БД или живого стека, откладывается. Схему Prisma не трогаем.
+
+### Отзыв сессий без миграции: `sessionVersion` в Redis
+
+- api хранит `session-version:<userId>` в Redis (нет ключа = `0`).
+- `POST /service-auth/validate` дополнительно отдаёт `user.sessionVersion: number`.
+- Web кладёт `sessionVersion` в JWT next-auth (`jwt` callback при входе) и отправляет его как есть в cookie-сессии (api уже расшифровывает её в `AuthGuard`).
+- `AuthGuard` api сравнивает `sessionVersion` из токена с Redis; расхождение или отсутствие поля в токене → `401 {code: UNAUTHORIZED}`. Старые сессии без поля считаются версией `0`.
+- `INCR session-version:<userId>` при смене пароля, смене email, включении и выключении 2FA. После своей смены web заново входит (новый `loginTicket` не нужен: web делает `signOut` и отправляет на login с `callbackUrl`, либо, если сделать проще не выйдет, показывает сообщение «войдите снова»).
+- Web: на `401 UNAUTHORIZED` от api — `signOut` и редирект на login той же локали с `callbackUrl`.
+
+### Агенты волны 2
+
+| Агент | Зона | Что делает |
+|---|---|---|
+| **backend-queues** | `apps/api/src/**` (кроме `prisma/schema.prisma`, `migrations`), тесты api | BullMQ: вебхуки Stripe через очередь, идемпотентность по `event.id` (Redis `SET NX` с TTL 7 дней), 400 на неверную подпись без текста Stripe; отправка писем через очередь (провайдер из конфига, `EMAIL_FROM`), письмо подтверждения после регистрации и смены email; `sessionVersion` (выше); `/health` при недоступном Redis — `503 {status:'error', redis:'down'}` без стека в логе; 401 в Swagger у todos; jest `moduleNameMapper` для baseUrl-алиасов; `EMAIL_FROM` и `EMAIL_VERIFICATION_SECRET` в `.env.example` и валидацию конфига. Зависимости не меняет. |
+| **frontend-deps-ux** | `apps/web/**`, `packages/i18n/**`, `apps/web/package.json`, `pnpm-lock.yaml` | `next` ≥ 16.4.1, `next-auth` ≥ 5.0.0-beta.32 и `@auth/core` ≥ 0.41.3 одним изменением; `sessionVersion` в JWT и обработка `401 UNAUTHORIZED`; домен cookie сессии из env вместо `.myapp.local`; остаток UX/a11y: тёмная тема, даты и валюты по локали, состояния загрузки, токены цветов вместо хардкода, мелкий текст и цели нажатия, карточки способа оплаты с клавиатуры, `hl` у reCAPTCHA по локали, `AddCardForm` без сырого `data.message`; удалить мёртвые `subscription-cancel` (эндпоинта нет) и `shared/lib/zod.ts` вместе с тестом. |
+| **backend-deps** (после двух первых) | `apps/api/package.json`, `pnpm-lock.yaml` | `@nestjs/*` и остальное из `pnpm audit --prod` для api; убрать bull-board, если не используется. |
+
+Отложено до живого Docker: миграции (`tokenVersion` в БД, если Redis-варианта мало), сборка образов, Playwright, `--force-recreate nginx`.

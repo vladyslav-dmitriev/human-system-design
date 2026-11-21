@@ -8,6 +8,8 @@ import { UserService } from '../src/modules/user/user.service';
 import { UserRepository } from '../src/modules/user/user.repository';
 import { SmsService } from '../src/modules/sender/sms/sms.service';
 import { REDIS_CLIENT } from '../src/modules/redis';
+import { EmailService } from '../src/modules/sender/email/email.service';
+import { EmailVerificationService } from '../src/modules/sender/email/email-verification.service';
 import { createTestApp, sessionCookie, USER_A, USER_B } from './helpers/app';
 import { createFakeRedis } from './helpers/fake-redis';
 
@@ -25,6 +27,8 @@ describe('UsersController (nest testing module, mocks)', () => {
     updateUserTwoFactor: jest.fn(),
   };
   const sms = { verifySmsCode: jest.fn() };
+  const email = { sendVerificationEmail: jest.fn() };
+  const verification = { createToken: jest.fn(() => 'signed-token') };
   let redis: ReturnType<typeof createFakeRedis>;
 
   beforeAll(async () => {
@@ -36,7 +40,9 @@ describe('UsersController (nest testing module, mocks)', () => {
   beforeEach(async () => {
     Object.values(repo).forEach((m) => m.mockReset());
     sms.verifySmsCode.mockReset();
+    email.sendVerificationEmail.mockReset().mockResolvedValue(undefined);
     redis = createFakeRedis();
+    cookieA = await sessionCookie(USER_A);
     repo.getUserById.mockImplementation(async (id: string) => ({
       id,
       email: `${id}@example.test`,
@@ -57,6 +63,8 @@ describe('UsersController (nest testing module, mocks)', () => {
         UserService,
         { provide: UserRepository, useValue: repo },
         { provide: SmsService, useValue: sms },
+        { provide: EmailService, useValue: email },
+        { provide: EmailVerificationService, useValue: verification },
         { provide: REDIS_CLIENT, useValue: redis },
       ],
     });
@@ -277,6 +285,8 @@ describe('UsersController (nest testing module, mocks)', () => {
         currentPassword: OLD_PASSWORD,
         newPassword: 'a'.repeat(72),
       }).expect(200);
+      // успешная смена отзывает сессии: дальше вызываем с актуальной версией
+      cookieA = await sessionCookie({ ...USER_A, sessionVersion: 1 });
       await patch({
         currentPassword: OLD_PASSWORD,
         newPassword: 'a'.repeat(73),
@@ -285,6 +295,33 @@ describe('UsersController (nest testing module, mocks)', () => {
         currentPassword: OLD_PASSWORD,
         newPassword: 'é'.repeat(37),
       }).expect(400);
+    });
+
+    it('a successful password change revokes the old session (401 UNAUTHORIZED), a new one works', async () => {
+      await http()
+        .patch('/user/profile/password')
+        .set('Cookie', cookieA)
+        .send({ currentPassword: OLD_PASSWORD, newPassword: 'brand-new-pass' })
+        .expect(200);
+      expect(redis.store.get('session-version:user-a')).toBe('1');
+
+      const stale = await http()
+        .get('/user/profile')
+        .set('Cookie', cookieA)
+        .expect(401);
+      expect(stale.body.code).toBe('UNAUTHORIZED');
+
+      const fresh = await sessionCookie({ ...USER_A, sessionVersion: 1 });
+      await http().get('/user/profile').set('Cookie', fresh).expect(200);
+    });
+
+    it('a rejected change (wrong current password) keeps the session valid', async () => {
+      await http()
+        .patch('/user/profile/password')
+        .set('Cookie', cookieA)
+        .send({ currentPassword: 'wrong-pass', newPassword: 'brand-new-pass' })
+        .expect(400);
+      await http().get('/user/profile').set('Cookie', cookieA).expect(200);
     });
 
     it('non-string newPassword (number) -> 400', async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch, expireSession } from "@/shared/lib/api-client";
 import React, { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Mail, Loader2, ArrowRight } from "lucide-react";
@@ -13,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { API_URL } from "@/api";
 import { Label } from "@/components/ui/label";
 import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
@@ -33,6 +34,7 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const t = useTranslations();
+  const locale = useLocale();
   const emailId = useId();
   const passwordId = useId();
 
@@ -60,10 +62,14 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
     const email = data.email.trim().toLowerCase();
 
     try {
-      const response = await fetch(API_URL.users.email(), {
+      const response = await apiFetch(API_URL.users.email(), {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // язык письма подтверждения
+          "Accept-Language": locale,
+        },
         body: JSON.stringify({
           email,
           currentPassword: data.currentPassword,
@@ -85,12 +91,6 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
         return;
       }
 
-      // письмо подтверждения после смены не уходит само; сбой отправки не отменяет смену
-      fetch(API_URL.emails.sendVerification(), {
-        method: "POST",
-        credentials: "include",
-      }).catch((cause) => console.error(cause));
-
       // Элегантный Sonner тост вместо статичных блоков на пол-экрана
       toast.success(t("email_changed_title"), {
         description: t("email_changed_description", { email }),
@@ -98,6 +98,9 @@ export function ChangeEmailForm({ currentEmail }: EmailFormProps) {
       });
 
       reset({ email, currentPassword: "" });
+
+      // api отозвал текущую сессию: выходим сразу и просим войти заново
+      await expireSession();
     } catch (error) {
       console.error(error);
       toast.error(t("update_error_title"), {

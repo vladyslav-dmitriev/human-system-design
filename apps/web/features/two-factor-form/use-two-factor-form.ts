@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { apiFetch, expireSession } from "@/shared/lib/api-client";
 import { API_URL } from "@/api";
 import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
@@ -11,7 +12,7 @@ type Input = {
 type AuthStep = "idle" | "phone" | "otp";
 
 const post = (url: string, body: unknown) =>
-  fetch(url, {
+  apiFetch(url, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -41,7 +42,7 @@ export const useTwoFactorForm = ({
   /** Сохраняет номер в профиле: SMS всегда уходит на номер из профиля */
   const savePhone = async () => {
     try {
-      const response = await fetch(API_URL.users.phone(), {
+      const response = await apiFetch(API_URL.users.phone(), {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -155,6 +156,9 @@ export const useTwoFactorForm = ({
       setStep("idle");
       setConfirmed(nextTwoFactorEnabled);
       setEnabled(nextTwoFactorEnabled);
+
+      // api отозвал текущую сессию: выходим сразу и просим войти заново
+      await expireSession();
     } catch (cause) {
       console.error(cause);
       setError(apiErrorKey("INTERNAL"));

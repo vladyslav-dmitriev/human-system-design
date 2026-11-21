@@ -102,6 +102,7 @@ const WEB_METHOD: Record<string, string[]> = {
   'billing.invoices': ['GET'],
   'emails.sendVerification': ['POST'],
   'emails.verifyEmail': ['GET'],
+  'emails.verifyEmailServer': ['GET'],
   'todos.list': ['GET'],
   'todos.create': ['POST'],
   'todos.edit': ['PATCH'],
@@ -186,12 +187,7 @@ describe('contract: Swagger metadata of protected routes', () => {
     return out;
   }
 
-  // BUG: волна 1, backend: у TodosController.{getUserTodos,createTodo,updateTodo,deleteTodo} нет
-  // @ApiUnauthorizedResponse / @ApiResponse({status: 401}) (есть только у upload-image). Минорно, документация.
-  it.failing(
-    'every route behind AuthGuard declares cookie security and a 401 response',
-    () => {
-      expect(undocumented()).toEqual([]);
-    },
-  );
+  it('every route behind AuthGuard declares cookie security and a 401 response', () => {
+    expect(undocumented()).toEqual([]);
+  });
 });

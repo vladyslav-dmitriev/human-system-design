@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch, expireSession } from "@/shared/lib/api-client";
 import React, { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
@@ -56,7 +57,7 @@ export function ChangePasswordForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(API_URL.users.password(), {
+      const response = await apiFetch(API_URL.users.password(), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -83,6 +84,9 @@ export function ChangePasswordForm() {
 
       // Полностью очищаем форму
       reset({ currentPassword: "", newPassword: "" });
+
+      // api отозвал текущую сессию: выходим сразу и просим войти заново
+      await expireSession();
     } catch (error) {
       console.error(error);
       toast.error(t("update_error_title"), {

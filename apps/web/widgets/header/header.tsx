@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { AuthButtons } from "@/features/auth-buttons";
+import { ThemeToggle } from "@/features/theme-toggle";
 import { SelectLanguage } from "@/features/select-language";
 import { UpgradeButton } from "@/features/upgrade-button";
 import { Menu } from "lucide-react";
@@ -29,9 +30,7 @@ export const Header = ({ isOpenSidebar, onToggleSidebar }: HeaderProps) => {
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors shrink-0"
               onClick={onToggleSidebar}
-              aria-label={
-                isOpenSidebar ? t("menu_collapse") : t("menu_expand")
-              }
+              aria-label={isOpenSidebar ? t("menu_collapse") : t("menu_expand")}
               aria-expanded={isOpenSidebar}
             >
               <Menu className="h-4 w-4" aria-hidden="true" />
@@ -55,6 +54,7 @@ export const Header = ({ isOpenSidebar, onToggleSidebar }: HeaderProps) => {
 
       <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2 ml-auto">
         <AuthButtons />
+        <ThemeToggle />
         <SelectLanguage />
       </div>
     </header>

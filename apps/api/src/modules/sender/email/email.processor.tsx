@@ -1,10 +1,10 @@
-import { WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { render } from 'react-email';
 import VerificationEmail from 'emails/templates/verification-email';
 import InvoiceEmail from 'emails/templates/invoice-email';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { t } from 'emails/i18n';
 import { EmailService } from './email.service';
 import { ConfigService } from '@nestjs/config';
@@ -34,7 +34,7 @@ const INVOICE_EMAIL_SUBJECT_MAPPING = {
   en: 'Thank you for payment',
 };
 
-// @Processor(QUEUE.EmailQueue)
+@Processor(QUEUE.EmailQueue)
 @Injectable()
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
@@ -47,15 +47,23 @@ export class EmailProcessor extends WorkerHost {
   }
 
   process(job: Job): Promise<void> {
-    // if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail) {
-    //   return this.sendVerificationEmail(job.data as SendVerificationEmailData);
-    // }
+    if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendVerificationEmail) {
+      return this.sendVerificationEmail(job.data as SendVerificationEmailData);
+    }
 
-    // if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail) {
-    //   return this.sendInvoiceEmail(job.data as SendInvoiceEmailData);
-    // }
+    if (job.name === QUEUE_JOB[QUEUE.EmailQueue].SendInvoiceEmail) {
+      return this.sendInvoiceEmail(job.data as SendInvoiceEmailData);
+    }
 
     return Promise.reject(new Error(`Unknown job: ${job.name}`));
+  }
+
+  @OnWorkerEvent('failed')
+  onFailed(job: Job | undefined, error: Error) {
+    // Адрес и токен в лог не пишем
+    this.logger.error(
+      `Email job ${job?.id} (${job?.name}) failed, attempt ${job?.attemptsMade}/${job?.opts.attempts}: ${error.message}`,
+    );
   }
 
   async sendVerificationEmail({
@@ -75,20 +83,16 @@ export class EmailProcessor extends WorkerHost {
       />,
     );
 
-    try {
-      await this.emailService.sendEmail({
-        to: email,
-        subject:
-          VERIFICATION_EMAIL_SUBJECT_MAPPING[locale] ??
-          VERIFICATION_EMAIL_SUBJECT_MAPPING.en,
-        html,
-      });
+    // Ошибка провайдера не глотается: BullMQ повторит задачу с backoff
+    await this.emailService.sendEmail({
+      to: email,
+      subject:
+        VERIFICATION_EMAIL_SUBJECT_MAPPING[locale] ??
+        VERIFICATION_EMAIL_SUBJECT_MAPPING.en,
+      html,
+    });
 
-      this.logger.log(`Email успешно отправлен на ${email}`);
-    } catch (error) {
-      this.logger.error(`Ошибка отправки письма: ${error}`);
-      throw error; // Бросаем ошибку, чтобы BullMQ сделал retry (повтор)
-    }
+    this.logger.log('Verification email sent');
   }
 
   async sendInvoiceEmail(data: SendInvoiceEmailData) {
@@ -107,18 +111,14 @@ export class EmailProcessor extends WorkerHost {
       />,
     );
 
-    try {
-      await this.emailService.sendEmail({
-        to: email,
-        subject:
-          INVOICE_EMAIL_SUBJECT_MAPPING[locale] ??
-          INVOICE_EMAIL_SUBJECT_MAPPING.en,
-        html,
-      });
-      this.logger.log(`Email успешно отправлен на ${email}`);
-    } catch (error) {
-      this.logger.error(`Ошибка отправки письма: ${error}`);
-      throw error; // Бросаем ошибку, чтобы BullMQ сделал retry (повтор)
-    }
+    await this.emailService.sendEmail({
+      to: email,
+      subject:
+        INVOICE_EMAIL_SUBJECT_MAPPING[locale] ??
+        INVOICE_EMAIL_SUBJECT_MAPPING.en,
+      html,
+    });
+
+    this.logger.log(`Invoice email sent: ${invoiceNumber}`);
   }
 }

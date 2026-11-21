@@ -53,7 +53,7 @@ export default function BillingCanceledPage() {
           </div>
 
           <div className="text-center">
-            <p className="text-[11px] text-muted-foreground/80 leading-normal max-w-[280px] mx-auto">
+            <p className="text-xs text-muted-foreground/80 leading-normal max-w-[280px] mx-auto">
               {t("billing_canceled_note")}
             </p>
           </div>

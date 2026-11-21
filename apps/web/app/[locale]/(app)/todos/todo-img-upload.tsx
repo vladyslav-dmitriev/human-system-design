@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,7 @@ export function TodoImageUpload({
     formData.append("todoId", todoId);
 
     try {
-      const response = await fetch(API_URL.todos.uploadImage(), {
+      const response = await apiFetch(API_URL.todos.uploadImage(), {
         // URL твоего NestJS бэкенда
         method: "POST",
         credentials: "include",

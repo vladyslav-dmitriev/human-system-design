@@ -387,7 +387,16 @@ describe('AuthController (nest testing module, mocks)', () => {
         name: 'Seed',
         email: 'seed@example.test',
         role: 'USER',
+        sessionVersion: 0,
       });
+    });
+
+    it('validate returns the current sessionVersion from Redis', async () => {
+      await seedUser();
+      redis.store.set('session-version:u-1', '3');
+      const { loginTicket } = (await login(validLogin()).expect(200)).body;
+      const res = await validate({ loginTicket }).expect(200);
+      expect(res.body.user.sessionVersion).toBe(3);
     });
 
     it('the ticket is one-time: the second validate -> 401', async () => {

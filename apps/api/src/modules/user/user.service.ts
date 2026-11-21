@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -20,13 +21,20 @@ import {
   PENDING_PHONE_TTL_SECONDS,
   pendingPhoneKey,
 } from '../sender/sms/sms.constants';
-import { REDIS_CLIENT } from '../redis';
+import { EmailService } from '../sender/email/email.service';
+import { EmailVerificationService } from '../sender/email/email-verification.service';
+import { REDIS_CLIENT, bumpSessionVersion } from '../redis';
 import { ErrorCode } from '../../common/errors';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @Inject(SmsService) private readonly smsService: SmsService,
+    @Inject(EmailService) private readonly emailService: EmailService,
+    @Inject(EmailVerificationService)
+    private readonly emailVerification: EmailVerificationService,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
@@ -64,7 +72,11 @@ export class UserService {
     return user;
   }
 
-  async updateEmail(userId: string, dto: UserUpdateEmailBodyDto) {
+  async updateEmail(
+    userId: string,
+    dto: UserUpdateEmailBodyDto,
+    locale: 'uk' | 'en' = 'en',
+  ) {
     const newEmail = dto.email.toLowerCase().trim();
 
     await this.assertCurrentPassword(userId, dto.currentPassword);
@@ -91,6 +103,22 @@ export class UserService {
       throw error;
     }
 
+    // Смена email отзывает ранее выданные сессии
+    await bumpSessionVersion(this.redis, userId);
+
+    try {
+      await this.emailService.sendVerificationEmail(
+        {
+          email: newEmail,
+          token: this.emailVerification.createToken(userId, newEmail),
+        },
+        locale,
+      );
+    } catch (error) {
+      // Email уже изменён: письмо можно запросить повторно через send-verification
+      this.logger.error(`Verification email failed: ${String(error)}`);
+    }
+
     return { success: true };
   }
 
@@ -112,6 +140,7 @@ export class UserService {
       { id: userId },
       { password: hashedNewPassword },
     );
+    await bumpSessionVersion(this.redis, userId);
 
     return { success: true };
   }
@@ -163,6 +192,7 @@ export class UserService {
       twoFactorEnabled: dto.twoFactorEnabled,
     });
     await this.redis.del(pendingPhoneKey(userId));
+    await bumpSessionVersion(this.redis, userId);
 
     return { success: true };
   }

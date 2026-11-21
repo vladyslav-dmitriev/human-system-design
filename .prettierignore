@@ -13,3 +13,4 @@ CLAUDE.md
 # Сгенерированное
 apps/api/src/prisma/generated
 .playwright-mcp
+apps/api/src/emails/translates

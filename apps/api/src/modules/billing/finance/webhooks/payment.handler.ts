@@ -1,49 +1,48 @@
 import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 
+import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import type { StripeTypes } from '../../payments';
-// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
-// import { InjectQueue } from '@nestjs/bullmq';
-// import { Queue } from 'bullmq';
+import type { PaymentJobData } from './webhook-idempotency';
 
+/** Кладёт события Stripe в `payment-queue`; саму обработку делает `PaymentProcessor`. */
 @Injectable()
 export class PaymentHandler {
-  constructor() {
-    // @InjectQueue(QUEUE.PaymentQueue) private readonly paymentQueue: Queue,
+  constructor(
+    @InjectQueue(QUEUE.PaymentQueue)
+    private readonly paymentQueue: Queue,
+  ) {}
+
+  handleSubscriptionPurchase(event: StripeTypes.Event): Promise<void> {
+    return this.enqueue(
+      QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase,
+      event,
+    );
   }
 
-  handleSubscriptionPurchase(_event: StripeTypes.Event): Promise<void> {
-    // await this.paymentQueue.add(
-    //   QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase,
-    //   event.data.object,
-    //   {
-    //     attempts: 1,
-    //     backoff: { type: 'exponential', delay: 5000 },
-    //   },
-    // );
-    return Promise.resolve();
+  handleSubscriptionUpgrade(event: StripeTypes.Event): Promise<void> {
+    return this.enqueue(
+      QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade,
+      event,
+    );
   }
 
-  handleSubscriptionUpgrade(_event: StripeTypes.Event): Promise<void> {
-    // await this.paymentQueue.add(
-    //   QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade,
-    //   event.data.object,
-    //   {
-    //     attempts: 1,
-    //     backoff: { type: 'exponential', delay: 5000 },
-    //   },
-    // );
-    return Promise.resolve();
+  handleSubscriptionSync(event: StripeTypes.Event): Promise<void> {
+    return this.enqueue(QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionSync, event);
   }
 
-  handleOneTimePurchase(_event: StripeTypes.Event): Promise<void> {
-    // await this.paymentQueue.add(
-    //   QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase,
-    //   event.data.object,
-    //   {
-    //     attempts: 1,
-    //     backoff: { type: 'exponential', delay: 5000 },
-    //   },
-    // );
-    return Promise.resolve();
+  handleOneTimePurchase(event: StripeTypes.Event): Promise<void> {
+    return this.enqueue(QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase, event);
+  }
+
+  private async enqueue(name: string, event: StripeTypes.Event) {
+    const data: PaymentJobData = {
+      eventId: event.id,
+      object: event.data.object,
+    };
+
+    // jobId = event.id: вторая линия защиты от дублей, пока задача ещё в Redis
+    await this.paymentQueue.add(name, data, { jobId: event.id });
   }
 }

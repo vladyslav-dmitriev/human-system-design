@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +55,7 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
     }
 
     try {
-      const response = await fetch(API_URL.todos.create(), {
+      const response = await apiFetch(API_URL.todos.create(), {
         method: "POST",
         credentials: "include",
         headers: {

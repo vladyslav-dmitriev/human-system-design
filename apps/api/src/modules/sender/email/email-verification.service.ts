@@ -16,9 +16,9 @@ export class EmailVerificationService {
   ) {}
 
   private sign(payload: string, email: string): string {
-    // EMAIL_VERIFICATION_SECRET: отдельный ключ; пока его нет в конфиге, берём производный от JWT_SECRET
+    // EMAIL_VERIFICATION_SECRET: отдельный ключ; если он не задан (или пуст), берём производный от JWT_SECRET
     const secret =
-      this.configService.get<string>('EMAIL_VERIFICATION_SECRET') ??
+      this.configService.get<string>('EMAIL_VERIFICATION_SECRET') ||
       this.configService.get<string>('JWT_SECRET');
 
     if (!secret) {

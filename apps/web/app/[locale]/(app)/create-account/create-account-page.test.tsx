@@ -11,7 +11,14 @@ const { signIn, replace, refresh, executeRecaptcha } = vi.hoisted(() => ({
 vi.mock("next-auth/react", () => ({ signIn }));
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ replace, refresh, push: vi.fn() }),
-  Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => (
     <a href={href} {...rest}>
       {children}
     </a>
@@ -32,15 +39,23 @@ const json = (body: unknown, ok = true, status = ok ? 200 : 400) =>
 const TICKET = "t".repeat(43);
 
 const fill = (name: string, email: string, password: string) => {
-  fireEvent.change(screen.getByTestId("name-input"), { target: { value: name } });
-  fireEvent.change(screen.getByTestId("email-input"), { target: { value: email } });
-  fireEvent.change(screen.getByTestId("password-input"), { target: { value: password } });
+  fireEvent.change(screen.getByTestId("name-input"), {
+    target: { value: name },
+  });
+  fireEvent.change(screen.getByTestId("email-input"), {
+    target: { value: email },
+  });
+  fireEvent.change(screen.getByTestId("password-input"), {
+    target: { value: password },
+  });
   fireEvent.click(screen.getByTestId("create-account-button"));
 };
 
 describe("CreateAccountPage", () => {
   beforeEach(() => {
-    [signIn, replace, refresh, executeRecaptcha, fetchMock].forEach((m) => m.mockReset());
+    [signIn, replace, refresh, executeRecaptcha, fetchMock].forEach((m) =>
+      m.mockReset(),
+    );
     executeRecaptcha.mockResolvedValue("captcha");
     signIn.mockResolvedValue({ error: null });
     vi.stubGlobal("fetch", fetchMock);
@@ -54,7 +69,9 @@ describe("CreateAccountPage", () => {
   it("успех: register (email нормализован, locale из next-intl) -> login -> signIn(loginTicket) -> /dashboard", async () => {
     fetchMock
       .mockReturnValueOnce(json({ success: true }, true, 201))
-      .mockReturnValueOnce(json({ twoFactorRequired: false, loginTicket: TICKET }));
+      .mockReturnValueOnce(
+        json({ twoFactorRequired: false, loginTicket: TICKET }),
+      );
     render(<CreateAccountPage />);
     fill("  Ann ", " Ann@Example.COM ", "password123");
 
@@ -70,7 +87,10 @@ describe("CreateAccountPage", () => {
     });
     expect(fetchMock.mock.calls[1]![0]).toMatch(/\/service-auth\/login$/);
     expect(signIn).toHaveBeenCalledTimes(1);
-    expect(signIn).toHaveBeenCalledWith("credentials", { loginTicket: TICKET, redirect: false });
+    expect(signIn).toHaveBeenCalledWith("credentials", {
+      loginTicket: TICKET,
+      redirect: false,
+    });
   });
 
   it("409 AUTH_EMAIL_TAKEN: понятная ошибка, форма разблокируется, вход не выполняется", async () => {
@@ -78,7 +98,9 @@ describe("CreateAccountPage", () => {
     render(<CreateAccountPage />);
     fill("Ann", "ann@example.com", "password123");
 
-    expect(await screen.findByText("errors.AUTH_EMAIL_TAKEN")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.AUTH_EMAIL_TAKEN"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("create-account-button")).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(signIn).not.toHaveBeenCalled();
@@ -109,12 +131,15 @@ describe("CreateAccountPage", () => {
     ["пароль 1 символ", "Ann", "a@b.io", "a", "password_min_length"],
     ["пароль 7 символов", "Ann", "a@b.io", "1234567", "password_min_length"],
     ["пароль 73 байта", "Ann", "a@b.io", "a".repeat(73), "password_max_length"],
-  ])("%s: ошибка поля, запрос не уходит", async (_n, name, email, password, key) => {
-    render(<CreateAccountPage />);
-    fill(name, email, password);
-    expect(await screen.findByText(key)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  ])(
+    "%s: ошибка поля, запрос не уходит",
+    async (_n, name, email, password, key) => {
+      render(<CreateAccountPage />);
+      fill(name, email, password);
+      expect(await screen.findByText(key)).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("граница пароля 8 и 72 байта проходит клиентскую валидацию", async () => {
     fetchMock.mockReturnValue(json({ success: true }, false, 409));
@@ -130,7 +155,9 @@ describe("CreateAccountPage", () => {
   it("у нового пользователя вдруг включена 2FA: уходим на страницу входа без signIn", async () => {
     fetchMock
       .mockReturnValueOnce(json({ success: true }, true, 201))
-      .mockReturnValueOnce(json({ twoFactorRequired: true, phoneMasked: "**" }));
+      .mockReturnValueOnce(
+        json({ twoFactorRequired: true, phoneMasked: "**" }),
+      );
     render(<CreateAccountPage />);
     fill("Ann", "ann@example.com", "password123");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));

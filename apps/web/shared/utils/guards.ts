@@ -35,7 +35,8 @@ export function getSafeCallbackUrl(value: string | null | undefined) {
   // локаль в callbackUrl не храним: i18n-роутер добавит свою
   const target = getPathLocale(value) ? normalizePath(value) : value;
   const path = target.split(/[?#]/)[0] ?? "";
-  if (isAuthRoute(path) || path === ROUTE.FORGOT_PASSWORD) return ROUTE.DASHBOARD;
+  if (isAuthRoute(path) || path === ROUTE.FORGOT_PASSWORD)
+    return ROUTE.DASHBOARD;
 
   return target;
 }

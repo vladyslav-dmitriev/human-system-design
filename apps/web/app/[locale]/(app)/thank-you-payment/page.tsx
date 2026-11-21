@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { ROUTE } from "@/constants";
 import { getLocale, getTranslations } from "next-intl/server";
-import { cookies } from "next/headers";
+import { serverApiFetch, unstable_rethrow } from "@/shared/lib/api-server";
 import { Link, redirect } from "@/i18n/navigation";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { API_URL } from "@/api";
@@ -29,24 +29,16 @@ const getPaymentIntentData = async (paymentIntentId?: string) => {
   if (!paymentIntentId) return null;
 
   try {
-    const cookieStore = await cookies();
-    const cookieString = cookieStore.toString();
-
-    const res = await fetch(
+    const res = await serverApiFetch(
       API_URL.billing.paymentIntentCreate(paymentIntentId),
-      {
-        credentials: "include",
-        headers: {
-          Cookie: cookieString,
-        },
-        cache: "no-store",
-      },
+      {},
     );
 
     if (!res.ok) return null;
 
     return await res.json();
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return null;
   }
 };
@@ -79,7 +71,7 @@ export default async function ThankYouPaymentPage({
         <div className="absolute -top-20 -right-20 h-40 w-40 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
         <CardHeader className="text-center pt-10 pb-2">
-          <span className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider bg-emerald-500/10 px-2.5 py-0.5 rounded-full w-fit mx-auto mb-1">
+          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-2.5 py-0.5 rounded-full w-fit mx-auto mb-1">
             {t("payment_confirmed")}
           </span>
 
@@ -107,7 +99,7 @@ export default async function ThankYouPaymentPage({
                 <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground/70" />{" "}
                 {t("tariff_plan")}
               </span>
-              <span className="font-semibold text-primary bg-primary/10 text-[11px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+              <span className="font-semibold text-primary bg-primary/10 text-xs px-2 py-0.5 rounded-md uppercase tracking-wider">
                 {paymentIntentData.metadata.name}
               </span>
             </div>
@@ -143,12 +135,15 @@ export default async function ThankYouPaymentPage({
                   {getFormattedPrice(
                     paymentIntentData.amount,
                     paymentIntentData.currency,
+                    locale,
                   )}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs text-muted-foreground/80">
                 <span>{t("taxes_vat")}</span>
-                <span>$0.00</span>
+                <span>
+                  {getFormattedPrice(0, paymentIntentData.currency, locale)}
+                </span>
               </div>
               <div className="flex justify-between items-center pt-1 text-sm font-semibold text-foreground">
                 <span>{t("total_paid")}</span>
@@ -156,6 +151,7 @@ export default async function ThankYouPaymentPage({
                   {getFormattedPrice(
                     paymentIntentData.amount,
                     paymentIntentData.currency,
+                    locale,
                   )}
                 </span>
               </div>
@@ -163,7 +159,7 @@ export default async function ThankYouPaymentPage({
           </div>
 
           <div className="text-center">
-            <p className="text-[11px] text-muted-foreground/80 leading-normal max-w-[400px] mx-auto">
+            <p className="text-xs text-muted-foreground/80 leading-normal max-w-[400px] mx-auto">
               {t("invoice_info")}
             </p>
           </div>

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getToken, intl } = vi.hoisted(() => ({ getToken: vi.fn(), intl: vi.fn() }));
+const { getToken, intl } = vi.hoisted(() => ({
+  getToken: vi.fn(),
+  intl: vi.fn(),
+}));
 
 vi.mock("next-auth/jwt", () => ({ getToken }));
 vi.mock("next-intl/middleware", () => ({ default: () => intl }));
@@ -66,14 +69,17 @@ describe("proxy (middleware)", () => {
       );
     });
 
-    it.each(["/billing", "/pricing", "/checkout", "/thank-you-payment", "/todos"])(
-      "%s перенаправляется (единый список маршрутов)",
-      async (path) => {
-        const res = await middleware(req(path));
-        expect(res.status).toBe(307);
-        expect(location(res)).toContain("/login?callbackUrl=");
-      },
-    );
+    it.each([
+      "/billing",
+      "/pricing",
+      "/checkout",
+      "/thank-you-payment",
+      "/todos",
+    ])("%s перенаправляется (единый список маршрутов)", async (path) => {
+      const res = await middleware(req(path));
+      expect(res.status).toBe(307);
+      expect(location(res)).toContain("/login?callbackUrl=");
+    });
 
     it("/pricing-x не защищён и проходит в intl", async () => {
       await middleware(req("/en/pricing-x"));
@@ -121,6 +127,26 @@ describe("proxy (middleware)", () => {
     expect(getToken.mock.calls[0]![0]).toMatchObject({
       cookieName: "next-auth.session-token",
       secureCookie: false,
+    });
+  });
+
+  describe("сессия отозвана api (sessionExpired=1)", () => {
+    beforeEach(() => getToken.mockResolvedValue({ id: "u1" }));
+
+    it("вошедший с sessionExpired=1 остаётся на логине, cookie сбрасывается", async () => {
+      const res = await middleware(
+        req("/uk/login?callbackUrl=%2Fsettings&sessionExpired=1"),
+      );
+      expect(res.status).toBe(200);
+      expect(intl).toHaveBeenCalledTimes(1);
+      expect(res.headers.get("set-cookie")).toMatch(
+        /next-auth\.session-token=;.*(Max-Age=0|Expires=)/,
+      );
+    });
+
+    it("без параметра вошедший по-прежнему уходит в кабинет", async () => {
+      const res = await middleware(req("/uk/login"));
+      expect(location(res)).toBe(`${ORIGIN}/uk/dashboard`);
     });
   });
 });

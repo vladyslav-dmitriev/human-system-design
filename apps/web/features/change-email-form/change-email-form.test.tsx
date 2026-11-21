@@ -1,11 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { toast } = vi.hoisted(() => ({
+const { toast, expireSession } = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn() },
+  expireSession: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast }));
-vi.mock("next-intl", () => ({ useTranslations: () => (k: string) => k }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (k: string) => k,
+  useLocale: () => "uk",
+}));
+vi.mock("@/shared/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/lib/api-client")>()),
+  expireSession,
+}));
 
 import { ChangeEmailForm } from "./change-email-form";
 
@@ -42,6 +50,7 @@ describe("ChangeEmailForm", () => {
     fetchMock.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    expireSession.mockReset();
     vi.stubGlobal("fetch", fetchMock);
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -77,7 +86,9 @@ describe("ChangeEmailForm", () => {
       await user.clear(input);
       await user.type(input, value);
       await user.click(button);
-      expect(await screen.findByText("email_error_invalid")).toBeInTheDocument();
+      expect(
+        await screen.findByText("email_error_invalid"),
+      ).toBeInTheDocument();
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
@@ -87,7 +98,9 @@ describe("ChangeEmailForm", () => {
     await user.clear(input);
     await user.type(input, "new@example.com");
     await user.click(button);
-    expect(await screen.findByText("password_enter_current")).toBeInTheDocument();
+    expect(
+      await screen.findByText("password_enter_current"),
+    ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -114,7 +127,7 @@ describe("ChangeEmailForm", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("после смены email просит новое письмо подтверждения (POST /sender/emails/send-verification без тела)", async () => {
+  it("после смены email письмо подтверждения не запрашивается (его шлёт api), язык передаётся в Accept-Language", async () => {
     fetchMock.mockReturnValue(json({ success: true }));
     const { user, input, password, button } = setup();
     await user.clear(input);
@@ -122,30 +135,31 @@ describe("ChangeEmailForm", () => {
     await user.type(password, "Current-Pass1");
     await user.click(button);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const [url, init] = fetchMock.mock.calls[1]!;
-    expect(url).toMatch(/\/sender\/emails\/send-verification$/);
-    expect(init).toMatchObject({ method: "POST", credentials: "include" });
-    expect(init.body).toBeUndefined();
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).not.toMatch(/send-verification/);
+    expect(init.headers["Accept-Language"]).toBe("uk");
   });
 
-  it("сбой отправки письма подтверждения не отменяет успех смены", async () => {
-    fetchMock
-      .mockReturnValueOnce(json({ success: true }))
-      .mockRejectedValueOnce(new Error("offline"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("после успешной смены сессия завершается сразу (api её отозвал)", async () => {
+    fetchMock.mockReturnValue(json({ success: true }));
     const { user, input, password, button } = setup();
     await user.clear(input);
     await user.type(input, "new@example.com");
     await user.type(password, "Current-Pass1");
     await user.click(button);
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
-    expect(toast.error).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(expireSession).toHaveBeenCalledTimes(1));
   });
 
   it("USER_EMAIL_TAKEN (409): ошибка у поля email, форма не сбрасывается, письма нет", async () => {
     fetchMock.mockReturnValue(
-      json({ code: "USER_EMAIL_TAKEN", message: "Email is already in use" }, false, 409),
+      json(
+        { code: "USER_EMAIL_TAKEN", message: "Email is already in use" },
+        false,
+        409,
+      ),
     );
     const { user, input, password, button } = setup();
     await user.clear(input);
@@ -153,8 +167,11 @@ describe("ChangeEmailForm", () => {
     await user.type(password, "Current-Pass1");
     await user.click(button);
 
-    expect(await screen.findByText("errors.USER_EMAIL_TAKEN")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.USER_EMAIL_TAKEN"),
+    ).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
+    expect(expireSession).not.toHaveBeenCalled();
     expect(input).toHaveValue("taken@example.com");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(button).toBeEnabled());
@@ -170,7 +187,9 @@ describe("ChangeEmailForm", () => {
     await user.type(password, "wrong-password");
     await user.click(button);
 
-    expect(await screen.findByText("errors.USER_INVALID_PASSWORD")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.USER_INVALID_PASSWORD"),
+    ).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -178,20 +197,25 @@ describe("ChangeEmailForm", () => {
   it.each([
     [429, "RATE_LIMITED", "errors.RATE_LIMITED"],
     [500, "INTERNAL", "errors.INTERNAL"],
-  ])("прочая ошибка API (%i): toast.error с текстом из i18n по коду", async (status, code, key) => {
-    fetchMock.mockReturnValue(json({ code, message: "raw server text" }, false, status));
-    const { user, input, password, button } = setup();
-    await user.clear(input);
-    await user.type(input, "new@example.com");
-    await user.type(password, "Current-Pass1");
-    await user.click(button);
+  ])(
+    "прочая ошибка API (%i): toast.error с текстом из i18n по коду",
+    async (status, code, key) => {
+      fetchMock.mockReturnValue(
+        json({ code, message: "raw server text" }, false, status),
+      );
+      const { user, input, password, button } = setup();
+      await user.clear(input);
+      await user.type(input, "new@example.com");
+      await user.type(password, "Current-Pass1");
+      await user.click(button);
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(toast.error.mock.calls[0]![0]).toBe("update_error_title");
-    // текст берётся из i18n, а не из тела ответа сервера
-    expect(toast.error.mock.calls[0]![1]).toEqual({ description: key });
-    expect(toast.success).not.toHaveBeenCalled();
-  });
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+      expect(toast.error.mock.calls[0]![0]).toBe("update_error_title");
+      // текст берётся из i18n, а не из тела ответа сервера
+      expect(toast.error.mock.calls[0]![1]).toEqual({ description: key });
+      expect(toast.success).not.toHaveBeenCalled();
+    },
+  );
 
   it("сетевая ошибка: toast.error (INTERNAL), кнопка разблокируется", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});

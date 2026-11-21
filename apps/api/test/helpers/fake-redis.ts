@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await -- in-memory fake mimics the async ioredis client */
 
-/** Минимальный in-memory Redis для e2e-тестов с моками: set/get/getdel/incr/del/expire. */
+/** Минимальный in-memory Redis для e2e-тестов с моками: set (EX, NX)/get/getdel/incr/del/expire. */
 export function createFakeRedis() {
   const store = new Map<string, string>();
   const ttl = new Map<string, number>();
@@ -8,9 +8,12 @@ export function createFakeRedis() {
   return {
     store,
     ttl,
-    set: async (key: string, value: string, _ex?: string, seconds?: number) => {
+    // set(key, value, 'EX', seconds, 'NX'): NX не перезаписывает существующий ключ (возвращает null)
+    set: async (key: string, value: string, ...args: (string | number)[]) => {
+      if (args.includes('NX') && store.has(key)) return null;
       store.set(key, value);
-      if (seconds) ttl.set(key, seconds);
+      const exIndex = args.indexOf('EX');
+      if (exIndex >= 0) ttl.set(key, Number(args[exIndex + 1]));
 
       return 'OK';
     },

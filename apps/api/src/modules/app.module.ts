@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
-// import { BullModule } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-// import { BullBoardModule } from '@bull-board/nestjs';
-// import { ExpressAdapter } from '@bull-board/express';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
@@ -35,6 +33,7 @@ import { AppThrottlerGuard } from './app.throttler.guard';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
 import { validationSchema } from 'config/validation';
+import { getBullConnection } from 'config/queue.config';
 import { RabbitMQModule } from './rabbitmq';
 
 @Module({
@@ -55,28 +54,10 @@ import { RabbitMQModule } from './rabbitmq';
       }),
     }),
 
-    // BullModule.forRoot({
-    //   connection: { url: process.env.REDIS_URL },
-    //   defaultJobOptions: {
-    //     removeOnComplete: {
-    //       count: 100,
-    //       age: 3600,
-    //     },
-    //     removeOnFail: {
-    //       count: 50,
-    //       age: 86400,
-    //     },
-    //     attempts: 1,
-    //     backoff: {
-    //       type: 'exponential',
-    //       delay: 1000,
-    //     },
-    //   },
-    // }),
-    // BullBoardModule.forRoot({
-    //   route: '/admin/queues',
-    //   adapter: ExpressAdapter,
-    // }),
+    // Очереди (письма, платежи, PDF). Redis читается лениво, после загрузки .env.
+    BullModule.forRootAsync({
+      useFactory: () => ({ connection: getBullConnection() }),
+    }),
 
     PrismaModule,
     CacheModule,

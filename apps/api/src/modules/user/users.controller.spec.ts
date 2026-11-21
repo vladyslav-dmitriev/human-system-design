@@ -43,8 +43,12 @@ describe('UsersController', () => {
     service.updateEmail.mockResolvedValue({ success: true });
     const body = { email: 'a@b.dev', currentPassword: 'x' };
 
-    await controller.updateEmail('session-user', body);
+    await controller.updateEmail('session-user', body, 'uk-UA,uk;q=0.9');
 
-    expect(service.updateEmail).toHaveBeenCalledWith('session-user', body);
+    expect(service.updateEmail).toHaveBeenCalledWith(
+      'session-user',
+      body,
+      'uk',
+    );
   });
 });

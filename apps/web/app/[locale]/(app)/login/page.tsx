@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 import * as amplitude from "@amplitude/analytics-browser";
 import { useTranslations } from "next-intl";
 
 import { useRouter } from "@/i18n/navigation";
-import { CALLBACK_URL_PARAM } from "@/constants";
+import { CALLBACK_URL_PARAM, SESSION_EXPIRED_PARAM } from "@/constants";
 import { API_URL } from "@/api";
 import { getApiErrorCode } from "@/shared/lib/api-error";
 import { getFieldErrors, loginSchema } from "@/shared/lib/auth-schemas";
@@ -38,6 +39,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState<"form" | "otp">("form");
+
+  // Сессия завершена (отозвана api или после смены пароля/email/2FA)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(SESSION_EXPIRED_PARAM) === "1") {
+      toast.info(t("errors.UNAUTHORIZED"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
 

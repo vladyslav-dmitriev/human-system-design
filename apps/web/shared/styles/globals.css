@@ -19,17 +19,19 @@ a {
   display: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+:root {
+  color-scheme: light;
+}
 
-  .imgLight {
-    display: none;
-  }
-  .imgDark {
-    display: unset;
-  }
+.dark {
+  color-scheme: dark;
+}
+
+.dark .imgLight {
+  display: none;
+}
+.dark .imgDark {
+  display: unset;
 }
 
 @theme inline {
@@ -104,7 +106,7 @@ a {
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  --sidebar-width: 16rem;      /* Ширина в открытом виде (256px) */
+  --sidebar-width: 16rem; /* Ширина в открытом виде (256px) */
   --sidebar-width-icon: 3rem;
 }
 
@@ -156,4 +158,16 @@ a {
 .grecaptcha-badge {
   visibility: hidden !important;
   opacity: 0 !important;
+}
+
+/* WCAG 2.3.3: пользователь отключил анимации в системе */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

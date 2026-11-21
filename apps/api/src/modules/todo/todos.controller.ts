@@ -24,6 +24,7 @@ import {
   ApiTags,
   ApiConsumes,
   ApiBody,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { TodoGetListQueryDto } from './dto/request/query/todo-get-list.query.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -42,6 +43,7 @@ import { Serialize } from 'interceptors';
 
 @ApiTags('Todos')
 @ApiCookieAuth()
+@ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('todos')
 @UseGuards(AuthGuard, RolesGuard)
 export class TodosController {

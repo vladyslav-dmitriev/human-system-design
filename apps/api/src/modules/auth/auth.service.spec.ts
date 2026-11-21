@@ -11,7 +11,10 @@ jest.mock('../sender/email/email-verification.service', () => ({
 }));
 jest.mock('../sender/sms', () => ({ SmsService: class SmsService {} }));
 jest.mock('../user', () => ({ UserRepository: class UserRepository {} }));
-jest.mock('../redis', () => ({ REDIS_CLIENT: 'REDIS_CLIENT' }));
+jest.mock('../redis', () => ({
+  REDIS_CLIENT: 'REDIS_CLIENT',
+  ...jest.requireActual('../redis/session-version'),
+}));
 jest.mock('./auth.repository', () => ({
   AuthRepository: class AuthRepository {},
 }));
@@ -335,9 +338,26 @@ describe('AuthService', () => {
       authRepository.getUserLoginById.mockResolvedValue(loginUser());
 
       await expect(service.validate({ loginTicket })).resolves.toEqual({
-        user: { id: 'u1', name: 'Ann', email: 'a@test.dev', role: 'USER' },
+        user: {
+          id: 'u1',
+          name: 'Ann',
+          email: 'a@test.dev',
+          role: 'USER',
+          sessionVersion: 0,
+        },
       });
       expect(authRepository.getUserLoginById).toHaveBeenCalledWith('u1');
+    });
+
+    it('returns the current sessionVersion from Redis (session-version:<userId>)', async () => {
+      const loginTicket = await issue();
+
+      authRepository.getUserLoginById.mockResolvedValue(loginUser());
+      redis.store.set('session-version:u1', '4');
+
+      const { user } = await service.validate({ loginTicket });
+
+      expect(user.sessionVersion).toBe(4);
     });
 
     it('the ticket is one-time: the second validate gives 401 AUTH_TICKET_INVALID', async () => {

@@ -17,10 +17,7 @@ import {
 } from "@/components/ui/card";
 import { API_URL } from "@/api";
 import { getApiErrorCode } from "@/shared/lib/api-error";
-import {
-  createAccountSchema,
-  getFieldErrors,
-} from "@/shared/lib/auth-schemas";
+import { createAccountSchema, getFieldErrors } from "@/shared/lib/auth-schemas";
 import {
   AuthFlowError,
   fromApiCode,
@@ -131,7 +128,7 @@ export default function CreateAccountPage() {
   return (
     <main
       id="main"
-      className="flex min-h-screen items-center justify-center p-6 bg-neutral-50/50"
+      className="flex min-h-screen items-center justify-center p-6 bg-muted/30"
     >
       <Card className="w-full max-w-sm border border-muted/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-background/60 backdrop-blur-md rounded-2xl overflow-hidden">
         <CardHeader className="space-y-1 pb-4 text-center">

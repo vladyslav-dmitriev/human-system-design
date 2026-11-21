@@ -11,9 +11,10 @@ import {
 import { CreditCard, Mail, Plus, Loader2 } from "lucide-react";
 import { ROUTE } from "@/constants";
 import { useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/shared/lib/utils";
 import type { PaymentIntentResult } from "@stripe/stripe-js";
 import type {
   CheckoutPaymentData,
@@ -32,6 +33,7 @@ export function CheckoutFormContent({
   paymentData,
 }: CheckoutFormContentProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const [email, setEmail] = useState(userEmail || "");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -137,7 +139,7 @@ export function CheckoutFormContent({
       <div className="space-y-2">
         <label
           htmlFor="checkout-email"
-          className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
+          className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
         >
           {t("checkout_email_label")}
         </label>
@@ -154,50 +156,69 @@ export function CheckoutFormContent({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+      <fieldset className="space-y-2">
+        <legend className="mb-1 block text-xs font-bold uppercase tracking-widest text-muted-foreground">
           {t("checkout_payment_method_label")}
-        </label>
-        {paymentMethods.map((pm) => (
-          <div
-            key={pm.id}
-            onClick={() => {
-              setPaymentOption("saved");
-              setSelectedCardId(pm.id);
-            }}
-            className={`h-10 mt-1 p-3 border rounded-lg flex items-center justify-between transition-all ${
-              paymentOption === "saved" && selectedCardId === pm.id
-                ? "border-primary/50 bg-primary/[0.03]"
-                : "border-input"
-            }`}
-          >
-            <span className="text-sm font-medium">
-              •••• •••• •••• {pm.last4}
-            </span>
-          </div>
-        ))}
-        <div
-          onClick={() => {
-            setSelectedCardId("new");
-            setPaymentOption("new");
-          }}
-          className={`h-10 p-3 border rounded-lg flex items-center gap-2 ${
+        </legend>
+        {paymentMethods.map((pm) => {
+          const checked = paymentOption === "saved" && selectedCardId === pm.id;
+          return (
+            <label
+              key={pm.id}
+              className={cn(
+                "mt-1 flex min-h-10 cursor-pointer items-center justify-between rounded-lg border p-3 transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                checked
+                  ? "border-primary/50 bg-primary/[0.03]"
+                  : "border-input",
+              )}
+            >
+              <input
+                type="radio"
+                name="payment-method"
+                value={pm.id}
+                checked={checked}
+                onChange={() => {
+                  setPaymentOption("saved");
+                  setSelectedCardId(pm.id);
+                }}
+                className="sr-only"
+              />
+              <span className="text-sm font-medium">
+                •••• •••• •••• {pm.last4}
+              </span>
+            </label>
+          );
+        })}
+        <label
+          className={cn(
+            "flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border p-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
             paymentOption === "new"
               ? "border-primary/50 bg-primary/[0.03]"
-              : "border-input"
-          }`}
+              : "border-input",
+          )}
         >
-          <Plus className="w-4 h-4" />
+          <input
+            type="radio"
+            name="payment-method"
+            value="new"
+            checked={paymentOption === "new"}
+            onChange={() => {
+              setSelectedCardId("new");
+              setPaymentOption("new");
+            }}
+            className="sr-only"
+          />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           <span className="text-sm font-medium">
             {t("checkout_add_new_card")}
           </span>
-        </div>
-      </div>
+        </label>
+      </fieldset>
 
       {paymentOption === "new" && (
         <div className="space-y-4 animate-in fade-in duration-300">
           <div className="space-y-2">
-            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
               {t("checkout_card_number_label")}
             </label>
             <div className="p-3 border rounded-md">
@@ -208,7 +229,7 @@ export function CheckoutFormContent({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 {t("checkout_expiry_label")}
               </label>
               <div className="p-3 border rounded-md">
@@ -218,7 +239,7 @@ export function CheckoutFormContent({
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 {t("checkout_cvc_label")}
               </label>
               <div className="p-3 border rounded-md">
@@ -232,7 +253,7 @@ export function CheckoutFormContent({
       )}
 
       <div className="my-8">
-        <label className="mb-1 block text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+        <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-muted-foreground">
           {t("checkout_payment_details_label")}
         </label>
         <div className="space-y-1">
@@ -253,14 +274,21 @@ export function CheckoutFormContent({
               {t("checkout_monthly_price_label")}
             </div>
             <div className="font-bold">
-              {getFormattedPrice(paymentData.amount, paymentData.currency)}
+              {getFormattedPrice(
+                paymentData.amount,
+                paymentData.currency,
+                locale,
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {errorMessage && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 text-sm rounded">
+        <div
+          className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded"
+          role="alert"
+        >
           {errorMessage}
         </div>
       )}
@@ -268,15 +296,18 @@ export function CheckoutFormContent({
       <Button
         type="submit"
         disabled={isDisabled}
-        className="w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+        aria-busy={loading}
+        className="w-full h-10 text-sm font-medium"
       >
         {loading ? (
-          <Loader2 className="animate-spin" />
+          <>
+            <Loader2 className="animate-spin" aria-hidden="true" />
+            <span className="sr-only">{t("loading")}</span>
+          </>
         ) : (
           t("checkout_pay_button")
         )}
       </Button>
-
     </form>
   );
 }

@@ -1,10 +1,6 @@
-import {
-  Controller,
-  Get,
-  Inject,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import Redis from 'ioredis';
 
 import { Serialize } from 'interceptors';
@@ -18,20 +14,31 @@ const REDIS_PING_TIMEOUT_MS = 2000;
 export class AppController {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  /** Готовность: 200, если Redis отвечает на PING, иначе 503. */
+  /**
+   * Готовность: 200 `{status:'ok', redis:'up'}`, если Redis отвечает на PING,
+   * иначе 503 `{status:'error', redis:'down'}`. Это штатный ответ, а не исключение:
+   * пробники (compose, k8s) не засоряют лог стеками.
+   */
   @Get('health')
   @Serialize(HealthResponseDto)
-  async healthCheck() {
+  async healthCheck(@Res({ passthrough: true }) res: Response) {
     const redis = await this.pingRedis();
 
     if (redis !== 'up') {
-      throw new ServiceUnavailableException({ status: 'error', redis });
+      res.status(HttpStatus.SERVICE_UNAVAILABLE);
+
+      return { status: 'error', redis };
     }
 
     return { status: 'ok', redis };
   }
 
   private async pingRedis(): Promise<'up' | 'down'> {
+    // Нет соединения: не копим PING в офлайн-очереди ioredis
+    if (this.redis.status && this.redis.status !== 'ready') {
+      return 'down';
+    }
+
     try {
       const pong = await Promise.race([
         this.redis.ping(),

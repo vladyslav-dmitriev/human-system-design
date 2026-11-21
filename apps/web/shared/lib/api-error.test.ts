@@ -14,14 +14,16 @@ describe("getApiErrorCode", () => {
   it.each(API_ERROR_CODES.filter((c) => c !== "RATE_LIMITED"))(
     "берёт известный code из тела: %s",
     async (code) => {
-      await expect(getApiErrorCode(response(400, { code }))).resolves.toBe(code);
+      await expect(getApiErrorCode(response(400, { code }))).resolves.toBe(
+        code,
+      );
     },
   );
 
   it("429 всегда RATE_LIMITED, даже если тело другое или не JSON", async () => {
-    await expect(getApiErrorCode(response(429, { code: "INTERNAL" }))).resolves.toBe(
-      "RATE_LIMITED",
-    );
+    await expect(
+      getApiErrorCode(response(429, { code: "INTERNAL" })),
+    ).resolves.toBe("RATE_LIMITED");
     await expect(getApiErrorCode(response(429, undefined, "x"))).resolves.toBe(
       "RATE_LIMITED",
     );
@@ -31,7 +33,9 @@ describe("getApiErrorCode", () => {
     await expect(
       getApiErrorCode(response(500, { code: "__proto__.polluted" })),
     ).resolves.toBe("INTERNAL");
-    await expect(getApiErrorCode(response(400, { code: 123 }))).resolves.toBe("INTERNAL");
+    await expect(getApiErrorCode(response(400, { code: 123 }))).resolves.toBe(
+      "INTERNAL",
+    );
   });
 
   it.each([
@@ -43,12 +47,18 @@ describe("getApiErrorCode", () => {
     [500, "INTERNAL"],
     [502, "INTERNAL"],
   ])("тело не JSON (прокси, 502): статус %i -> %s", async (status, code) => {
-    await expect(getApiErrorCode(response(status, undefined, "<html>"))).resolves.toBe(code);
+    await expect(
+      getApiErrorCode(response(status, undefined, "<html>")),
+    ).resolves.toBe(code);
   });
 
   it("пустое тело и null не роняют", async () => {
-    await expect(getApiErrorCode(response(500, null))).resolves.toBe("INTERNAL");
-    await expect(getApiErrorCode(response(401, {}))).resolves.toBe("UNAUTHORIZED");
+    await expect(getApiErrorCode(response(500, null))).resolves.toBe(
+      "INTERNAL",
+    );
+    await expect(getApiErrorCode(response(401, {}))).resolves.toBe(
+      "UNAUTHORIZED",
+    );
   });
 
   it("код из тела приоритетнее статуса (409 AUTH_EMAIL_TAKEN)", async () => {

@@ -1,19 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { signIn, replace, refresh, track, executeRecaptcha } = vi.hoisted(() => ({
-  signIn: vi.fn(),
-  replace: vi.fn(),
-  refresh: vi.fn(),
-  track: vi.fn(),
-  executeRecaptcha: vi.fn(),
-}));
+const { signIn, replace, refresh, track, executeRecaptcha } = vi.hoisted(
+  () => ({
+    signIn: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    track: vi.fn(),
+    executeRecaptcha: vi.fn(),
+  }),
+);
 
 vi.mock("next-auth/react", () => ({ signIn }));
 // локализованная навигация: настоящий createNavigation тянет next/navigation, которого нет в vitest
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ replace, refresh, push: vi.fn() }),
-  Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+  }) => (
     <a href={href} {...rest}>
       {children}
     </a>
@@ -49,9 +58,16 @@ const fetchMock = vi.fn();
 const json = (body: unknown, ok = true, status = ok ? 200 : 400) =>
   Promise.resolve({ ok, status, json: () => Promise.resolve(body) });
 
-const fillAndSubmit = (email = "user@example.com", password = "password123") => {
-  fireEvent.change(screen.getByTestId("email-input"), { target: { value: email } });
-  fireEvent.change(screen.getByTestId("password-input"), { target: { value: password } });
+const fillAndSubmit = (
+  email = "user@example.com",
+  password = "password123",
+) => {
+  fireEvent.change(screen.getByTestId("email-input"), {
+    target: { value: email },
+  });
+  fireEvent.change(screen.getByTestId("password-input"), {
+    target: { value: password },
+  });
   fireEvent.click(screen.getByTestId("login-button"));
 };
 
@@ -59,7 +75,9 @@ const TICKET = "t".repeat(43);
 
 describe("LoginPage", () => {
   beforeEach(() => {
-    [signIn, replace, refresh, track, executeRecaptcha, fetchMock].forEach((m) => m.mockReset());
+    [signIn, replace, refresh, track, executeRecaptcha, fetchMock].forEach(
+      (m) => m.mockReset(),
+    );
     executeRecaptcha.mockResolvedValue("captcha");
     signIn.mockResolvedValue({ error: null });
     vi.stubGlobal("fetch", fetchMock);
@@ -72,7 +90,9 @@ describe("LoginPage", () => {
   });
 
   it("вход без 2FA: login API -> signIn(credentials) ТОЛЬКО с loginTicket -> переход на /dashboard", async () => {
-    fetchMock.mockReturnValue(json({ twoFactorRequired: false, loginTicket: TICKET }));
+    fetchMock.mockReturnValue(
+      json({ twoFactorRequired: false, loginTicket: TICKET }),
+    );
     render(<LoginPage />);
     fillAndSubmit("  User@Example.com ", "password123");
 
@@ -91,7 +111,9 @@ describe("LoginPage", () => {
       loginTicket: TICKET,
       redirect: false,
     });
-    expect(track).toHaveBeenCalledWith("User Signed In", { sign_in_method: "credentials" });
+    expect(track).toHaveBeenCalledWith("User Signed In", {
+      sign_in_method: "credentials",
+    });
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -103,26 +125,41 @@ describe("LoginPage", () => {
     ["https://evil.example", "/dashboard"],
     ["/\\evil.example", "/dashboard"],
     ["/login", "/dashboard"],
-  ])("callbackUrl=%s после входа ведёт на %s (open redirect закрыт)", async (callback, expected) => {
-    window.history.pushState({}, "", `/login?callbackUrl=${encodeURIComponent(callback)}`);
-    fetchMock.mockReturnValue(json({ twoFactorRequired: false, loginTicket: TICKET }));
-    render(<LoginPage />);
-    fillAndSubmit();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(expected));
-  });
+  ])(
+    "callbackUrl=%s после входа ведёт на %s (open redirect закрыт)",
+    async (callback, expected) => {
+      window.history.pushState(
+        {},
+        "",
+        `/login?callbackUrl=${encodeURIComponent(callback)}`,
+      );
+      fetchMock.mockReturnValue(
+        json({ twoFactorRequired: false, loginTicket: TICKET }),
+      );
+      render(<LoginPage />);
+      fillAndSubmit();
+      await waitFor(() => expect(replace).toHaveBeenCalledWith(expected));
+    },
+  );
 
   it("2FA: показывается OTP-шаг с замаскированным телефоном, signIn ещё не вызван", async () => {
-    fetchMock.mockReturnValue(json({ twoFactorRequired: true, phoneMasked: "**********33" }));
+    fetchMock.mockReturnValue(
+      json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+    );
     render(<LoginPage />);
     fillAndSubmit();
-    expect(await screen.findByTestId("otp-phone")).toHaveTextContent("**********33");
+    expect(await screen.findByTestId("otp-phone")).toHaveTextContent(
+      "**********33",
+    );
     expect(signIn).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 
   it("2FA: verify-otp получает только email и code (без пароля и captcha), затем ровно один signIn с билетом", async () => {
     fetchMock
-      .mockReturnValueOnce(json({ twoFactorRequired: true, phoneMasked: "**********33" }))
+      .mockReturnValueOnce(
+        json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+      )
       .mockReturnValueOnce(json({ loginTicket: TICKET }));
     render(<LoginPage />);
     fillAndSubmit("user@example.com", "password123");
@@ -131,19 +168,31 @@ describe("LoginPage", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
     const [url, init] = fetchMock.mock.calls[1]!;
     expect(url).toMatch(/\/service-auth\/verify-otp$/);
-    expect(JSON.parse(init.body)).toEqual({ email: "user@example.com", code: "123456" });
+    expect(JSON.parse(init.body)).toEqual({
+      email: "user@example.com",
+      code: "123456",
+    });
     expect(signIn).toHaveBeenCalledTimes(1);
-    expect(signIn).toHaveBeenCalledWith("credentials", { loginTicket: TICKET, redirect: false });
+    expect(signIn).toHaveBeenCalledWith("credentials", {
+      loginTicket: TICKET,
+      redirect: false,
+    });
   });
 
   it("неверный OTP (400 AUTH_INVALID_OTP): показывается ошибка, signIn не вызывается", async () => {
     fetchMock
-      .mockReturnValueOnce(json({ twoFactorRequired: true, phoneMasked: "**********33" }))
-      .mockReturnValueOnce(json({ code: "AUTH_INVALID_OTP", message: "x" }, false, 400));
+      .mockReturnValueOnce(
+        json({ twoFactorRequired: true, phoneMasked: "**********33" }),
+      )
+      .mockReturnValueOnce(
+        json({ code: "AUTH_INVALID_OTP", message: "x" }, false, 400),
+      );
     render(<LoginPage />);
     fillAndSubmit();
     fireEvent.click(await screen.findByText("verify-stub"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("errors.AUTH_INVALID_OTP");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "errors.AUTH_INVALID_OTP",
+    );
     expect(signIn).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
@@ -154,7 +203,9 @@ describe("LoginPage", () => {
     );
     render(<LoginPage />);
     fillAndSubmit();
-    expect(await screen.findByText("errors.AUTH_INVALID_CREDENTIALS")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.AUTH_INVALID_CREDENTIALS"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("login-button")).toBeEnabled();
     expect(signIn).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
@@ -176,7 +227,9 @@ describe("LoginPage", () => {
   });
 
   it("ошибка reCAPTCHA: сообщение captcha_failed, запрос на сервер не уходит, форма разблокируется", async () => {
-    executeRecaptcha.mockRejectedValue(new Error("reCAPTCHA script is not loaded"));
+    executeRecaptcha.mockRejectedValue(
+      new Error("reCAPTCHA script is not loaded"),
+    );
     render(<LoginPage />);
     fillAndSubmit();
     expect(await screen.findByText("captcha_failed")).toBeInTheDocument();
@@ -185,11 +238,15 @@ describe("LoginPage", () => {
   });
 
   it("signIn отклонил билет: ошибка AUTH_TICKET_INVALID, редиректа нет, форма разблокирована", async () => {
-    fetchMock.mockReturnValue(json({ twoFactorRequired: false, loginTicket: TICKET }));
+    fetchMock.mockReturnValue(
+      json({ twoFactorRequired: false, loginTicket: TICKET }),
+    );
     signIn.mockResolvedValue({ error: "CredentialsSignin" });
     render(<LoginPage />);
     fillAndSubmit();
-    expect(await screen.findByText("errors.AUTH_TICKET_INVALID")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.AUTH_TICKET_INVALID"),
+    ).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
     expect(screen.getByTestId("login-button")).toBeEnabled();
   });
@@ -198,7 +255,9 @@ describe("LoginPage", () => {
     fetchMock.mockReturnValue(json({ twoFactorRequired: false }));
     render(<LoginPage />);
     fillAndSubmit();
-    expect(await screen.findByText("errors.AUTH_TICKET_INVALID")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.AUTH_TICKET_INVALID"),
+    ).toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
   });
 
@@ -221,7 +280,9 @@ describe("LoginPage", () => {
   it("forgot-password и OAuth скрыты: нет ссылки «забыли пароль» и кнопок Google/GitHub", () => {
     render(<LoginPage />);
     expect(screen.queryByText(/forgot/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Google|GitHub/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Google|GitHub/i }),
+    ).not.toBeInTheDocument();
     for (const link of screen.queryAllByRole("link")) {
       expect(link.getAttribute("href")).not.toMatch(/forgot-password/);
     }
@@ -236,10 +297,17 @@ describe("LoginPage", () => {
     fetchMock.mockReturnValue(new Promise((r) => (resolve = r)));
     render(<LoginPage />);
     fillAndSubmit();
-    await waitFor(() => expect(screen.getByTestId("login-button")).toBeDisabled());
+    await waitFor(() =>
+      expect(screen.getByTestId("login-button")).toBeDisabled(),
+    );
     fireEvent.click(screen.getByTestId("login-button"));
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    resolve({ ok: true, status: 200, json: () => Promise.resolve({ twoFactorRequired: false, loginTicket: TICKET }) });
+    resolve({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({ twoFactorRequired: false, loginTicket: TICKET }),
+    });
     await waitFor(() => expect(replace).toHaveBeenCalled());
   });
 });

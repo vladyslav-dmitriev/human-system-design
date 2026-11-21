@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { useLocale } from "next-intl";
 
 type ReCaptcha = {
   ready(callback: () => void): void;
-  execute(siteKey: string | undefined, options: { action: string }): Promise<string>;
+  execute(
+    siteKey: string | undefined,
+    options: { action: string },
+  ): Promise<string>;
 };
 
 declare global {
@@ -20,15 +24,17 @@ export const GoogleCaptchaProvider = ({
   children: React.ReactNode;
   siteKey: string;
 }) => {
+  const locale = useLocale();
+
   useEffect(() => {
     const script = document.createElement("script");
-    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}&hl=${encodeURIComponent(locale)}`;
     script.async = true;
     document.body.appendChild(script);
     return () => {
       document.body.removeChild(script);
     };
-  }, [siteKey]);
+  }, [siteKey, locale]);
 
   return <>{children}</>;
 };

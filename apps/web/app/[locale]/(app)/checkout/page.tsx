@@ -5,7 +5,7 @@ import { ROUTE } from "@/constants";
 import { Link, redirect } from "@/i18n/navigation";
 import { getPaymentMethods } from "@/utils";
 import { CheckoutForm } from "@/widgets/checkout-form";
-import { cookies } from "next/headers";
+import { serverApiFetch } from "@/shared/lib/api-server";
 import { getLocale, getTranslations } from "next-intl/server";
 
 type CheckoutPageProps = {
@@ -13,17 +13,11 @@ type CheckoutPageProps = {
 };
 
 const createProduct = async (priceId: string, type: string) => {
-  const cookieStore = await cookies();
-  const cookieString = cookieStore.toString();
-
-  const res = await fetch(API_URL.billing.checkout(), {
+  const res = await serverApiFetch(API_URL.billing.checkout(), {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookieString,
     },
-    cache: "no-store",
     body: JSON.stringify({ priceId, type }),
   });
 
@@ -40,17 +34,11 @@ const createProduct = async (priceId: string, type: string) => {
 };
 
 const upgradeProduct = async (priceId: string) => {
-  const cookieStore = await cookies();
-  const cookieString = cookieStore.toString();
-
-  const res = await fetch(API_URL.billing.subscriptionsUpgrade(), {
+  const res = await serverApiFetch(API_URL.billing.subscriptionsUpgrade(), {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookieString,
     },
-    cache: "no-store",
     body: JSON.stringify({ type: "subscription", priceId }),
   });
 

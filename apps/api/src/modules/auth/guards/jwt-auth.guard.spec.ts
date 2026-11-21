@@ -1,4 +1,9 @@
-import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
+import {
+  Logger,
+  ServiceUnavailableException,
+  UnauthorizedException,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { decode } from '@auth/core/jwt';
 
 import { AuthGuard } from './jwt-auth.guard';
@@ -13,14 +18,16 @@ const ctx = (request: Record<string, unknown>) =>
   }) as unknown as ExecutionContext;
 
 describe('AuthGuard', () => {
-  const guard = new AuthGuard();
+  const redis = { get: jest.fn() };
+  const guard = new AuthGuard(redis as never);
   const env = { ...process.env };
 
   beforeEach(() => {
     decodeMock.mockReset();
+    redis.get.mockReset().mockResolvedValue(null);
     process.env = { ...env, AUTH_SECRET: 'test-secret' };
     delete process.env.NEXTAUTH_SECRET;
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterAll(() => {
@@ -131,5 +138,82 @@ describe('AuthGuard', () => {
     await expect(
       guard.canActivate(ctx({ cookies: { 'authjs.session-token': 't' } })),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  describe('session version (revoking sessions)', () => {
+    const request = () => ({ cookies: { 'authjs.session-token': 't' } });
+
+    it('token without sessionVersion counts as 0: passes while Redis has no key', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1', email: 'e' });
+
+      await expect(guard.canActivate(ctx(request()))).resolves.toBe(true);
+      expect(redis.get).toHaveBeenCalledWith('session-version:u1');
+    });
+
+    it('token version equal to Redis passes', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1', sessionVersion: 3 });
+      redis.get.mockResolvedValue('3');
+
+      await expect(guard.canActivate(ctx(request()))).resolves.toBe(true);
+    });
+
+    it('token without the field after the version was bumped -> 401 UNAUTHORIZED', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1' });
+      redis.get.mockResolvedValue('1');
+      const req = request() as Record<string, unknown>;
+
+      await expect(guard.canActivate(ctx(req))).rejects.toMatchObject({
+        status: 401,
+        response: expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      });
+      expect(req.user).toBeUndefined();
+    });
+
+    it('stale token version (lower than Redis) -> 401', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1', sessionVersion: 1 });
+      redis.get.mockResolvedValue('2');
+
+      await expect(guard.canActivate(ctx(request()))).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it('token version ahead of Redis (key lost) -> 401, never trusted', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1', sessionVersion: 5 });
+      redis.get.mockResolvedValue(null);
+
+      await expect(guard.canActivate(ctx(request()))).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it.each(['2', -1, null, {}])(
+      'non-numeric or negative sessionVersion %j in the token counts as 0',
+      async (value) => {
+        decodeMock.mockResolvedValue({ id: 'u1', sessionVersion: value });
+        redis.get.mockResolvedValue('1');
+
+        await expect(guard.canActivate(ctx(request()))).rejects.toBeInstanceOf(
+          UnauthorizedException,
+        );
+      },
+    );
+
+    it('Redis down -> 503, not 401 and not a pass', async () => {
+      decodeMock.mockResolvedValue({ id: 'u1' });
+      redis.get.mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await expect(guard.canActivate(ctx(request()))).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('a token without any user id is rejected', async () => {
+      decodeMock.mockResolvedValue({ email: 'e' });
+
+      await expect(guard.canActivate(ctx(request()))).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
   });
 });

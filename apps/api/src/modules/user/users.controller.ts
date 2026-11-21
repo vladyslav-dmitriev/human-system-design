@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Headers,
   UseGuards,
   Body,
   HttpCode,
@@ -53,8 +54,13 @@ export class UsersController {
   async updateEmail(
     @GetUser('id') userId: string,
     @Body() body: UserUpdateEmailBodyDto,
+    @Headers('accept-language') lang?: string,
   ) {
-    return this.userService.updateEmail(userId, body);
+    return this.userService.updateEmail(
+      userId,
+      body,
+      lang?.includes('uk') ? 'uk' : 'en',
+    );
   }
 
   @Patch('profile/password')

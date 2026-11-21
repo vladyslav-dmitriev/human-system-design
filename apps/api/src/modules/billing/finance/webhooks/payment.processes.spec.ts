@@ -2,7 +2,10 @@ import { PaymentProcessor } from './payment.processes';
 
 jest.mock('@nestjs/bullmq', () => ({
   WorkerHost: class WorkerHost {},
+  Processor: () => () => undefined,
+  OnWorkerEvent: () => () => undefined,
 }));
+jest.mock('../../../redis', () => ({ REDIS_CLIENT: 'REDIS_CLIENT' }));
 jest.mock('../../payment-method', () => ({ PaymentMethodService: class {} }));
 jest.mock('../../payments', () => ({ PaymentsService: class {} }));
 jest.mock('../../invoice', () => ({ InvoiceService: class {} }));
@@ -16,7 +19,11 @@ describe('PaymentProcessor', () => {
   };
   const paymentsService = { getSubscription: jest.fn() };
   const paymentMethodService = { updateDefaultPaymentMethod: jest.fn() };
-  const invoiceService = { createInvoice: jest.fn() };
+  const invoiceService = {
+    createInvoice: jest.fn(),
+    hasInvoiceForPayment: jest.fn(),
+  };
+  const redis = { del: jest.fn() };
   const featureRepository = { createUserFeature: jest.fn() };
 
   let processor: PaymentProcessor;
@@ -36,14 +43,173 @@ describe('PaymentProcessor', () => {
       paymentMethodService as never,
       invoiceService as never,
       featureRepository as never,
+      redis as never,
     );
+    redis.del.mockResolvedValue(1);
   });
 
   describe('process', () => {
+    const job = (name: string, object: unknown = {}) =>
+      ({ name, data: { eventId: 'evt_1', object } }) as never;
+
     it('rejects unknown jobs', async () => {
-      await expect(processor.process({ name: 'x' } as never)).rejects.toThrow(
+      await expect(processor.process(job('x'))).rejects.toThrow(
         'Unknown job: x',
       );
+    });
+
+    it.each([
+      ['subscription-purchase', 'handleSubscriptionPurchase'],
+      ['subscription-upgrade', 'handleSubscriptionUpgrade'],
+      ['subscription-sync', 'handleSubscriptionSync'],
+      ['one-time-purchase', 'handleOneTimePurchase'],
+    ] as const)(
+      'dispatches %s to %s with the event object',
+      async (name, method) => {
+        const spy = jest.spyOn(processor, method).mockResolvedValue(undefined);
+        const object = { id: 'obj_1' };
+
+        await processor.process(job(name, object));
+
+        expect(spy).toHaveBeenCalledWith(object);
+      },
+    );
+  });
+
+  describe('onFailed (retries exhausted)', () => {
+    const failedJob = (attemptsMade: number) =>
+      ({
+        id: 'evt_1',
+        name: 'one-time-purchase',
+        attemptsMade,
+        opts: { attempts: 5 },
+        data: { eventId: 'evt_1', object: {} },
+      }) as never;
+
+    it('keeps the idempotency key while retries remain', async () => {
+      await processor.onFailed(failedJob(2), new Error('db'));
+
+      expect(redis.del).not.toHaveBeenCalled();
+    });
+
+    it('releases the idempotency key after the last attempt so a manual Stripe resend is processed', async () => {
+      await processor.onFailed(failedJob(5), new Error('db'));
+
+      expect(redis.del).toHaveBeenCalledWith('stripe-webhook-event:evt_1');
+    });
+
+    it('does not throw when the job is unknown or Redis fails', async () => {
+      redis.del.mockRejectedValue(new Error('redis'));
+
+      await expect(
+        processor.onFailed(undefined, new Error('x')),
+      ).resolves.toBeUndefined();
+      await expect(
+        processor.onFailed(failedJob(5), new Error('x')),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('redelivery of an already processed payment (idempotency)', () => {
+    beforeEach(() => {
+      invoiceService.hasInvoiceForPayment.mockResolvedValue(true);
+    });
+
+    it('purchase: no second subscription write and no second invoice', async () => {
+      await processor.handleSubscriptionPurchase({ id: 'in_1' } as never);
+
+      expect(invoiceService.hasInvoiceForPayment).toHaveBeenCalledWith('in_1');
+      expect(userRepository.updateBillingSubscription).not.toHaveBeenCalled();
+      expect(invoiceService.createInvoice).not.toHaveBeenCalled();
+    });
+
+    it('upgrade: nothing is written twice', async () => {
+      await processor.handleSubscriptionUpgrade({ id: 'pi_1' } as never);
+
+      expect(userRepository.updateBillingSubscription).not.toHaveBeenCalled();
+      expect(invoiceService.createInvoice).not.toHaveBeenCalled();
+    });
+
+    it('one-time: no second feature and no second invoice', async () => {
+      await processor.handleOneTimePurchase({ id: 'pi_2' } as never);
+
+      expect(featureRepository.createUserFeature).not.toHaveBeenCalled();
+      expect(invoiceService.createInvoice).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleSubscriptionSync', () => {
+    const subscription = {
+      id: 'sub_1',
+      customer: 'cus_1',
+      status: 'active',
+      cancel_at_period_end: false,
+      items: {
+        data: [{ price: { id: 'price_1' }, current_period_end: 1_800_000_000 }],
+      },
+    };
+
+    it('writes the current subscription state', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+
+      await processor.handleSubscriptionSync(subscription as never);
+
+      expect(userRepository.updateBillingSubscription).toHaveBeenCalledWith({
+        userId: 'u1',
+        stripeSubscriptionId: 'sub_1',
+        stripePriceId: 'price_1',
+        status: 'active',
+        autoRenew: true,
+        currentPeriodEnd: new Date(1_800_000_000 * 1000),
+      });
+    });
+
+    it('cancel_at_period_end switches auto renew off', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+
+      await processor.handleSubscriptionSync({
+        ...subscription,
+        cancel_at_period_end: true,
+      } as never);
+
+      expect(
+        userRepository.updateBillingSubscription.mock.calls[0][0].autoRenew,
+      ).toBe(false);
+    });
+
+    it('a canceled subscription is stored as canceled without auto renew', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+
+      await processor.handleSubscriptionSync({
+        ...subscription,
+        status: 'canceled',
+      } as never);
+
+      expect(
+        userRepository.updateBillingSubscription.mock.calls[0][0],
+      ).toMatchObject({ status: 'canceled', autoRenew: false });
+    });
+
+    it('accepts an expanded customer object', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(billingUser);
+
+      await processor.handleSubscriptionSync({
+        ...subscription,
+        customer: { id: 'cus_1' },
+      } as never);
+
+      expect(userRepository.getUserByStripeCustomerId).toHaveBeenCalledWith(
+        'cus_1',
+      );
+    });
+
+    it('fails for an unknown customer and writes nothing', async () => {
+      userRepository.getUserByStripeCustomerId.mockResolvedValue(null);
+
+      await expect(
+        processor.handleSubscriptionSync(subscription as never),
+      ).rejects.toThrow('User not found');
+      expect(userRepository.updateBillingSubscription).not.toHaveBeenCalled();
     });
   });
 

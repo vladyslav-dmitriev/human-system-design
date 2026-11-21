@@ -23,7 +23,7 @@ import { EmailVerificationService } from '../sender/email/email-verification.ser
 import { SmsService } from '../sender/sms';
 import { AuthRepository } from './auth.repository';
 import { UserRepository } from '../user';
-import { REDIS_CLIENT } from '../redis';
+import { REDIS_CLIENT, getSessionVersion } from '../redis';
 import { ErrorCode } from '../../common/errors';
 
 const LOGIN_TICKET_PREFIX = 'login-ticket:';
@@ -200,6 +200,7 @@ export class AuthService {
         name: user.profile.name,
         email: user.email,
         role: user.role,
+        sessionVersion: await getSessionVersion(this.redis, user.id),
       },
     };
   }

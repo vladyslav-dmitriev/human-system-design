@@ -9,7 +9,9 @@ import {
 } from "./auth-schemas";
 
 const messages = (schema: { safeParse: (v: unknown) => any }, value: unknown) =>
-  schema.safeParse(value).error?.issues.map((i: { message: string }) => i.message) ?? [];
+  schema
+    .safeParse(value)
+    .error?.issues.map((i: { message: string }) => i.message) ?? [];
 
 describe("emailSchema", () => {
   it("тримит и приводит к нижнему регистру (как API)", () => {
@@ -19,9 +21,12 @@ describe("emailSchema", () => {
     expect(messages(emailSchema, "")).toContain("email_error_empty");
     expect(messages(emailSchema, "   ")).toContain("email_error_empty");
   });
-  it.each(["abc", "a@b", "@x.com", "a b@x.com"])("невалидный %s: email_error_invalid", (v) => {
-    expect(messages(emailSchema, v)).toContain("email_error_invalid");
-  });
+  it.each(["abc", "a@b", "@x.com", "a b@x.com"])(
+    "невалидный %s: email_error_invalid",
+    (v) => {
+      expect(messages(emailSchema, v)).toContain("email_error_invalid");
+    },
+  );
 });
 
 describe("newPasswordSchema (8..72 байта, как API)", () => {
@@ -29,13 +34,17 @@ describe("newPasswordSchema (8..72 байта, как API)", () => {
 
   it("границы по длине: 7 нет, 8 да", () => {
     expect(ok("a".repeat(7))).toBe(false);
-    expect(messages(newPasswordSchema, "a".repeat(7))).toContain("password_min_length");
+    expect(messages(newPasswordSchema, "a".repeat(7))).toContain(
+      "password_min_length",
+    );
     expect(ok("a".repeat(8))).toBe(true);
   });
   it("граница сверху в БАЙТАХ: 72 да, 73 нет", () => {
     expect(ok("a".repeat(72))).toBe(true);
     expect(ok("a".repeat(73))).toBe(false);
-    expect(messages(newPasswordSchema, "a".repeat(73))).toContain("password_max_length");
+    expect(messages(newPasswordSchema, "a".repeat(73))).toContain(
+      "password_max_length",
+    );
   });
   it("многобайтные символы: 36 x 2 байта = 72 да, 37 x 2 = 74 нет", () => {
     expect(ok("é".repeat(36))).toBe(true);
@@ -61,8 +70,12 @@ describe("loginSchema", () => {
     });
   });
   it("вход не навязывает политику пароля (старые аккаунты): 1 символ допустим, пустой нет", () => {
-    expect(loginSchema.safeParse({ email: "a@b.io", password: "x" }).success).toBe(true);
-    expect(messages(loginSchema, { email: "a@b.io", password: "" })).toContain("password_required");
+    expect(
+      loginSchema.safeParse({ email: "a@b.io", password: "x" }).success,
+    ).toBe(true);
+    expect(messages(loginSchema, { email: "a@b.io", password: "" })).toContain(
+      "password_required",
+    );
   });
 });
 
@@ -73,23 +86,34 @@ describe("createAccountSchema", () => {
     expect(createAccountSchema.safeParse(valid).success).toBe(true);
   });
   it("имя: trim, не пустое, до 100", () => {
-    expect(createAccountSchema.parse({ ...valid, name: "  Ann " }).name).toBe("Ann");
-    expect(messages(createAccountSchema, { ...valid, name: "   " })).toContain("name_required");
-    expect(createAccountSchema.safeParse({ ...valid, name: "x".repeat(100) }).success).toBe(true);
-    expect(messages(createAccountSchema, { ...valid, name: "x".repeat(101) })).toContain(
-      "name_too_long",
+    expect(createAccountSchema.parse({ ...valid, name: "  Ann " }).name).toBe(
+      "Ann",
     );
+    expect(messages(createAccountSchema, { ...valid, name: "   " })).toContain(
+      "name_required",
+    );
+    expect(
+      createAccountSchema.safeParse({ ...valid, name: "x".repeat(100) })
+        .success,
+    ).toBe(true);
+    expect(
+      messages(createAccountSchema, { ...valid, name: "x".repeat(101) }),
+    ).toContain("name_too_long");
   });
   it("пароль 1 символ отклоняется", () => {
-    expect(messages(createAccountSchema, { ...valid, password: "a" })).toContain(
-      "password_min_length",
-    );
+    expect(
+      messages(createAccountSchema, { ...valid, password: "a" }),
+    ).toContain("password_min_length");
   });
 });
 
 describe("getFieldErrors / validateWith", () => {
   it("первая ошибка по каждому полю", () => {
-    const r = createAccountSchema.safeParse({ name: "", email: "bad", password: "a" });
+    const r = createAccountSchema.safeParse({
+      name: "",
+      email: "bad",
+      password: "a",
+    });
     expect(r.success).toBe(false);
     if (!r.success) {
       expect(getFieldErrors(r.error)).toEqual({

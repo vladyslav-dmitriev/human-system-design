@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { toast } = vi.hoisted(() => ({
+const { toast, expireSession } = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn() },
+  expireSession: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast }));
 vi.mock("next-intl", () => ({ useTranslations: () => (k: string) => k }));
+vi.mock("@/shared/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/lib/api-client")>()),
+  expireSession,
+}));
 
 import { ChangePasswordForm } from "./change-password-form";
 
@@ -44,6 +49,7 @@ describe("ChangePasswordForm", () => {
     fetchMock.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    expireSession.mockReset();
     vi.stubGlobal("fetch", fetchMock);
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -114,6 +120,23 @@ describe("ChangePasswordForm", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 
+  it("после успешной смены сессия завершается сразу, при ошибке нет", async () => {
+    fetchMock.mockReturnValueOnce(
+      json({ code: "USER_INVALID_PASSWORD" }, false, 400),
+    );
+    const { user, current, next, button } = setup();
+    await user.type(current, "wrongpass1");
+    await user.type(next, "newpass456");
+    await user.click(button);
+    await screen.findByText("errors.USER_INVALID_PASSWORD");
+    expect(expireSession).not.toHaveBeenCalled();
+
+    fetchMock.mockReturnValue(json({ success: true }));
+    await user.type(current, "oldpass123");
+    await user.click(button);
+    await waitFor(() => expect(expireSession).toHaveBeenCalledTimes(1));
+  });
+
   it("лимит считается в байтах: 37 двухбайтовых символов (74 байта) отклоняются", async () => {
     const { user, current, next, button } = setup();
     await user.type(current, "oldpass123");
@@ -125,13 +148,19 @@ describe("ChangePasswordForm", () => {
 
   it("USER_INVALID_PASSWORD (API 400): ошибка у поля текущего пароля, поля остаются, toast.success нет", async () => {
     fetchMock.mockReturnValue(
-      json({ code: "USER_INVALID_PASSWORD", message: "Wrong password" }, false, 400),
+      json(
+        { code: "USER_INVALID_PASSWORD", message: "Wrong password" },
+        false,
+        400,
+      ),
     );
     const { user, current, next, button } = setup();
     await user.type(current, "wrongpass1");
     await user.type(next, "newpass456");
     await user.click(button);
-    expect(await screen.findByText("errors.USER_INVALID_PASSWORD")).toBeInTheDocument();
+    expect(
+      await screen.findByText("errors.USER_INVALID_PASSWORD"),
+    ).toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
     expect(current).toHaveValue("wrongpass1");
     expect(next).toHaveValue("newpass456");
@@ -146,7 +175,9 @@ describe("ChangePasswordForm", () => {
     await user.type(next, "newpass456");
     await user.click(button);
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(toast.error.mock.calls[0]![1]).toEqual({ description: "errors.INTERNAL" });
+    expect(toast.error.mock.calls[0]![1]).toEqual({
+      description: "errors.INTERNAL",
+    });
     expect(current).toHaveValue("oldpass123");
   });
 
@@ -158,7 +189,9 @@ describe("ChangePasswordForm", () => {
     await user.type(next, "newpass456");
     await user.click(button);
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect(toast.error.mock.calls[0]![1]).toEqual({ description: "errors.INTERNAL" });
+    expect(toast.error.mock.calls[0]![1]).toEqual({
+      description: "errors.INTERNAL",
+    });
     await waitFor(() => expect(button).toBeEnabled());
   });
 

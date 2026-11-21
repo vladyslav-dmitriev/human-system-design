@@ -14,11 +14,17 @@ import { pendingPhoneKey } from '../sender/sms/sms.constants';
 jest.mock('modules/sender/sms', () => ({ SmsService: class {} }), {
   virtual: true,
 });
-jest.mock('../redis', () => ({ REDIS_CLIENT: 'REDIS_CLIENT' }));
+jest.mock('../redis', () => ({
+  REDIS_CLIENT: 'REDIS_CLIENT',
+  ...jest.requireActual('../redis/session-version'),
+}));
+jest.mock('../sender/email/email.service', () => ({ EmailService: class {} }));
 jest.mock('./user.repository', () => ({ UserRepository: class {} }));
 
 describe('UserService', () => {
   const sms = { verifySmsCode: jest.fn() };
+  const email = { sendVerificationEmail: jest.fn() };
+  const verification = { createToken: jest.fn() };
   const repo = {
     getUserById: jest.fn(),
     checkUserEmailExist: jest.fn(),
@@ -35,6 +41,13 @@ describe('UserService', () => {
     }),
     get: jest.fn(async (k: string) => store.get(k) ?? null),
     del: jest.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
+    incr: jest.fn(async (k: string) => {
+      const next = Number(store.get(k) ?? 0) + 1;
+
+      store.set(k, String(next));
+
+      return next;
+    }),
   };
 
   let service: UserService;
@@ -65,7 +78,21 @@ describe('UserService', () => {
     redis.del.mockImplementation(async (k: string) =>
       store.delete(k) ? 1 : 0,
     );
-    service = new UserService(sms as never, repo as never, redis as never);
+    redis.incr.mockImplementation(async (k: string) => {
+      const next = Number(store.get(k) ?? 0) + 1;
+
+      store.set(k, String(next));
+
+      return next;
+    });
+    verification.createToken.mockReturnValue('signed-token');
+    service = new UserService(
+      sms as never,
+      email as never,
+      verification as never,
+      repo as never,
+      redis as never,
+    );
   });
 
   describe('getUserProfile', () => {
@@ -104,6 +131,47 @@ describe('UserService', () => {
         'new@test.dev',
       );
       expect(repo.updateUserEmail).toHaveBeenCalledWith('u1', 'new@test.dev');
+    });
+
+    it('queues a verification email for the NEW address with the token for it', async () => {
+      repo.checkUserEmailExist.mockResolvedValue(null);
+
+      await service.updateEmail('u1', dto, 'uk');
+
+      expect(verification.createToken).toHaveBeenCalledWith(
+        'u1',
+        'new@test.dev',
+      );
+      expect(email.sendVerificationEmail).toHaveBeenCalledWith(
+        { email: 'new@test.dev', token: 'signed-token' },
+        'uk',
+      );
+    });
+
+    it('a failing mail queue does not fail the already applied email change', async () => {
+      repo.checkUserEmailExist.mockResolvedValue(null);
+      email.sendVerificationEmail.mockRejectedValue(new Error('queue down'));
+
+      await expect(service.updateEmail('u1', dto)).resolves.toEqual({
+        success: true,
+      });
+    });
+
+    it('revokes sessions: session-version is incremented only after a successful change', async () => {
+      repo.checkUserEmailExist.mockResolvedValue(null);
+
+      await service.updateEmail('u1', dto);
+
+      expect(store.get('session-version:u1')).toBe('1');
+    });
+
+    it('no session revocation and no email when the change fails', async () => {
+      repo.checkUserEmailExist.mockResolvedValue({ id: 'u2' });
+
+      await code(service.updateEmail('u1', dto));
+
+      expect(store.has('session-version:u1')).toBe(false);
+      expect(email.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
     it('wrong current password -> 400 USER_INVALID_PASSWORD, nothing is changed', async () => {
@@ -189,6 +257,24 @@ describe('UserService', () => {
       );
     });
 
+    it('revokes sessions after a password change', async () => {
+      repo.getUserById.mockResolvedValue({ id: 'u1', password: oldHash });
+
+      await service.updatePassword('u1', dto);
+
+      expect(store.get('session-version:u1')).toBe('1');
+    });
+
+    it('does not revoke sessions when the current password is wrong', async () => {
+      repo.getUserById.mockResolvedValue({ id: 'u1', password: oldHash });
+
+      await code(
+        service.updatePassword('u1', { ...dto, currentPassword: 'wrong' }),
+      );
+
+      expect(store.has('session-version:u1')).toBe(false);
+    });
+
     it('rejects a wrong current password with USER_INVALID_PASSWORD', async () => {
       repo.getUserById.mockResolvedValue({ id: 'u1', password: oldHash });
 
@@ -268,6 +354,28 @@ describe('UserService', () => {
         twoFactorEnabled: true,
       });
       expect(store.has(pendingPhoneKey('u1'))).toBe(false);
+    });
+
+    it('enabling and disabling 2FA both revoke sessions', async () => {
+      sms.verifySmsCode.mockResolvedValue(true);
+
+      await service.setTwoFactor('u1', dto);
+      expect(store.get('session-version:u1')).toBe('1');
+
+      repo.getUserById.mockResolvedValue({
+        id: 'u1',
+        profile: { phone: dto.phone },
+      });
+      await service.setTwoFactor('u1', { ...dto, twoFactorEnabled: false });
+      expect(store.get('session-version:u1')).toBe('2');
+    });
+
+    it('an invalid code does not revoke sessions', async () => {
+      sms.verifySmsCode.mockResolvedValue(false);
+
+      await code(service.setTwoFactor('u1', dto));
+
+      expect(store.has('session-version:u1')).toBe(false);
     });
 
     it('the code is checked against the pending phone, not a phone supplied in the body', async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +39,7 @@ export function SubscriptionRenew({
     setIsLoading(true);
 
     try {
-      const response = await fetch(API_URL.billing.subscriptionsRenew(), {
+      const response = await apiFetch(API_URL.billing.subscriptionsRenew(), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

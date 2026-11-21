@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
@@ -37,7 +38,7 @@ export const Todos = () => {
 
   const fetchTodos = useCallback(async () => {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         API_URL.todos.list(sort.sortBy, sort.sortOrder),
         { method: "GET", credentials: "include" },
       );
@@ -59,7 +60,7 @@ export const Todos = () => {
 
   const makeHandleEditTodo = (todoId: string) => async () => {
     try {
-      const response = await fetch(API_URL.todos.edit(todoId), {
+      const response = await apiFetch(API_URL.todos.edit(todoId), {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -90,7 +91,7 @@ export const Todos = () => {
     setIsDeleting(true);
 
     try {
-      const response = await fetch(API_URL.todos.delete(pendingDeleteId), {
+      const response = await apiFetch(API_URL.todos.delete(pendingDeleteId), {
         method: "DELETE",
         credentials: "include",
       });

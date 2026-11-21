@@ -33,14 +33,21 @@ describe("guards", () => {
   });
 
   it("защищены все страницы приложения, включая цены и оплату (гость на /checkout)", () => {
-    for (const r of ["/pricing", "/checkout", "/thank-you-payment", "/billing"]) {
+    for (const r of [
+      "/pricing",
+      "/checkout",
+      "/thank-you-payment",
+      "/billing",
+    ]) {
       expect(isProtectedRoute(r)).toBe(true);
     }
   });
 
   describe("buildLoginHref", () => {
     it("кодирует путь и query в callbackUrl", () => {
-      expect(buildLoginHref("/settings")).toBe("/login?callbackUrl=%2Fsettings");
+      expect(buildLoginHref("/settings")).toBe(
+        "/login?callbackUrl=%2Fsettings",
+      );
       expect(buildLoginHref("/settings", "?tab=a&b=1")).toBe(
         "/login?callbackUrl=%2Fsettings%3Ftab%3Da%26b%3D1",
       );
@@ -67,7 +74,9 @@ describe("guards", () => {
       ["/forgot-password", "/dashboard"],
       ["/a\nb", "/dashboard"],
     ])("%j -> %s", (input, expected) => {
-      expect(getSafeCallbackUrl(input as string | null | undefined)).toBe(expected);
+      expect(getSafeCallbackUrl(input as string | null | undefined)).toBe(
+        expected,
+      );
     });
 
     it("управляющие символы (CR/LF/TAB) отклоняются", () => {

@@ -21,6 +21,8 @@ import { PaymentHandler } from '../src/modules/billing/finance/webhooks/payment.
 import { PaymentsService } from '../src/modules/billing/payments/payments.service';
 import { StripeProvider } from '../src/modules/billing/payments/providers/stripe.provider';
 import { UserRepository } from '../src/modules/user/user.repository';
+import { REDIS_CLIENT } from '../src/modules/redis';
+import { createFakeRedis } from './helpers/fake-redis';
 import { AuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import {
   ADMIN,
@@ -218,6 +220,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
     async (id: string) => id in PRICES || id === 'price_inactive',
   );
   const subRepo = { changeAutoRenew: jest.fn(), isPriceAllowed };
+  let redis: ReturnType<typeof createFakeRedis>;
 
   beforeAll(async () => {
     cookieA = await sessionCookie(USER_A);
@@ -229,6 +232,7 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
 
   beforeEach(async () => {
     stripe = createFakeStripe();
+    redis = createFakeRedis();
     Object.values(paymentHandler).forEach((m) =>
       m.mockReset().mockResolvedValue(undefined),
     );
@@ -315,8 +319,10 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
         FinanceService,
         SubscriptionService,
         InvoiceService,
+        { provide: 'BullQueue_pdf-queue', useValue: { add: jest.fn() } },
         WebhookService,
         { provide: PaymentHandler, useValue: paymentHandler },
+        { provide: REDIS_CLIENT, useValue: redis },
         { provide: ProductService, useValue: productService },
         { provide: UserRepository, useValue: userRepo },
         { provide: FinanceRepository, useValue: financeRepo },
@@ -797,21 +803,29 @@ describe('Billing controllers (nest testing module, fake Stripe, mocked repos)',
       expect(paymentHandler.handleOneTimePurchase).toHaveBeenCalledTimes(1);
     });
 
-    // BUG: волна 2, см. FIX.md «Вебхуки Stripe ничего не делают» (идемпотентность по event.id)
-    it.failing('replay of the same event.id is processed once', async () => {
+    it('replay of the same event.id is processed once', async () => {
       const sig = sign(payload);
       await send(payload, sig).expect(200);
       await send(payload, sig).expect(200);
       expect(paymentHandler.handleOneTimePurchase).toHaveBeenCalledTimes(1);
+      expect(redis.store.has('stripe-webhook-event:evt_1')).toBe(true);
+      expect(redis.ttl.get('stripe-webhook-event:evt_1')).toBe(7 * 24 * 3600);
     });
 
-    // BUG: волна 2 (вебхуки, не входили в волну 1): 400 на неверную подпись содержит полный текст исключения Stripe SDK)
-    it.failing(
-      'error message for a bad signature does not contain SDK internals',
-      async () => {
-        const res = await send(payload, 't=1,v1=bad').expect(400);
-        expect(res.body.message).not.toMatch(/Error: |docs\.stripe\.com/);
-      },
-    );
+    it('a failed enqueue answers 500 without internals and a retry from Stripe is processed', async () => {
+      paymentHandler.handleOneTimePurchase.mockRejectedValueOnce(
+        new Error('redis down at 10.0.0.1'),
+      );
+      const sig = sign(payload);
+      const res = await send(payload, sig).expect(500);
+      expect(JSON.stringify(res.body)).not.toContain('10.0.0.1');
+      await send(payload, sig).expect(200);
+      expect(paymentHandler.handleOneTimePurchase).toHaveBeenCalledTimes(2);
+    });
+
+    it('error message for a bad signature does not contain SDK internals', async () => {
+      const res = await send(payload, 't=1,v1=bad').expect(400);
+      expect(res.body.message).not.toMatch(/Error: |docs\.stripe\.com/);
+    });
   });
 });

@@ -54,6 +54,9 @@ export const API_URL = {
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/sender/emails/send-verification`,
     verifyEmail: () =>
       `${process.env.NEXT_PUBLIC_API_CLIENT_URL}/sender/emails/verify-email`,
+    /** GET ?token=...; для серверной страницы подтверждения (внутренний адрес api) */
+    verifyEmailServer: (token: string) =>
+      `${process.env.NEXT_PUBLIC_API_SERVER_URL}/sender/emails/verify-email?token=${encodeURIComponent(token)}`,
   },
   todos: {
     /** Список грузит браузер (client component), поэтому публичный URL */

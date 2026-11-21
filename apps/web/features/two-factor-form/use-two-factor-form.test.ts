@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
+const { expireSession } = vi.hoisted(() => ({ expireSession: vi.fn() }));
+vi.mock("@/shared/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/lib/api-client")>()),
+  expireSession,
+}));
+
 import { useTwoFactorForm } from "./use-two-factor-form";
 
 const fetchMock = vi.fn();
@@ -9,8 +15,10 @@ const res = (ok: boolean, body: unknown = {}, status = ok ? 200 : 400) =>
 const ok = (body: unknown = { success: true }) => res(true, body);
 const fail = (code: string, status = 400) => res(false, { code }, status);
 
-const setup = (input: { userPhone: string | null; userTwoFactorEnabled: boolean | null }) =>
-  renderHook(() => useTwoFactorForm(input));
+const setup = (input: {
+  userPhone: string | null;
+  userTwoFactorEnabled: boolean | null;
+}) => renderHook(() => useTwoFactorForm(input));
 
 const callsTo = (re: RegExp) =>
   fetchMock.mock.calls.filter(([url]) => re.test(String(url)));
@@ -18,6 +26,7 @@ const callsTo = (re: RegExp) =>
 describe("useTwoFactorForm", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    expireSession.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
@@ -107,7 +116,10 @@ describe("useTwoFactorForm", () => {
 
   it("connectPhone: сетевая ошибка не роняет хук, ошибка INTERNAL", async () => {
     fetchMock.mockRejectedValue(new Error("offline"));
-    const { result } = setup({ userPhone: "+380501112233", userTwoFactorEnabled: false });
+    const { result } = setup({
+      userPhone: "+380501112233",
+      userTwoFactorEnabled: false,
+    });
     await act(() => result.current.handleConnectPhone());
     expect(result.current.step).toBe("idle");
     expect(result.current.error).toBe("errors.INTERNAL");
@@ -135,6 +147,8 @@ describe("useTwoFactorForm", () => {
     expect(result.current.otp).toBe("");
     expect(result.current.step).toBe("idle");
     expect(result.current.error).toBeNull();
+    // api отозвал сессию: выходим сразу
+    expect(expireSession).toHaveBeenCalledTimes(1);
   });
 
   it("enterCode: неверный код (400 USER_INVALID_OTP) не включает 2FA, остаёмся на шаге otp, код не сбрасывается", async () => {
@@ -155,6 +169,7 @@ describe("useTwoFactorForm", () => {
     expect(result.current.otp).toBe("000000");
     expect(result.current.error).toBe("errors.USER_INVALID_OTP");
     expect(result.current.loading).toBe(false);
+    expect(expireSession).not.toHaveBeenCalled();
   });
 
   it("enterCode: 200 без {success:true} не считается успехом (раньше пустое тело давало «2FA включена»)", async () => {
@@ -173,7 +188,11 @@ describe("useTwoFactorForm", () => {
 
   it("enterCode: тело ответа не JSON -> ошибка, а не необработанный reject", async () => {
     fetchMock.mockReturnValue(
-      Promise.resolve({ ok: true, status: 200, json: () => Promise.reject(new SyntaxError("x")) }),
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new SyntaxError("x")),
+      }),
     );
     const { result } = setup({ userPhone: null, userTwoFactorEnabled: false });
     act(() => {
@@ -187,14 +206,19 @@ describe("useTwoFactorForm", () => {
 
   it("выключение: SMS на сохранённый номер (пустое тело), затем enterCode сбрасывает телефон", async () => {
     fetchMock.mockReturnValue(ok());
-    const { result } = setup({ userPhone: "+380501112233", userTwoFactorEnabled: true });
+    const { result } = setup({
+      userPhone: "+380501112233",
+      userTwoFactorEnabled: true,
+    });
     await act(() => result.current.handleSwitchEnabled());
     expect(result.current.step).toBe("otp");
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({});
     act(() => result.current.setOtp("654321"));
     await act(() => result.current.handleEnterCode());
 
-    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).twoFactorEnabled).toBe(false);
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).twoFactorEnabled).toBe(
+      false,
+    );
     expect(result.current.enabled).toBe(false);
     expect(result.current.phone).toBeNull();
     expect(result.current.loading).toBe(false);
@@ -202,7 +226,10 @@ describe("useTwoFactorForm", () => {
 
   it("выключение: если SMS не ушла, loading сбрасывается (Switch не пропадает), ошибка показана", async () => {
     fetchMock.mockReturnValue(fail("RATE_LIMITED", 429));
-    const { result } = setup({ userPhone: "+380501112233", userTwoFactorEnabled: true });
+    const { result } = setup({
+      userPhone: "+380501112233",
+      userTwoFactorEnabled: true,
+    });
     await act(() => result.current.handleSwitchEnabled());
     expect(result.current.loading).toBe(false);
     expect(result.current.step).toBe("idle");

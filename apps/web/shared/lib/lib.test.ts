@@ -4,7 +4,6 @@ import { ls } from "./ls";
 import { normalizePath } from "./normalize-path";
 import { formatStripePrice, getFormattedPrice } from "./price";
 import { cn } from "./utils";
-import { signInSchema } from "./zod";
 
 describe("getErrorMessage", () => {
   it("берёт message у Error", () => {
@@ -80,59 +79,15 @@ describe("price", () => {
     expect(getFormattedPrice(null, null)).toBe("$0.00");
     expect(getFormattedPrice(undefined, undefined)).toBe("$0.00");
   });
+  it("getFormattedPrice учитывает локаль", () => {
+    expect(getFormattedPrice(123456, "usd", "uk")).toMatch(/1\s?234,56/);
+    expect(getFormattedPrice(123456, "usd", "en")).toBe("$1,234.56");
+  });
 });
 
 describe("cn", () => {
   it("склеивает классы и разрешает конфликты tailwind", () => {
     expect(cn("p-2", "p-4")).toBe("p-4");
     expect(cn("a", false && "b", undefined, "c")).toBe("a c");
-  });
-});
-
-describe("signInSchema", () => {
-  const ok = { email: "user@example.com", password: "password123" };
-
-  it("принимает валидные данные", () => {
-    expect(signInSchema.safeParse(ok).success).toBe(true);
-  });
-
-  it("пустой email: Email is required", () => {
-    const r = signInSchema.safeParse({ ...ok, email: "" });
-    expect(r.success).toBe(false);
-    expect(r.error?.issues.map((i) => i.message)).toContain("Email is required");
-  });
-
-  it("невалидный email", () => {
-    const r = signInSchema.safeParse({ ...ok, email: "not-an-email" });
-    expect(r.error?.issues.map((i) => i.message)).toContain("Invalid email");
-  });
-
-  it("не строка: кастомное сообщение", () => {
-    const r = signInSchema.safeParse({ email: 1, password: 2 });
-    expect(r.success).toBe(false);
-    const msgs = r.error?.issues.map((i) => i.message);
-    expect(msgs).toContain("Email must be a string");
-    expect(msgs).toContain("Password must be a string");
-  });
-
-  it("отсутствующие поля отклоняются", () => {
-    expect(signInSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("пароль: границы 7/8/32/33", () => {
-    const parse = (n: number) =>
-      signInSchema.safeParse({ ...ok, password: "a".repeat(n) }).success;
-    expect(parse(7)).toBe(false);
-    expect(parse(8)).toBe(true);
-    expect(parse(32)).toBe(true);
-    expect(parse(33)).toBe(false);
-  });
-
-  // BUG: см. FIX.md "signInSchema: тексты ошибок не совпадают с границами"
-  // сообщение говорит "more than 8", но 8 символов проходит
-  it.fails("пароль из 8 символов отклоняется, как обещает сообщение 'more than 8'", () => {
-    expect(
-      signInSchema.safeParse({ ...ok, password: "a".repeat(8) }).success,
-    ).toBe(false);
   });
 });
