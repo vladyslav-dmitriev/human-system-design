@@ -15,16 +15,17 @@ export default async function RootLayout({
   const { locale } = await params;
   const messages = await getMessages();
 
+  // GoogleCaptchaProvider вызывает useLocale(), поэтому должен быть внутри NextIntlClientProvider
   return (
-    <GoogleCaptchaProvider
-      siteKey={process.env.NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY!}
-    >
-      <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <GoogleCaptchaProvider
+        siteKey={process.env.NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY!}
+      >
         <Providers>
           {children}
           <Toaster richColors closeButton />
         </Providers>
-      </NextIntlClientProvider>
-    </GoogleCaptchaProvider>
+      </GoogleCaptchaProvider>
+    </NextIntlClientProvider>
   );
 }
