@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { BillingPlan } from "./billing-plan";
 import { ROUTE } from "@/constants";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getFormattedPrice } from "@/shared/lib/price";
 import type { BillingProduct } from "@/shared/types/billing";
 
@@ -57,6 +57,7 @@ export function BillingPlans({
   billingProducts,
 }: BillingPlansProps) {
   const t = useTranslations();
+  const locale = useLocale();
 
   const router = useRouter();
 
@@ -105,7 +106,11 @@ export function BillingPlans({
 
             if (plan.saleAmount) {
               return t("upgrade_for", {
-                price: getFormattedPrice(plan.saleAmount, plan.currency),
+                price: getFormattedPrice(
+                  plan.saleAmount,
+                  plan.currency,
+                  locale,
+                ),
               });
             }
 

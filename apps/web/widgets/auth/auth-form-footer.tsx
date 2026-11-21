@@ -13,10 +13,10 @@ export const AuthFormFooter = ({
 }: AuthFormFooterProps) => {
   return (
     <p className="text-sm text-center">
-      <span className="text-gray-600 mr-1">{text}</span>
+      <span className="text-muted-foreground mr-1">{text}</span>
       <Link
         href={buttonLink}
-        className="text-blue-500 hover:underline font-bold"
+        className="inline-flex min-h-6 items-center text-primary underline-offset-4 hover:underline font-bold"
       >
         {buttonText}
       </Link>

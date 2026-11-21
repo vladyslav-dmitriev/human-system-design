@@ -26,9 +26,11 @@ export const GBProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     growthbook.setAttributes({
-      id: session?.user?.email,
+      // без email и полного URL: только id, роль и путь без query
+      id: session?.user?.id,
+      role: session?.user?.role,
       loggedIn: Boolean(session?.user),
-      url: window.location.href,
+      url: window.location.pathname,
     });
   }, [session]);
 

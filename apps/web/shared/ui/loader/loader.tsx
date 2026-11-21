@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "../../lib/utils";
 
 interface BaseSpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -15,6 +16,7 @@ export const Loader: React.FC<BaseSpinnerProps> = ({
   className,
   ...props
 }) => {
+  const t = useTranslations();
   const sizeClasses = {
     sm: "h-3.5 w-3.5 border-[1.5px]",
     md: "h-5 w-5 border-2",
@@ -23,12 +25,15 @@ export const Loader: React.FC<BaseSpinnerProps> = ({
 
   const spinnerContent = (
     <div
+      role="status"
+      aria-live="polite"
       className={cn(
         "relative flex items-center justify-center shrink-0",
         className,
       )}
       {...props}
     >
+      <span className="sr-only">{t("loading")}</span>
       {/* 1. Фиксированная фоновая подложка в цвет твоих muted-рамок */}
       <div
         className={cn(
@@ -39,7 +44,7 @@ export const Loader: React.FC<BaseSpinnerProps> = ({
       {/* 2. Активный бегунок, окрашенный в цвет основного текста (foreground) */}
       <div
         className={cn(
-          "rounded-full border-t-foreground border-r-transparent border-b-transparent border-l-transparent animate-spin inset-0",
+          "rounded-full border-t-foreground border-r-transparent border-b-transparent border-l-transparent animate-spin motion-reduce:animate-none inset-0",
           sizeClasses[size],
         )}
         style={{ animationDuration: "0.6s" }} // Мягкое быстрое вращение

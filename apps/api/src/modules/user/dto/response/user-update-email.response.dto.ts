@@ -1,6 +1,8 @@
-import { IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Expose } from 'class-transformer';
 
 export class UserUpdateEmailResponseDto {
-  @IsBoolean()
+  @ApiProperty()
+  @Expose()
   success: boolean;
 }

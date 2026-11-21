@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
+import { ThemeToggle } from "@/features/theme-toggle";
 import { SelectLanguage } from "@/features/select-language";
 import { Link } from "@/i18n/navigation";
 import { Logo } from "../logo";
@@ -37,6 +38,7 @@ export function LandingNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <SelectLanguage />
           <Button asChild variant="ghost" className="h-11">
             <Link href={ROUTE.LOGIN}>{t("login")}</Link>

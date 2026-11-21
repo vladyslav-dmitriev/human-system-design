@@ -30,5 +30,12 @@
   "oauth_unlink_button": "Unlink",
   "oauth_connect_button": "Connect",
   "oauth_linked_toast": "{provider} account linked",
-  "oauth_unlinked_toast": "{provider} account unlinked"
+  "oauth_unlinked_toast": "{provider} account unlinked",
+  "password_max_length": "Password is too long (72 bytes max)",
+  "update_error_title": "Update failed",
+  "email_changed_title": "Email changed",
+  "email_changed_description": "New address: {email}",
+  "password_changed_title": "Password changed",
+  "password_changed_description": "Use the new password the next time you sign in.",
+  "two_factor_title": "Two-factor authentication"
 }

@@ -1,17 +1,21 @@
-import { WorkerHost } from '@nestjs/bullmq';
-import { Inject } from '@nestjs/common';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import type Redis from 'ioredis';
 
-// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
-
+import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { PaymentMethodService } from '../../payment-method';
 import { PaymentsService, type StripeTypes } from '../../payments';
 import { InvoiceService } from '../../invoice';
 import { UserRepository } from '../../../user';
 import { FeatureRepository } from '../../feature';
+import { REDIS_CLIENT } from '../../../redis';
+import { type PaymentJobData, webhookEventKey } from './webhook-idempotency';
 
-// @Processor(QUEUE.PaymentQueue)
+@Processor(QUEUE.PaymentQueue)
 export class PaymentProcessor extends WorkerHost {
+  private readonly logger = new Logger(PaymentProcessor.name);
+
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
@@ -21,27 +25,72 @@ export class PaymentProcessor extends WorkerHost {
     private readonly invoiceService: InvoiceService,
     @Inject(FeatureRepository)
     private readonly featureRepository: FeatureRepository,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {
     super();
   }
 
-  process(job: Job): Promise<void> {
-    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionPurchase) {
-    //   return this.handleSubscriptionPurchase(job.data as any);
-    // }
+  process(job: Job<PaymentJobData>): Promise<void> {
+    const jobs = QUEUE_JOB[QUEUE.PaymentQueue];
+    const { object } = job.data;
 
-    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].SubscriptionUpgrade) {
-    //   return this.handleSubscriptionUpgrade(job.data as any);
-    // }
+    switch (job.name) {
+      case jobs.SubscriptionPurchase:
+        return this.handleSubscriptionPurchase(object as StripeTypes.Invoice);
 
-    // if (job.name === QUEUE_JOB[QUEUE.PaymentQueue].OneTimePurchase) {
-    //   return this.handleOneTimePurchase(job.data as any);
-    // }
+      case jobs.SubscriptionUpgrade:
+        return this.handleSubscriptionUpgrade(
+          object as StripeTypes.PaymentIntent,
+        );
 
-    return Promise.reject(new Error(`Unknown job: ${job.name}`));
+      case jobs.SubscriptionSync:
+        return this.handleSubscriptionSync(object as StripeTypes.Subscription);
+
+      case jobs.OneTimePurchase:
+        return this.handleOneTimePurchase(object as StripeTypes.PaymentIntent);
+
+      default:
+        return Promise.reject(new Error(`Unknown job: ${job.name}`));
+    }
+  }
+
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<PaymentJobData> | undefined, error: Error) {
+    const attempts = job?.opts.attempts ?? 1;
+
+    this.logger.error(
+      `Payment job ${job?.id} (${job?.name}) failed, attempt ${job?.attemptsMade}/${attempts}: ${error.message}`,
+    );
+
+    // Задача исчерпала ретраи. Для ручного resend из дашборда Stripe освобождаем и ключ
+    // идемпотентности, и саму задачу: jobId = event.id, и упавшая задача в Redis иначе
+    // заставила бы `queue.add` молча отбросить повторное событие как дубль.
+    if (job && job.attemptsMade >= attempts && job.data?.eventId) {
+      this.logger.error(
+        `Payment job ${job.id} moved to failed, event ${job.data.eventId} needs manual review`,
+      );
+      await job.remove().catch((removeError: unknown) => {
+        this.logger.error(
+          `Failed payment job ${job.id} was not removed: ${removeError instanceof Error ? removeError.message : 'unknown error'}`,
+        );
+      });
+      await this.redis
+        .del(webhookEventKey(job.data.eventId))
+        .catch(() => undefined);
+    }
+  }
+
+  @OnWorkerEvent('error')
+  onError(error: Error) {
+    this.logger.error(`Payment worker error: ${error.message}`);
   }
 
   async handleSubscriptionPurchase(invoice: StripeTypes.Invoice) {
+    // Повторная доставка: счёт по этому платежу уже записан
+    if (await this.invoiceService.hasInvoiceForPayment(invoice.id)) {
+      return;
+    }
+
     const stripeCustomerId = invoice.customer as string;
 
     const user =
@@ -87,6 +136,10 @@ export class PaymentProcessor extends WorkerHost {
   }
 
   async handleSubscriptionUpgrade(paymentIntent: StripeTypes.PaymentIntent) {
+    if (await this.invoiceService.hasInvoiceForPayment(paymentIntent.id)) {
+      return;
+    }
+
     const stripeCustomerId = paymentIntent.customer as string;
     const subscriptionId = paymentIntent.metadata.subscriptionId;
 
@@ -128,18 +181,59 @@ export class PaymentProcessor extends WorkerHost {
         currency: paymentIntent.currency,
         metadata: paymentIntent.metadata,
       });
-    } catch {
-      throw new Error('Error updating user subscription in database');
+    } catch (error) {
+      // target es2021: `cause` задаём вручную (ES2022 ErrorOptions в типах недоступен)
+      const wrapped = new Error('Error updating user subscription in database');
+
+      (wrapped as Error & { cause?: unknown }).cause = error;
+      throw wrapped;
     }
   }
 
-  async handleOneTimePurchase(paymentIntent: StripeTypes.PaymentIntent) {
-    // return this.prisma.$transaction(async (tx) => {
-    // const existingInvoice = await tx.invoice.findUnique({
-    //   where: { stripePaymentIntentId: paymentIntent.id },
-    // });
+  async handleSubscriptionSync(eventSubscription: StripeTypes.Subscription) {
+    // Событие может прийти позже других (порядок доставки Stripe не гарантирован):
+    // пишем текущее состояние подписки из Stripe, а не снимок из события.
+    const subscription = await this.paymentsService.getSubscription(
+      eventSubscription.id,
+    );
 
-    // if (existingInvoice) return;
+    const stripeCustomerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer.id;
+
+    const user =
+      await this.userRepository.getUserByStripeCustomerId(stripeCustomerId);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const item = subscription.items.data[0];
+
+    if (!item) {
+      throw new Error('Subscription has no items');
+    }
+
+    // Задача по определению идемпотентна: пишем актуальное состояние подписки
+    await this.userRepository.updateBillingSubscription({
+      userId: user.userId,
+      stripeSubscriptionId: subscription.id,
+      stripePriceId: item.price.id,
+      status: subscription.status,
+      autoRenew:
+        !subscription.cancel_at_period_end &&
+        subscription.status !== 'canceled',
+      currentPeriodEnd: item.current_period_end
+        ? new Date(item.current_period_end * 1000)
+        : null,
+    });
+  }
+
+  async handleOneTimePurchase(paymentIntent: StripeTypes.PaymentIntent) {
+    if (await this.invoiceService.hasInvoiceForPayment(paymentIntent.id)) {
+      return;
+    }
 
     const stripeCustomerId = paymentIntent.customer as string;
 
@@ -152,10 +246,18 @@ export class PaymentProcessor extends WorkerHost {
 
     const paymentMethodId = paymentIntent.payment_method as string;
 
-    await this.featureRepository.createUserFeature(
-      user.userId,
-      paymentIntent.metadata.priceId,
-    );
+    // Ретрай после частичного сбоя (карта, счёт): вторую фичу не создаём
+    if (
+      !(await this.featureRepository.hasUserFeature(
+        user.userId,
+        paymentIntent.metadata.priceId,
+      ))
+    ) {
+      await this.featureRepository.createUserFeature(
+        user.userId,
+        paymentIntent.metadata.priceId,
+      );
+    }
 
     if (user.defaultPaymentMethodId !== paymentMethodId) {
       await this.paymentMethodService.updateDefaultPaymentMethod(
@@ -165,7 +267,6 @@ export class PaymentProcessor extends WorkerHost {
       );
     }
 
-    //   await tx.invoice.create({ ... });
     await this.invoiceService.createInvoice({
       userId: user.userId,
       stripeCustomerId,
@@ -175,6 +276,5 @@ export class PaymentProcessor extends WorkerHost {
       currency: paymentIntent.currency,
       metadata: paymentIntent.metadata,
     });
-    // });
   }
 }

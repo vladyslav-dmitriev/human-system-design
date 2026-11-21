@@ -4,12 +4,13 @@
     "NODE_ENV",
     "NEXTAUTH_SECRET"
   ],
+  "globalPassThroughEnv": ["NEXT_PUBLIC_*"],
   "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -19,12 +20,13 @@
       "outputs": []
     },
     "test": {
-      "dependsOn": ["build"],
       "outputs": []
     },
     "test:unit": {
-      "dependsOn": ["build"],
       "outputs": []
+    },
+    "test:e2e": {
+      "cache": false
     },
     "dev": {
       "cache": false,

@@ -21,6 +21,7 @@ export interface IInvoiceRepository {
   updatePdfUrl(invoiceId: string, pdfUrl: string): Promise<void>;
   getLastInvoiceNumber(): Promise<{ number: Invoice['number'] } | null>;
   createInvoice(data: CreateInvoiceData): Promise<Invoice>;
+  existsByPaymentIntentId(stripePaymentIntentId: string): Promise<boolean>;
 }
 
 @Injectable()
@@ -75,5 +76,16 @@ export class InvoiceRepository implements IInvoiceRepository {
     return this.prisma.invoice.create({
       data,
     });
+  }
+
+  async existsByPaymentIntentId(
+    stripePaymentIntentId: string,
+  ): ReturnType<IInvoiceRepository['existsByPaymentIntentId']> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { stripePaymentIntentId },
+      select: { id: true },
+    });
+
+    return invoice !== null;
   }
 }

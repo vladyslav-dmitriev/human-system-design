@@ -1,45 +1,77 @@
 import { NextResponse, type NextRequest } from "next/server";
 import createMiddleware from "next-intl/middleware";
-import { routing } from "@repo/i18n";
+import { defaultLocale, locales, routing } from "@repo/i18n";
 import { getToken } from "next-auth/jwt";
-import { ROUTE, ROUTES } from "./constants";
+import { ROUTE, SESSION_COOKIE_NAME, SESSION_EXPIRED_PARAM } from "./constants";
+import { getPathLocale, normalizePath } from "./shared/lib/normalize-path";
+import {
+  buildLoginHref,
+  isAuthRoute,
+  isProtectedRoute,
+} from "./shared/utils/guards";
 
 const intlMiddleware = createMiddleware(routing);
 
-function normalize(pathname: string) {
-  const parts = pathname.split("/");
-  if (parts[1] === "en" || parts[1] === "uk") {
-    return "/" + parts.slice(2).join("/");
+/** Локаль для редиректа: из URL, иначе из cookie next-intl, иначе дефолтная */
+function resolveLocale(req: NextRequest, pathname: string) {
+  const fromPath = getPathLocale(pathname);
+  if (fromPath) return fromPath;
+
+  const fromCookie = req.cookies.get("NEXT_LOCALE")?.value;
+  if (fromCookie && (locales as readonly string[]).includes(fromCookie)) {
+    return fromCookie;
   }
-  return pathname;
+
+  return defaultLocale;
 }
 
 export default async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
-  const path = normalize(pathname);
+  const path = normalizePath(pathname);
 
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
     secureCookie: process.env.NODE_ENV === "production",
-    cookieName:
-      process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
-        : "next-auth.session-token",
+    cookieName: SESSION_COOKIE_NAME,
   });
 
   const isLoggedIn = !!token;
 
-  const isAuthPage = ROUTES.auth.includes(path);
-  const isProtected = ROUTES.protected.includes(path);
+  const locale = resolveLocale(req, pathname);
 
-  if (isLoggedIn && isAuthPage) {
-    return NextResponse.redirect(new URL(ROUTE.DASHBOARD, req.url));
+  // api отозвал сессию (401 UNAUTHORIZED): cookie ещё валидна для getToken,
+  // поэтому сбрасываем её здесь и пускаем на страницу входа без редиректа в кабинет
+  if (
+    isLoggedIn &&
+    isAuthRoute(path) &&
+    req.nextUrl.searchParams.get(SESSION_EXPIRED_PARAM) === "1"
+  ) {
+    const response = intlMiddleware(req);
+    response.cookies.set(SESSION_COOKIE_NAME, "", {
+      maxAge: 0,
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      ...(process.env.AUTH_COOKIE_DOMAIN
+        ? { domain: process.env.AUTH_COOKIE_DOMAIN }
+        : {}),
+    });
+    return response;
   }
 
-  if (!isLoggedIn && isProtected) {
-    return NextResponse.redirect(new URL(ROUTE.LOGIN, req.url));
+  if (isLoggedIn && isAuthRoute(path)) {
+    return NextResponse.redirect(
+      new URL(`/${locale}${ROUTE.DASHBOARD}`, req.url),
+    );
+  }
+
+  if (!isLoggedIn && isProtectedRoute(path)) {
+    return NextResponse.redirect(
+      new URL(`/${locale}${buildLoginHref(path, search)}`, req.url),
+    );
   }
 
   return intlMiddleware(req);

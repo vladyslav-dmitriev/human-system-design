@@ -3,25 +3,28 @@ import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "./auth.config";
 import { API_URL } from "./api";
+import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "./constants";
+import { buildInternalHeaders } from "./shared/lib/internal-headers";
 
 export const result = NextAuth({
   ...authConfig,
 
   session: {
     strategy: "jwt",
+    maxAge: SESSION_MAX_AGE,
   },
   cookies: {
     sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? `__Secure-next-auth.session-token`
-          : `next-auth.session-token`,
+      name: SESSION_COOKIE_NAME,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: ".myapp.local",
+        // Без AUTH_COOKIE_DOMAIN cookie host-only: работает на localhost
+        ...(process.env.AUTH_COOKIE_DOMAIN
+          ? { domain: process.env.AUTH_COOKIE_DOMAIN }
+          : {}),
       },
     },
   },
@@ -30,6 +33,7 @@ export const result = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.sessionVersion = user.sessionVersion ?? 0;
       }
 
       return token;
@@ -47,21 +51,24 @@ export const result = NextAuth({
     ...authConfig.providers,
 
     Credentials({
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+      // Принимает только одноразовый loginTicket из login / verify-otp:
+      // пароль и OTP проверяет API до выдачи билета
+      async authorize(credentials, request) {
+        const loginTicket = credentials?.loginTicket;
+
+        if (typeof loginTicket !== "string" || !loginTicket) return null;
 
         try {
           const response = await fetch(API_URL.auth.validate(), {
             method: "POST",
-            credentials: "include",
             headers: {
               "Content-Type": "application/json",
+              ...buildInternalHeaders(request?.headers),
             },
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-            }),
+            body: JSON.stringify({ loginTicket }),
           });
+
+          if (!response.ok) return null;
 
           const data = await response.json();
 
@@ -76,6 +83,8 @@ export const result = NextAuth({
             name: user.name,
             email: user.email,
             role: user.role,
+            sessionVersion:
+              typeof user.sessionVersion === "number" ? user.sessionVersion : 0,
           };
         } catch (error) {
           console.error(error);

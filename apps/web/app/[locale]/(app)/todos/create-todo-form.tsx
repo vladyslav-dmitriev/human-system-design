@@ -1,11 +1,14 @@
 "use client";
 
+import { apiFetch } from "@/shared/lib/api-client";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, UploadCloud, X } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { API_URL } from "@/api";
+import { apiErrorKey, getApiErrorCode } from "@/shared/lib/api-error";
 
 interface TodoFormProps {
   onTodoCreated?: () => void; // Коллбэк для обновления списка задач на странице
@@ -17,6 +20,7 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const currentLocale = useLocale();
+  const t = useTranslations();
 
   // Хэндлер выбора картинки
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,7 +55,7 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
     }
 
     try {
-      const response = await fetch(API_URL.todos.create(), {
+      const response = await apiFetch(API_URL.todos.create(), {
         method: "POST",
         credentials: "include",
         headers: {
@@ -62,8 +66,14 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       });
 
       if (!response.ok) {
-        throw new Error("Не удалось создать задачу");
+        const code = await getApiErrorCode(response);
+        toast.error(t("todo_create_failed"), {
+          description: t(apiErrorKey(code)),
+        });
+        return;
       }
+
+      toast.success(t("todo_create_success"));
 
       // Сбрасываем форму при успешном создании
       setTitle("");
@@ -74,7 +84,7 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       }
     } catch (error) {
       console.error(error);
-      alert("Ошибка при создании задачи");
+      toast.error(t("todo_create_failed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -86,10 +96,13 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       className="space-y-4 max-w-md p-5 border rounded-xl bg-card shadow-sm"
     >
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Название задачи</label>
+        <label htmlFor="todo-title" className="text-sm font-medium">
+          {t("todo_title_label")}
+        </label>
         <Input
+          id="todo-title"
           type="text"
-          placeholder="Например: Купить продукты..."
+          placeholder={t("todo_title_placeholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={isSubmitting}
@@ -98,12 +111,16 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <label
+          htmlFor="todo-file"
+          className="text-sm font-medium text-muted-foreground flex items-center gap-2"
+        >
           <UploadCloud className="h-4 w-4" />
-          <span>Прикрепить фото к задаче (необязательно)</span>
+          <span>{t("todo_file_label")}</span>
         </label>
 
         <Input
+          id="todo-file"
           type="file"
           accept="image/*"
           onChange={handleFileChange}
@@ -119,15 +136,16 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
-            alt="Preview"
+            alt={t("todo_preview_alt")}
             className="object-cover w-full h-full"
           />
           <button
             type="button"
             onClick={handleRemoveFile}
+            aria-label={t("todo_file_remove")}
             className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-90 hover:opacity-100 transition-opacity"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -140,12 +158,12 @@ export function CreateTodoForm({ onTodoCreated }: TodoFormProps) {
         {isSubmitting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Создание...
+            {t("todo_creating")}
           </>
         ) : (
           <>
             <Plus className="mr-2 h-4 w-4" />
-            Создать задачу
+            {t("todo_create_button")}
           </>
         )}
       </Button>

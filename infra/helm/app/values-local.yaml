@@ -2,13 +2,13 @@
 # Применение: helm upgrade --install app infra/helm/app -n app -f infra/helm/app/values.yaml -f infra/helm/app/values-local.yaml
 api:
   image:
-    repository: hsd-api
+    repository: human-system-design-api
     tag: local
     pullPolicy: Never
 
 web:
   image:
-    repository: hsd-web
+    repository: human-system-design-web
     tag: local
     pullPolicy: Never
 

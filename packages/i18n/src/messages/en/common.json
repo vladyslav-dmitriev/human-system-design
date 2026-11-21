@@ -17,5 +17,24 @@
   "not_available": "Not available",
   "upgrade": "Upgrade",
   "upgrade_for": "Upgrade for {price}",
-  "prices": "Prices"
+  "prices": "Prices",
+  "errors": {
+    "AUTH_INVALID_CREDENTIALS": "Invalid email or password",
+    "AUTH_EMAIL_TAKEN": "An account with this email already exists",
+    "AUTH_INVALID_OTP": "Invalid or expired code",
+    "AUTH_TICKET_INVALID": "Sign-in session expired, please sign in again",
+    "USER_INVALID_PASSWORD": "Current password is incorrect",
+    "USER_EMAIL_TAKEN": "This email is already in use",
+    "USER_INVALID_OTP": "Invalid or expired code",
+    "EMAIL_TOKEN_INVALID": "The confirmation link is invalid or expired",
+    "VALIDATION_FAILED": "Check the entered data",
+    "RATE_LIMITED": "Too many attempts, please try again later",
+    "NOT_FOUND": "Not found",
+    "FORBIDDEN": "You do not have access to this action",
+    "INTERNAL": "Something went wrong, please try again",
+    "UNAUTHORIZED": "Please sign in again",
+    "CONFLICT": "This conflicts with existing data",
+    "PAYLOAD_TOO_LARGE": "The file is too large (max 5 MB)"
+  },
+  "theme_toggle": "Toggle dark theme"
 }

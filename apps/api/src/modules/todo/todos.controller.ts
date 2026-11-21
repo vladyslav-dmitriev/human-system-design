@@ -10,11 +10,8 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
   Inject,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-
 import { TodoService } from './todo.service';
 import { TodoCreateBodyDto } from './dto/request/body/todo-create.body.dto';
 import { AuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,6 +24,7 @@ import {
   ApiTags,
   ApiConsumes,
   ApiBody,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { TodoGetListQueryDto } from './dto/request/query/todo-get-list.query.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -38,11 +36,14 @@ import {
   TodoUploadImageBodyDto,
   TodoGetListResponseDto,
   TodoItemDto,
+  TodoUploadImageResponseDto,
 } from './dto';
+import { IMAGE_UPLOAD_OPTIONS, toImageUpload } from './image-upload';
 import { Serialize } from 'interceptors';
 
 @ApiTags('Todos')
 @ApiCookieAuth()
+@ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('todos')
 @UseGuards(AuthGuard, RolesGuard)
 export class TodosController {
@@ -61,7 +62,7 @@ export class TodosController {
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTIONS))
   @Serialize(TodoItemDto)
   async createTodo(
     @GetUser('id') userId: string,
@@ -71,12 +72,6 @@ export class TodosController {
     let imageUrl: string | null = null;
 
     if (file) {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
-        throw new BadRequestException(
-          'Разрешены только изображения (jpg, png, webp)',
-        );
-      }
-
       imageUrl = await this.storageService.upload(toImageUpload(file, 'todos'));
     }
 
@@ -125,35 +120,22 @@ export class TodosController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Неверный формат файла или превышен размер.',
+    description: 'Файл не передан или это не jpg/png/webp (по сигнатуре).',
   })
+  @ApiResponse({ status: 413, description: 'Файл больше 5 МБ.' })
   @ApiResponse({ status: 401, description: 'Неавторизован.' })
   @Post('upload-image')
-  @UseInterceptors(FileInterceptor('file')) // Перехватываем ключ 'file' из FormData
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTIONS)) // Перехватываем ключ 'file' из FormData
+  @Serialize(TodoUploadImageResponseDto)
   async uploadTodoImage(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: TodoUploadImageBodyDto,
     @GetUser('id') userId: string,
   ) {
-    if (!file) {
-      throw new BadRequestException('Файл не был передан');
-    }
-
-    if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
-      throw new BadRequestException(
-        'Разрешены только изображения формата jpg, png и webp',
-      );
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      throw new BadRequestException(
-        'Файл слишком большой. Максимальный размер — 5 МБ',
-      );
-    }
-
-    const imageUrl = await this.storageService.upload(
-      toImageUpload(file, 'todos'),
-    );
+    // Владелец проверяется до загрузки, чтобы в S3 не оставались чужие файлы
+    const image = toImageUpload(file, 'todos');
+    await this.service.assertTodoOwner(userId, body.todoId);
+    const imageUrl = await this.storageService.upload(image);
 
     await this.service.updateTodoImage(userId, imageUrl, body);
 
@@ -162,19 +144,4 @@ export class TodosController {
       imageUrl,
     };
   }
-}
-
-/**
- * Параметры загрузки в S3: тело — буфер файла, имя — уникальное, расширение
- * берём из уже проверенного mimetype (а не из имени файла от клиента).
- */
-function toImageUpload(file: Express.Multer.File, folder: string) {
-  const extension = file.mimetype.split('/')[1];
-
-  return {
-    file: file.buffer,
-    fileName: `${randomUUID()}.${extension}`,
-    folder,
-    contentType: file.mimetype,
-  };
 }

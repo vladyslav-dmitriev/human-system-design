@@ -4,7 +4,7 @@
 {{- /*
 Два Ingress, потому что Traefik-middleware (strip /api) вешается на весь Ingress целиком:
 /api/auth и / должны идти в web БЕЗ среза префикса, а /api -> api С срезом.
-Правила повторяют корневой nginx.conf.
+Правила повторяют nginx/templates/default.conf.template.
 */}}
 # Ingress web: /api/auth -> web, /api/metrics -> 404 (web), / -> web
 apiVersion: networking.k8s.io/v1
@@ -33,7 +33,7 @@ spec:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          # NextAuth живёт в web (location /api/auth/ в nginx.conf)
+          # NextAuth живёт в web (location /api/auth/ в nginx)
           - path: /api/auth
             pathType: Prefix
             backend:
@@ -41,8 +41,8 @@ spec:
                 name: web
                 port:
                   number: {{ .Values.web.port }}
-          # /api/metrics наружу не отдаём: Next отвечает 404 (в nginx.conf: return 404).
-          # Другие написания (/api/Metrics, /api/metrics/) режет middleware block-metrics в Ingress api.
+          # /api/metrics наружу не отдаём: Next отвечает 404 (в nginx: return 404).
+          # Другие написания и прочие внутренние пути режет middleware block-internal в Ingress api.
           - path: /api/metrics
             pathType: Prefix
             backend:
@@ -68,8 +68,8 @@ metadata:
     app.kubernetes.io/component: api
   annotations:
     {{- if $traefik }}
-    # порядок важен: сначала блокировка /api/metrics (в любом регистре), потом срез префикса /api
-    traefik.ingress.kubernetes.io/router.middlewares: {{ $mw }}-block-metrics@kubernetescrd,{{ $mw }}-strip-api@kubernetescrd
+    # порядок важен: сначала блокировка внутренних путей (в любом регистре), потом срез префикса /api
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $mw }}-block-internal@kubernetescrd,{{ $mw }}-strip-api@kubernetescrd
     {{- end }}
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -109,14 +109,16 @@ spec:
 apiVersion: {{ .Values.ingress.traefik.apiVersion }}
 kind: Middleware
 metadata:
-  name: {{ include "app.fullname" . }}-block-metrics
+  name: {{ include "app.fullname" . }}-block-internal
   labels:
     {{- include "app.labels" . | nindent 4 }}
 spec:
-  # Express принимает /Metrics и /metrics/, а Traefik сопоставляет путь с учётом регистра.
-  # Переписываем такой путь в несуществующий, после strip-api Nest ответит 404.
+  # Наружу не отдаём (как return 404 в nginx): метрики Prometheus, внутренний service-auth/validate
+  # (его зовёт только web изнутри кластера) и Swagger. Express не различает регистр и хвостовой слэш,
+  # а Traefik сопоставляет путь с учётом регистра, поэтому regex (?i) и необязательный /.
+  # Такой путь переписываем в несуществующий, после strip-api Nest ответит 404.
   replacePathRegex:
-    regex: "(?i)^/api/metrics/?$"
+    regex: "(?i)^/api/(metrics/?|service-auth/validate/?|docs.*)$"
     replacement: "/api/__blocked__"
 {{- end }}
 {{- end }}

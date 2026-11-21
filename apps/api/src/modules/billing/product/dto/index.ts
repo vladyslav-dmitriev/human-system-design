@@ -1,3 +1,6 @@
 export { ProductDto } from './common';
 
-export { SubscriptionGetListResponseDto } from './response';
+export {
+  SubscriptionGetListResponseDto,
+  ProductSyncResponseDto,
+} from './response';

@@ -1,8 +1,8 @@
-// import { Queue } from 'bullmq';
-// import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable } from '@nestjs/common';
 
-// import { QUEUE, QUEUE_JOB } from 'config/queue.config';
+import { QUEUE, QUEUE_JOB } from 'config/queue.config';
 import { Nullable } from 'types';
 
 import type { Invoice } from './invoice.interface';
@@ -22,7 +22,7 @@ export class InvoiceService {
   constructor(
     @Inject(InvoiceRepository)
     private readonly invoiceRepository: InvoiceRepository,
-    // @InjectQueue(QUEUE.PdfQueue) private readonly pdfQueue: Queue,
+    @InjectQueue(QUEUE.PdfQueue) private readonly pdfQueue: Queue,
   ) {}
 
   async getUserInvoiceList(userId: string) {
@@ -72,17 +72,18 @@ export class InvoiceService {
     });
   }
 
-  // Очередь PDF (BullMQ) отключена — генерация счёта пока не запускается
-  private requestPdfInvoiceGeneration(_data: PdfInvoiceJobData): Promise<void> {
-    // await this.pdfQueue.add(QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice, {
-    //   invoiceId,
-    //   invoiceNumber,
-    //   amount,
-    //   currency,
-    //   customerEmail,
-    //   date,
-    // });
-    return Promise.resolve();
+  hasInvoiceForPayment(stripePaymentIntentId: string): Promise<boolean> {
+    return this.invoiceRepository.existsByPaymentIntentId(
+      stripePaymentIntentId,
+    );
+  }
+
+  /** PDF и письмо со счётом делает фоновая задача (`PdfProcessor`). */
+  private async requestPdfInvoiceGeneration(data: PdfInvoiceJobData) {
+    await this.pdfQueue.add(QUEUE_JOB[QUEUE.PdfQueue].CreatePdfInvoice, data, {
+      // Один счёт: одна задача
+      jobId: `invoice-pdf-${data.invoiceId}`,
+    });
   }
 
   private async generateUniqueInvoiceNumber(): Promise<string> {

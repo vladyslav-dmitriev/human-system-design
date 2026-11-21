@@ -1,62 +1,57 @@
 import { API_URL } from "@/api";
+import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
 import { ROUTE } from "@/constants";
-import { getPaymentMethods } from "@/utils";
+import { Link, redirect } from "@/i18n/navigation";
+import { getBillingProducts, getPaymentMethods } from "@/utils";
+import type { CheckoutSummary } from "@/shared/types/billing";
 import { CheckoutForm } from "@/widgets/checkout-form";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { serverApiFetch } from "@/shared/lib/api-server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 type CheckoutPageProps = {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 };
 
-const createProduct = async (priceId: string, type: string) => {
-  const cookieStore = await cookies();
-  const cookieString = cookieStore.toString();
+/**
+ * GET только показывает заказ. PaymentIntent и подписка создаются позже,
+ * по нажатию «Оплатить» (POST из браузера), поэтому обновление страницы,
+ * prefetch и ссылки ничего не создают.
+ */
+const getPurchaseSummary = async (
+  priceId: string,
+): Promise<CheckoutSummary | undefined> => {
+  const products = await getBillingProducts();
+  const product = [...products.recurring, ...products.oneTime].find(
+    (p) => p.priceId === priceId,
+  );
 
-  const res = await fetch(API_URL.billing.checkout(), {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Cookie: cookieString,
-    },
-    cache: "no-store",
-    body: JSON.stringify({ priceId, type }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) return;
+  if (!product || product.amount === null) return;
 
   return {
-    clientSecret: data.clientSecret,
-    amount: data.amount,
-    currency: data.currency,
-    productName: data.productName,
+    amount: product.amount,
+    currency: product.currency,
+    productName: product.name,
   };
 };
 
-const upgradeProduct = async (priceId: string) => {
-  const cookieStore = await cookies();
-  const cookieString = cookieStore.toString();
-
-  const res = await fetch(API_URL.billing.subscriptionsUpgrade(), {
+/** `type: "check"` только считает сумму апгрейда, клиентского секрета нет */
+const getUpgradeSummary = async (
+  priceId: string,
+): Promise<CheckoutSummary | undefined> => {
+  const res = await serverApiFetch(API_URL.billing.subscriptionsUpgrade(), {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookieString,
     },
-    cache: "no-store",
-    body: JSON.stringify({ type: "payment", priceId }),
+    body: JSON.stringify({ type: "check", priceId }),
   });
-
-  const data = await res.json();
 
   if (!res.ok) return;
 
+  const data = await res.json();
+
   return {
-    clientSecret: data.clientSecret,
     amount: data.amount,
     currency: data.currency,
     productName: data.productName,
@@ -66,22 +61,51 @@ const upgradeProduct = async (priceId: string) => {
 export default async function CheckoutPage({
   searchParams,
 }: CheckoutPageProps) {
-  const { priceId, email, type, billingOperation } = await searchParams;
+  const params = await searchParams;
+  const { priceId, email, type, billingOperation } = params;
+  const locale = await getLocale();
 
-  if (!priceId || !type || !billingOperation) {
-    redirect(ROUTE.HOME);
+  // Гостю нечего оплачивать: ведём на вход и возвращаем на checkout после логина
+  const session = await auth();
+  if (!session) {
+    const query = new URLSearchParams(
+      Object.entries(params).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    ).toString();
+    const callbackUrl = `${ROUTE.CHECKOUT}${query ? `?${query}` : ""}`;
+
+    redirect({
+      href: `${ROUTE.LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`,
+      locale,
+    });
   }
 
-  const [paymentMethods, paymentData] = await Promise.all([
+  if (!priceId || !type || !billingOperation) {
+    redirect({ href: ROUTE.PRICING, locale });
+  }
+
+  const operation = billingOperation === "purchase" ? "purchase" : "upgrade";
+
+  const [paymentMethods, summary, t] = await Promise.all([
     getPaymentMethods(),
-    billingOperation === "purchase"
-      ? createProduct(priceId, type)
-      : upgradeProduct(priceId),
+    operation === "purchase"
+      ? getPurchaseSummary(priceId!)
+      : getUpgradeSummary(priceId!),
+    getTranslations(),
   ]);
 
-  if (!paymentData) {
-    return null;
-    // redirect(ROUTE.HOME);
+  if (!summary) {
+    return (
+      <div className="container mx-auto py-6 px-4 max-w-md space-y-4 text-center">
+        <p role="alert" className="text-sm text-destructive">
+          {t("checkout_load_failed")}
+        </p>
+        <Button asChild variant="outline">
+          <Link href={ROUTE.PRICING}>{t("checkout_back_to_pricing")}</Link>
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -89,7 +113,8 @@ export default async function CheckoutPage({
       <CheckoutForm
         userEmail={email}
         paymentMethods={paymentMethods}
-        paymentData={paymentData}
+        summary={summary}
+        request={{ priceId: priceId!, type: type!, operation }}
       />
     </div>
   );

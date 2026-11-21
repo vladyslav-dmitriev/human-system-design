@@ -3,8 +3,8 @@
 api:
   replicas: 1
   image:
-    repository: ghcr.io/vladyslav-dmitriev/hsd-api
-    tag: main # TODO: CI подставляет sha-<commit>; до первой сборки используем ветку
+    repository: ghcr.io/vladyslav-dmitriev/human-system-design-api
+    tag: sha-set-by-ci # CI (docker.yml) пушит только sha-<полный коммит>; подстановка тега - фаза 5
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -16,8 +16,8 @@ api:
 web:
   replicas: 1
   image:
-    repository: ghcr.io/vladyslav-dmitriev/hsd-web
-    tag: main # TODO: CI подставляет sha-<commit>
+    repository: ghcr.io/vladyslav-dmitriev/human-system-design-web
+    tag: sha-set-by-ci # см. api.image.tag
     pullPolicy: IfNotPresent
   resources:
     requests:

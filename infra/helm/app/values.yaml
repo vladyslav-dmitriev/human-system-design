@@ -17,7 +17,7 @@ api:
   replicas: 1
   port: 3001 # должен совпадать с SERVER_PORT
   image:
-    repository: ghcr.io/vladyslav-dmitriev/hsd-api
+    repository: ghcr.io/vladyslav-dmitriev/human-system-design-api
     tag: "" # обязателен, задаётся в values-окружения
     pullPolicy: IfNotPresent
   # Secret с переменными api (создаётся вне чарта). Ключи как в apps/api/.env.example:
@@ -45,7 +45,7 @@ web:
   replicas: 1
   port: 3000
   image:
-    repository: ghcr.io/vladyslav-dmitriev/hsd-web
+    repository: ghcr.io/vladyslav-dmitriev/human-system-design-web
     tag: ""
     pullPolicy: IfNotPresent
   # Secret с переменными web. Ключи как в apps/web/.env.example (только секретные): NEXTAUTH_SECRET.
@@ -74,10 +74,20 @@ config:
     CLIENT_URL: ""
     # Платные SMS включаются только значением "enabled" (см. apps/api/.env.example)
     PAID_API: "false"
+    SMS_DAILY_LIMIT: "1000"
+    EMAIL_PROVIDER: sendgrid
+    # EMAIL_FROM обязателен в production: задайте в values окружения или в Secret.
+    # Пустые ключи сюда не кладём: ConfigMap и Secret подключены через envFrom, и пустое значение
+    # перекрыло бы одноимённый ключ из Secret.
+    # Секретные ключи api (Secret api.existingSecret): DATABASE_URL, REDIS_URL, RABBITMQ_URL, JWT_SECRET,
+    # AUTH_SECRET, INTERNAL_API_SECRET, EMAIL_VERIFICATION_SECRET, STRIPE_*, AWS_*, SENDGRID_API_KEY /
+    # RESEND_API_KEY, TWILIO_*, GOOGLE_CAPTCHA_SECRET_KEY (полный список в образце env для apps/api).
   web:
     NODE_ENV: production
     # next-auth 5 за прокси (Ingress) должен доверять заголовкам Host
     AUTH_TRUST_HOST: "true"
+    # Секретные ключи web (Secret web.existingSecret): NEXTAUTH_SECRET (= AUTH_SECRET api),
+    # INTERNAL_API_SECRET (тот же, что у api), при необходимости AUTH_COOKIE_DOMAIN.
 
 # Job `prisma migrate deploy` (Helm hook pre-install,pre-upgrade), образ тот же, что у api
 migrations:

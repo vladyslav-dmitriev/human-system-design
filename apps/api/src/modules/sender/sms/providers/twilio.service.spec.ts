@@ -1,0 +1,158 @@
+import { TwilioService } from './twilio.service';
+
+const verifications = { create: jest.fn() };
+const verificationChecks = { create: jest.fn() };
+const servicesFn = jest.fn(() => ({ verifications, verificationChecks }));
+
+jest.mock('twilio', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ verify: { v2: { services: servicesFn } } })),
+}));
+
+type Env = Record<string, string | undefined>;
+
+const build = (env: Env) =>
+  new TwilioService({
+    get: (key: string) => env[key],
+  } as never);
+
+const base: Env = {
+  TWILIO_SID: 'ACtest',
+  TWILIO_AUTH_TOKEN: 'token',
+  TWILIO_VERIFY_SERVICE_SID: 'VAtest',
+};
+
+describe('TwilioService', () => {
+  beforeEach(() => {
+    verifications.create.mockReset();
+    verificationChecks.create.mockReset();
+    servicesFn.mockClear();
+  });
+
+  it('fails on construction without credentials', () => {
+    expect(() => build({})).toThrow('Missing Twilio credentials');
+  });
+
+  describe('PAID_API=enabled', () => {
+    const env = { ...base, PAID_API: 'enabled' };
+
+    it('sends the code via Verify', async () => {
+      verifications.create.mockResolvedValue({});
+
+      await expect(
+        build(env).sendSmsCode({ phoneNumber: '+380501234567' }),
+      ).resolves.toBe(true);
+      expect(servicesFn).toHaveBeenCalledWith('VAtest');
+      expect(verifications.create).toHaveBeenCalledWith({
+        to: '+380501234567',
+        channel: 'sms',
+      });
+    });
+
+    it('accepts only an "approved" check', async () => {
+      verificationChecks.create.mockResolvedValue({ status: 'approved' });
+      await expect(
+        build(env).verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(true);
+
+      verificationChecks.create.mockResolvedValue({ status: 'pending' });
+      await expect(
+        build(env).verifySmsCode({ phoneNumber: '+1', code: '000000' }),
+      ).resolves.toBe(false);
+    });
+
+    it('propagates provider errors (no silent success)', async () => {
+      verificationChecks.create.mockRejectedValue(new Error('429'));
+
+      await expect(
+        build(env).verifySmsCode({ phoneNumber: '+1', code: '1' }),
+      ).rejects.toThrow('429');
+    });
+
+    it('throws when the Verify service sid is not configured', async () => {
+      const service = build({ ...env, TWILIO_VERIFY_SERVICE_SID: undefined });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '1' }),
+      ).rejects.toThrow('Twilio Verify is not configured');
+    });
+  });
+
+  describe('PAID_API is not "enabled"', () => {
+    const mock = { SMS_DEV_MOCK: 'true', NODE_ENV: 'development' };
+
+    it.each([undefined, 'disabled', 'ENABLED', ''])(
+      'does not call Twilio when PAID_API=%p (dev mock)',
+      async (paid) => {
+        const service = build({ ...base, ...mock, PAID_API: paid });
+
+        await service.sendSmsCode({ phoneNumber: '+1' });
+        await service.verifySmsCode({ phoneNumber: '+1', code: '1' });
+
+        expect(verifications.create).not.toHaveBeenCalled();
+        expect(verificationChecks.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('without SMS_DEV_MOCK the dev code 123456 is NOT accepted, even in development', async () => {
+      for (const flag of [undefined, 'false', '']) {
+        const service = build({
+          ...base,
+          PAID_API: undefined,
+          NODE_ENV: 'development',
+          SMS_DEV_MOCK: flag,
+        });
+
+        await expect(
+          service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+        ).resolves.toBe(false);
+        await expect(
+          service.sendSmsCode({ phoneNumber: '+1' }),
+        ).rejects.toThrow('SMS provider is not enabled');
+      }
+    });
+
+    it('with SMS_DEV_MOCK=true accepts only the fixed dev code', async () => {
+      const service = build({ ...base, ...mock, PAID_API: undefined });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(true);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: 'anything' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '000000' }),
+      ).resolves.toBe(false);
+    });
+
+    it('does not accept even the dev code in production, even with SMS_DEV_MOCK=true', async () => {
+      const service = build({
+        ...base,
+        PAID_API: 'disabled',
+        NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
+      });
+
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '123456' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.verifySmsCode({ phoneNumber: '+1', code: '000000' }),
+      ).resolves.toBe(false);
+    });
+
+    it('refuses to fake-send an SMS in production', async () => {
+      const service = build({
+        ...base,
+        PAID_API: undefined,
+        NODE_ENV: 'production',
+        SMS_DEV_MOCK: 'true',
+      });
+
+      await expect(service.sendSmsCode({ phoneNumber: '+1' })).rejects.toThrow(
+        'SMS provider is not enabled',
+      );
+    });
+  });
+});

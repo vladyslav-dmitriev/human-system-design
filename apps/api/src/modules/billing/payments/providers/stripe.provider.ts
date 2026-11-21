@@ -70,6 +70,7 @@ export class StripeProvider implements IPaymentProvider {
     return this.stripe.paymentMethods.list({
       customer: stripeCustomerId,
       type: 'card',
+      limit: 100,
     });
   }
 

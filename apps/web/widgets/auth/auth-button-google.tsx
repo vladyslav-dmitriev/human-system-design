@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import React from "react";
 
+import { Button } from "@/components/ui/button";
+
 interface AuthButtonGoogleProps {
   onClick?(): void;
   isLoading?: boolean;
@@ -15,15 +17,18 @@ export const AuthButtonGoogle = ({
   const t = useTranslations();
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={onClick}
       disabled={isLoading}
-      className="flex items-center justify-center w-full max-w-md p-4 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+      aria-busy={isLoading}
+      className="w-full max-w-md h-10"
     >
       {isLoading ? (
         <svg
-          className="w-5 h-5 mr-3 text-gray-500 animate-spin"
+          className="w-5 h-5 mr-3 text-muted-foreground animate-spin motion-reduce:animate-none"
+          aria-hidden="true"
           viewBox="0 0 24 24"
           fill="none"
         >
@@ -44,6 +49,7 @@ export const AuthButtonGoogle = ({
       ) : (
         <svg
           className="w-5 h-5 mr-3"
+          aria-hidden="true"
           viewBox="0 0 24 24"
           width="100%"
           height="100%"
@@ -72,6 +78,6 @@ export const AuthButtonGoogle = ({
           social: "Google",
         })}
       </span>
-    </button>
+    </Button>
   );
 };

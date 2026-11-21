@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NODE_VERSION: 22
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: vladyslav-dmitriev
 
 jobs:
   nightly:
@@ -28,30 +29,26 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: ./.github/actions/verify-project
-        with:
-          node-version: ${{ env.NODE_VERSION }}
 
+      # Сканируем последний опубликованный образ с main (тег sha-<коммит>, см. docker.yml)
       - name: Scan API Image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
-          image-ref: docker.io/library/api:latest
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/human-system-design-api:sha-${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: 0
-
-      - name: Scan WEB Image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: docker.io/library/web:latest
-          severity: HIGH,CRITICAL
+          ignore-unfixed: true
           exit-code: 0
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nightly-results
+          if-no-files-found: ignore
           path: |
-            coverage
-            reports
+            apps/*/coverage

@@ -5,7 +5,7 @@ import { IRabbitMQConnection } from '../types/rabbitmq.interfaces';
 
 import { RabbitMQLogger } from '../utils/rabbitmq.logger';
 import { RabbitMQConfig } from '../rabbitmq.config';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { RABBITMQ_CONFIG } from '../constants/tokens.constants';
 
 @Injectable()
@@ -22,7 +22,9 @@ export class RabbitMQConnection
 
   constructor(
     @Inject(RABBITMQ_CONFIG) private readonly config: RabbitMQConfig,
-    private readonly onDisconnect?: () => Promise<void>,
+    // Необязательный колбэк: без @Optional() Nest с метаданными декораторов
+    // пытается внедрить `Function` и падает на старте
+    @Optional() private readonly onDisconnect?: () => Promise<void>,
   ) {
     super();
     this.logger = new RabbitMQLogger('RabbitMQConnection');

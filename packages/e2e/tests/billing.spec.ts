@@ -7,5 +7,5 @@ test("billing page need to be accessible", async ({ page }) => {
   await billingPage.goto();
 
   await expect(page).toHaveURL(/.*billing/);
-  await expect(page.getByText("Billing")).toBeVisible();
+  await expect(billingPage.heading).toBeVisible();
 });

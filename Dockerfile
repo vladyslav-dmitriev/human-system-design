@@ -1,106 +1,61 @@
 # syntax=docker/dockerfile:1.7
-#
-# Один Dockerfile на все образы монорепо. Контекст сборки: корень репозитория.
-#
-#   docker build --target dev .   # compose (разработка): все зависимости, dev-серверы с hot reload
-#   docker build --target api .   # prod api (NestJS)
-#   docker build --target web .   # prod web (Next.js standalone)
-#
-# Версия pnpm закреплена и совпадает с "packageManager" в package.json.
 
-ARG NODE_VERSION=22
-ARG PNPM_VERSION=9.0.0
+# Один Dockerfile на все образы монорепо. Контекст сборки: корень репозитория. Этапы:
+#   dev        - полный install и Prisma Client; используется docker-compose (target: dev) с bind-mount исходников;
+#   build      - nest build + pnpm deploy --prod (только prod-зависимости api);
+#   prisma-cli - prisma CLI отдельным деревом для Job миграций в k8s;
+#   web-build  - next build (output: "standalone");
+#   web        - prod-образ web (docker build --target web .);
+#   prod       - prod-образ api (последний этап, target по умолчанию): dist, prod node_modules, prisma schema/миграции.
+# Этап prod должен оставаться последним: CI и docker build без --target собирают api.
 
-# ---------------------------------------------------------------------------
-# base: Node + pnpm + системные библиотеки (openssl нужен Prisma, libc6-compat нужен нативным модулям на musl)
-# ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS base
-ARG PNPM_VERSION
-RUN apk add --no-cache openssl libc6-compat \
-    && npm install -g pnpm@${PNPM_VERSION}
-ENV PNPM_HOME=/pnpm \
-    npm_config_store_dir=/pnpm/store \
-    CI=true
+# node:22-alpine (22.x). Обновляйте digest вместе с тегом.
+ARG NODE_IMAGE=node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+
+# --- Этап 1: dev (полный install) ---
+FROM ${NODE_IMAGE} AS dev
+RUN apk add --no-cache openssl libc6-compat
+# Версия pnpm = packageManager в корневом package.json
+RUN npm install -g pnpm@9.0.0
 WORKDIR /usr/src/app
-
-# ---------------------------------------------------------------------------
-# installed: зависимости всего монорепо.
-# `pnpm fetch` смотрит только в pnpm-lock.yaml, поэтому слой с загрузкой пакетов
-# не инвалидируется правками исходников; store кэшируется между сборками (BuildKit cache mount).
-# ---------------------------------------------------------------------------
-FROM base AS installed
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm fetch
 COPY . .
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --offline \
-    && pnpm --filter api prisma:generate
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+# Prisma Client нужен и для build, и для dev-запуска
+RUN pnpm --filter api exec prisma generate --schema=./src/prisma/schema.prisma
 
-# ---------------------------------------------------------------------------
-# dev: образ для docker compose. Исходники apps/* монтируются томами, команда задаётся в compose.
-# Работает от root намеренно: bind-mount с хоста и запись в .next / node_modules без возни с uid.
-# Не использовать в проде.
-# ---------------------------------------------------------------------------
-FROM installed AS dev
-CMD ["pnpm", "dev"]
-
-# ---------------------------------------------------------------------------
-# prisma-cli: prisma CLI отдельным деревом в /opt/prisma. В apps/api это devDependency, а в prod-набор
-# зависимостей (pnpm deploy --prod) dev не входит. Версия берётся из apps/api/package.json,
-# чтобы CLI совпадал с @prisma/client.
-# ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS prisma-cli
-RUN apk add --no-cache openssl
-COPY apps/api/package.json /tmp/api-package.json
-RUN PRISMA_VERSION="$(node -p "require('/tmp/api-package.json').devDependencies.prisma")" \
-    && npm install --prefix /opt/prisma --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
-
-# ---------------------------------------------------------------------------
-# api-build: сборка Nest и prod-набор зависимостей
-# ---------------------------------------------------------------------------
-FROM installed AS api-build
+# --- Этап 2: сборка api и prod-деплой ---
+FROM dev AS build
 RUN pnpm --filter api build
-# pnpm deploy: apps/api + только production-зависимости (по pnpm-lock.yaml), без остального монорепо
-RUN pnpm --filter api deploy --prod /out
-# Prisma Client надо сгенерировать заново уже в /out: deploy копирует пакеты из store без сгенерированного кода
-COPY --from=prisma-cli /opt/prisma /opt/prisma
-RUN cp apps/api/prisma.config.ts /out/prisma.config.ts \
-    && mkdir -p /out/src/prisma \
-    && cp apps/api/src/prisma/schema.prisma /out/src/prisma/schema.prisma \
-    && cd /out \
-    && /opt/prisma/node_modules/.bin/prisma generate
+# Путь точки входа после nest build (prisma.config.ts выносит rootDir на уровень пакета).
+# Если backend изменит tsconfig.build.json, поправьте здесь и в CMD.
+RUN test -f apps/api/dist/src/main.js
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm --filter api deploy --prod /out
+# deploy не копирует dist (он в .gitignore): добавляем явно, из src оставляем только prisma
+RUN cp -r apps/api/dist /out/dist && \
+    cp -r /out/src/prisma /tmp/prisma && \
+    rm -r /out/src && \
+    mkdir -p /out/src && mv /tmp/prisma /out/src/prisma && \
+    { [ ! -d /out/test ] || rm -r /out/test; }
+# Prisma Client в prod-дереве; CLI берём из dev-дерева
+RUN cd /out && DATABASE_URL=postgresql://x:x@localhost:5432/x \
+    node /usr/src/app/apps/api/node_modules/prisma/build/index.js generate --schema=./src/prisma/schema.prisma
 
-# ---------------------------------------------------------------------------
-# api: prod-образ. Миграции (`prisma migrate deploy`) запускает k8s Job из ЭТОГО ЖЕ образа
-# (command: /opt/prisma/node_modules/.bin/prisma migrate deploy), поэтому в образе лежат prisma CLI,
-# prisma.config.ts и src/prisma (schema + migrations). Так миграции всегда той же версии, что и код,
-# и не нужен третий образ. Цена: лишний размер prisma CLI.
-# ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS api
-RUN apk add --no-cache openssl
-ENV NODE_ENV=production
-WORKDIR /app
-COPY --from=prisma-cli /opt/prisma /opt/prisma
-COPY --from=api-build --chown=node:node /out/node_modules ./node_modules
-COPY --from=api-build --chown=node:node /out/package.json ./package.json
-COPY --from=api-build --chown=node:node /out/prisma.config.ts ./prisma.config.ts
-COPY --from=api-build --chown=node:node /usr/src/app/apps/api/dist ./dist
-COPY --from=installed --chown=node:node /usr/src/app/apps/api/src/prisma/schema.prisma ./src/prisma/schema.prisma
-COPY --from=installed --chown=node:node /usr/src/app/apps/api/src/prisma/migrations ./src/prisma/migrations
-USER node
-EXPOSE 3001
-CMD ["node", "dist/src/main.js"]
+# --- Этап 3: prisma CLI для миграций ---
+# В apps/api prisma - devDependency и в prod-дерево не попадает. Job миграций в k8s запускается из prod-образа api
+# (/opt/prisma/node_modules/.bin/prisma migrate deploy), поэтому CLI кладём отдельным деревом той же версии,
+# что и @prisma/client. Так миграции всегда той же версии, что и код, без отдельного образа.
+FROM ${NODE_IMAGE} AS prisma-cli
+COPY apps/api/package.json /tmp/api-package.json
+RUN PRISMA_VERSION="$(node -p "require('/tmp/api-package.json').devDependencies.prisma")" && \
+    npm install --prefix /opt/prisma --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
 
-# ---------------------------------------------------------------------------
-# web-build: next build (output: "standalone" задан в apps/web/next.config.js)
-#
-# ВАЖНО: NEXT_PUBLIC_* подставляются в клиентский бандл на этапе `next build`, поэтому принимаются как ARG.
-# Образ web получается привязанным к окружению (хост, ключи): для другого окружения нужна другая сборка.
-# Все NEXT_PUBLIC_* публичны по определению (попадают в браузер), секретов здесь быть не должно.
-# NEXTAUTH_SECRET и прочие секреты НЕ ARG: только runtime env (Secret в k8s).
-# ---------------------------------------------------------------------------
-FROM installed AS web-build
+# --- Этап 4: сборка web ---
+# NEXT_PUBLIC_* подставляются в бандл на этапе next build, поэтому это ARG: образ web привязан к окружению
+# (хост, публичные ключи), для другого окружения нужна другая сборка. Все NEXT_PUBLIC_* публичны (попадают
+# в браузер), секретов здесь быть не должно. NEXTAUTH_SECRET и прочие секреты - только runtime env (Secret в k8s).
+FROM dev AS web-build
 ARG NEXT_PUBLIC_API_CLIENT_URL
 ARG NEXT_PUBLIC_API_SERVER_URL
 ARG NEXT_PUBLIC_STRIPE_PUBLIC_KEY
@@ -120,11 +75,10 @@ ENV NEXT_PUBLIC_API_CLIENT_URL=${NEXT_PUBLIC_API_CLIENT_URL} \
     NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
 
-# ---------------------------------------------------------------------------
-# web: prod-образ из .next/standalone. outputFileTracingRoot = корень монорепо,
-# поэтому server.js лежит в apps/web/server.js.
-# ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS web
+# --- Этап 5: prod-образ web ---
+# outputFileTracingRoot = корень монорепо, поэтому server.js лежит в apps/web/server.js внутри standalone.
+FROM ${NODE_IMAGE} AS web
+RUN apk add --no-cache tini
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
@@ -135,4 +89,21 @@ COPY --from=web-build --chown=node:node /usr/src/app/apps/web/.next/static ./app
 COPY --from=web-build --chown=node:node /usr/src/app/apps/web/public ./apps/web/public
 USER node
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "apps/web/server.js"]
+
+# --- Этап 6: prod-образ api (последний, target по умолчанию) ---
+FROM ${NODE_IMAGE} AS prod
+RUN apk add --no-cache openssl tini
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+COPY --from=prisma-cli /opt/prisma /opt/prisma
+COPY --from=build --chown=node:node /out ./
+USER node
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "const p=process.env.SERVER_PORT||3001;fetch('http://127.0.0.1:'+p+'/health').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "dist/src/main.js"]

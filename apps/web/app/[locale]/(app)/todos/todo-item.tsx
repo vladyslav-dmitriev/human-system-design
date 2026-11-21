@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckIcon, SquareCheckIcon, TrashIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 
 interface Todo {
   id: string;
@@ -14,11 +16,13 @@ interface Todo {
 
 interface TodoItemProps {
   todo: Todo;
+  canDelete: boolean;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-export function TodoItem({ todo, onEdit, onRemove }: TodoItemProps) {
+export function TodoItem({ todo, canDelete, onEdit, onRemove }: TodoItemProps) {
+  const t = useTranslations();
   const [imageLoading, setImageLoading] = useState(true);
 
   return (
@@ -52,35 +56,50 @@ export function TodoItem({ todo, onEdit, onRemove }: TodoItemProps) {
         )}
 
         {/* ТЕКСТОВАЯ ЧАСТЬ И СТАТУС */}
-        <div className="flex justify-between align-center space-y-1 flex-1 min-w-0 p-4">
-          <div className="flex justify-between align-center space-x-2">
+        <div className="flex items-center justify-between gap-2 flex-1 min-w-0 p-4">
+          <div className="flex items-center gap-2 min-w-0">
             {todo.completed ? (
-              <CheckIcon size="18" className="text-gray-500" />
-            ) : (
-              <SquareCheckIcon
+              <CheckIcon
                 size="18"
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => onEdit()}
+                className="shrink-0 text-muted-foreground"
+                aria-hidden="true"
               />
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label={t("todo_complete", { title: todo.title })}
+                onClick={() => onEdit()}
+              >
+                <SquareCheckIcon size="18" aria-hidden="true" />
+              </Button>
             )}
 
-            <label
-              htmlFor={`todo-${todo.id}`}
-              className={`text-sm font-medium leading-none break-words block ${
+            <span
+              className={`text-sm font-medium leading-snug break-words min-w-0 ${
                 todo.completed
                   ? "line-through text-muted-foreground opacity-70"
                   : "text-foreground"
               }`}
             >
               {todo.title}
-            </label>
+            </span>
           </div>
 
-          <TrashIcon
-            onClick={onRemove}
-            size="16"
-            className="text-gray-500 hover:text-gray-700"
-          />
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label={t("todo_delete", { title: todo.title })}
+              onClick={onRemove}
+            >
+              <TrashIcon size="16" aria-hidden="true" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

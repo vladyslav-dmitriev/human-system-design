@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-// import { BullModule } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-// import { BullBoardModule } from '@bull-board/nestjs';
-// import { ExpressAdapter } from '@bull-board/express';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 
 import { TodoModule } from './todo';
@@ -31,8 +29,11 @@ import { CaptchaModule } from './captcha';
 import { FeatureModule } from './billing/feature';
 import { ProductModule } from './billing/product';
 import { AppController } from './app.controller';
+import { AppThrottlerGuard } from './app.throttler.guard';
 import appConfig from 'config/app.config';
 import databaseConfig from 'config/database.config';
+import { validationSchema } from 'config/validation';
+import { getBullConnection } from 'config/queue.config';
 import { RabbitMQModule } from './rabbitmq';
 
 @Module({
@@ -41,38 +42,22 @@ import { RabbitMQModule } from './rabbitmq';
       isGlobal: true,
       envFilePath: 'apps/api/.env',
       load: [appConfig, databaseConfig],
+      validationSchema,
+      validationOptions: { abortEarly: false },
     }),
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],
       inject: [REDIS_CLIENT],
       useFactory: (redis: Redis) => ({
-        throttlers: [{ limit: 10, ttl: 60000 }],
+        throttlers: [{ limit: 100, ttl: 60000 }],
         storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
 
-    // BullModule.forRoot({
-    //   connection: { url: process.env.REDIS_URL },
-    //   defaultJobOptions: {
-    //     removeOnComplete: {
-    //       count: 100,
-    //       age: 3600,
-    //     },
-    //     removeOnFail: {
-    //       count: 50,
-    //       age: 86400,
-    //     },
-    //     attempts: 1,
-    //     backoff: {
-    //       type: 'exponential',
-    //       delay: 1000,
-    //     },
-    //   },
-    // }),
-    // BullBoardModule.forRoot({
-    //   route: '/admin/queues',
-    //   adapter: ExpressAdapter,
-    // }),
+    // Очереди (письма, платежи, PDF). Redis читается лениво, после загрузки .env.
+    BullModule.forRootAsync({
+      useFactory: () => ({ connection: getBullConnection() }),
+    }),
 
     PrismaModule,
     CacheModule,
@@ -81,14 +66,19 @@ import { RabbitMQModule } from './rabbitmq';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const isDevelopment = configService.get('NODE_ENV') === 'development';
+        // Без fallback с учётными данными: URL обязателен (Joi + эта проверка)
+        const rabbitUrl = configService.get<string>('RABBITMQ_URL');
+
+        if (!rabbitUrl) {
+          throw new Error(
+            'RABBITMQ_URL is not set (example: amqp://user:password@localhost:5672/)',
+          );
+        }
 
         return {
           environment: isDevelopment ? 'development' : 'production',
           config: {
-            url: configService.get(
-              'RABBITMQ_URL',
-              'amqp://admin:admin123@rabbitmq:5672',
-            ),
+            url: rabbitUrl,
             prefetch: 1,
             // prefetch: configService.get('RABBITMQ_PREFETCH', 1),
             reconnectInterval: configService.get(
@@ -130,7 +120,7 @@ import { RabbitMQModule } from './rabbitmq';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AppThrottlerGuard,
     },
     AppService,
   ],

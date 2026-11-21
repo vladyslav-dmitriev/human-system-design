@@ -1,2 +1,2 @@
-export { SmsSendCodeBodyDto, SmsVerifyCodeBodyDto } from './request';
+export { SmsVerifyCodeBodyDto } from './request';
 export { SmsSendCodeResponseDto, SmsVerifyCodeResponseDto } from './response';

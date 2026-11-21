@@ -16,4 +16,14 @@ export class SubscriptionRepository {
       },
     });
   }
+
+  /** Allowlist: цена должна быть в таблице Product и быть активной. */
+  async isPriceAllowed(stripePriceId: string): Promise<boolean> {
+    const product = await this.prisma.product.findFirst({
+      where: { stripePriceId, isActive: true },
+      select: { id: true },
+    });
+
+    return product !== null;
+  }
 }

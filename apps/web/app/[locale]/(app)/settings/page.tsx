@@ -12,12 +12,10 @@ import { getUserData } from "@/utils";
 export default async function SettingsPage() {
   const [userData, t] = await Promise.all([getUserData(), getTranslations()]);
 
-  console.log("userData", userData);
-
   if (!userData) {
     return (
       <div className="container mx-auto py-10 max-w-3xl text-center text-sm text-destructive">
-        Не вдалося завантажити профіль користувача.
+        {t("page_load_failed")}
       </div>
     );
   }

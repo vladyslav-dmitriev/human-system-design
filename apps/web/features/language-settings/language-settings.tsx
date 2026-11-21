@@ -30,7 +30,7 @@ export function LanguageSettings() {
   };
 
   return (
-    <div className="w-full p-5 bg-white dark:bg-zinc-950 border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
+    <div className="w-full p-5 bg-card border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
         {/* Левая часть: Название и описание с вертикальной структурой */}
         <div className="flex flex-col space-y-3 flex-1 pl-0.5">
@@ -53,7 +53,10 @@ export function LanguageSettings() {
         {/* Правая часть: Селект выбора языка */}
         <div className="w-full sm:w-auto shrink-0 pt-0.5">
           <Select value={locale} onValueChange={onChange}>
-            <SelectTrigger className="w-full sm:w-40 h-9 px-3 rounded-lg font-medium text-[12px] bg-secondary text-foreground border border-muted/40 hover:bg-foreground hover:text-background hover:border-foreground transition-all duration-200 focus:ring-0 focus:ring-offset-0 flex items-center justify-between gap-2">
+            <SelectTrigger
+              aria-label={t("language_title")}
+              className="w-full sm:w-40 h-9 px-3 rounded-lg font-medium text-[12px] bg-secondary text-foreground border border-muted/40 hover:bg-foreground hover:text-background hover:border-foreground transition-all duration-200 focus-visible:ring-1 focus-visible:ring-ring flex items-center justify-between gap-2"
+            >
               <SelectValue />
             </SelectTrigger>
 

@@ -1,84 +1,89 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+import { BASE_URL } from "./env";
 
 /**
- * See https://playwright.dev/docs/test-configuration.
+ * Required environment (or packages/e2e/.env, see .env.example):
+ *   E2E_USER_EMAIL, E2E_USER_PASSWORD - dedicated test user for the `authenticated` projects.
+ * Optional: E2E_BASE_URL (default http://myapp.local).
+ *
+ * Run: pnpm --filter e2e exec playwright test
+ * Note: the app uses real Google reCAPTCHA v3 (no test mode), so the stack needs internet access.
  */
+const authFile = "playwright/.auth/user.json";
+
+// Specs that need no session (or create their own users).
+const noAuthSpecs = [
+  "**/create-account.spec.ts",
+  "**/login.spec.ts",
+  "**/logout.spec.ts",
+  "**/forgot-password.spec.ts",
+  "**/auth-redirect.spec.ts",
+  "**/locale.spec.ts",
+];
+
+// Specs that sign in as a freshly registered user (fixtures.ts), one per worker or per test,
+// because they touch account state.
+const freshUserSpecs = [
+  "**/change-email.spec.ts",
+  "**/change-password.spec.ts",
+  "**/two-factor.spec.ts",
+  "**/todos.spec.ts",
+];
+
+// Read-only specs that share the user from E2E_USER_EMAIL.
+const authenticatedSpecs = [
+  "**/billing.spec.ts",
+  "**/settings.spec.ts",
+  "**/locale-authenticated.spec.ts",
+  "**/pricing-checkout.spec.ts",
+];
+
+const smokeSpecs = ["**/smoke.spec.ts"];
+
 export default defineConfig({
   testDir: "./tests",
-  /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: "html",
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  workers: process.env.CI ? 1 : 2,
+  // The target can be `next dev` (cold compiles, real reCAPTCHA round trip), so be generous.
+  timeout: 300_000,
+  expect: { timeout: 20_000 },
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
-    baseURL: "http://myapp.local",
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    baseURL: BASE_URL,
     trace: "on-first-retry",
+    actionTimeout: 20_000,
+    navigationTimeout: 45_000,
   },
 
-  /* Configure projects for major browsers */
   projects: [
     { name: "setup", testMatch: "auth.setup.ts" },
     {
       name: "no-auth",
       use: devices["Desktop Chrome"],
-      testMatch: ["**/create-account.spec.ts"],
+      testMatch: noAuthSpecs,
+    },
+    {
+      name: "fresh-user",
+      use: devices["Desktop Chrome"],
+      testMatch: freshUserSpecs,
     },
     {
       name: "authenticated",
       use: {
         ...devices["Desktop Chrome"],
-        storageState: "playwright/.auth/user.json",
+        storageState: authFile,
       },
       dependencies: ["setup"],
-      testMatch: [
-        "**/billing.spec.ts",
-        "**/settings.spec.ts",
-        "**/change-email.spec.ts",
-      ],
+      testMatch: authenticatedSpecs,
+    },
+    {
+      name: "Mobile Chrome",
+      use: { ...devices["Pixel 5"], storageState: authFile },
+      dependencies: ["setup"],
+      testMatch: smokeSpecs,
     },
   ],
-  /* Test against mobile viewports. */
-  // {
-  //   name: 'Mobile Chrome',
-  //   use: { ...devices['Pixel 5'] },
-  // },
-  // {
-  //   name: 'Mobile Safari',
-  //   use: { ...devices['iPhone 12'] },
-  // },
-
-  /* Test against branded browsers. */
-  // {
-  //   name: 'Microsoft Edge',
-  //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-  // },
-  // {
-  //   name: 'Google Chrome',
-  //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-  // },
-
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 });

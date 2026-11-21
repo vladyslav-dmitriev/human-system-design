@@ -17,7 +17,7 @@
 | Запуск | `docker compose up -d` | `pnpm k8s:up` | ArgoCD сам подтягивает `main` |
 | Код | volume + dev-сервер | prod-образ, собранный в minikube | prod-образ из GHCR |
 | Конфиг | `apps/*/.env` | Secret из локального `.env` (скрипт) | Sealed Secrets из git |
-| Маршруты | `nginx.conf` | Ingress (Traefik) | Ingress (Traefik) + TLS |
+| Маршруты | `nginx/templates/default.conf.template` | Ingress (Traefik) | Ingress (Traefik) + TLS |
 | Хост | `myapp.local` | `myapp.local` | свой домен или `<ip>.sslip.io` |
 | Values | — | `values.yaml` + `values-local.yaml` | `values.yaml` + `values-prod.yaml` |
 
@@ -41,7 +41,7 @@
 | **Hetzner CX23** | 2 vCPU, 4 GB RAM, x86 | ~6 €/мес с IPv4 | 4 GB впритык, без мониторинга. Тариф бывает распродан. |
 | **Hetzner CAX11** | 2 vCPU, 4 GB RAM, ARM | ~6.5 €/мес с IPv4 | Тоже ARM. |
 
-Рекомендация: попробовать **Oracle Free**. Если за день-два не удалось получить ARM-инстанс или не хочется рисковать, взять **Hetzner CX23**. Чарт и CI в обоих случаях одинаковые, нужны только multi-arch образы.
+Решение (2026-11-21): Oracle не используем. Сервер x86 (Hetzner CX23 для постоянного прода; вариант с AWS EKS на время занятий ещё обсуждается), поэтому CI собирает только `linux/amd64`. Если позже понадобится ARM, добавить `linux/arm64` в `docker.yml`.
 
 Домен: бесплатно через `<ip>.sslip.io`, с ним работает Let's Encrypt HTTP-01. Свой домен стоит примерно 10 $ в год.
 
@@ -55,7 +55,7 @@
 ### Фаза 1. Образы (devops + frontend)
 - frontend: `output: 'standalone'` в `apps/web/next.config.js`.
 - devops: prod-стадия для web. Облегчить api-образ: сейчас в финальный образ копируется весь builder.
-- devops: `docker.yml` собирает api и web, `linux/amd64,linux/arm64`, публикует в `ghcr.io/vladyslav-dmitriev/hsd-api` и `hsd-web`.
+- devops: `docker.yml` собирает api (target `prod`) и web (target `web`), `linux/amd64`, тег `sha-<полный коммит>`, публикует в `ghcr.io/vladyslav-dmitriev/human-system-design-api` и `human-system-design-web`.
 - devops: убрать или исправить `release.yml`, он ссылается на несуществующий `apps/*/Dockerfile` и `your-org`.
 
 ### Фаза 2. Helm-чарт приложения (devops, backend по health-эндпоинту)
@@ -64,7 +64,7 @@
   - ConfigMap с обычными переменными и ссылка на Secret с секретами (имена ключей как в `.env.example`);
   - Job `prisma migrate deploy` как Helm hook `pre-install,pre-upgrade`;
   - probes: backend добавляет `GET /health`, если его нет;
-  - Ingress с правилами из `nginx.conf`: `/api/auth` → web, `/api` → api со срезанием префикса, `/api/metrics` → 404, `/` → web;
+  - Ingress с правилами из nginx-шаблона: `/api/auth` → web, `/api` → api со срезанием префикса, `/api/metrics`, `/api/service-auth/validate` и `/api/docs` → 404, `/` → web;
   - ServiceMonitor включается флагом, по умолчанию выключен.
 - Зависимости: Postgres, Redis и RabbitMQ. RabbitMQ сейчас нет вообще.
 - CI: `helm lint` и `helm template` с обоими values-файлами.

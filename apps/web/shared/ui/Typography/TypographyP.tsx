@@ -4,9 +4,5 @@ type Props = {
 };
 
 export function TypographyP({ className, children }: Props) {
-    return (
-      <p className={className}>
-        {children}
-      </p>
-    )
-  }
+  return <p className={className}>{children}</p>;
+}

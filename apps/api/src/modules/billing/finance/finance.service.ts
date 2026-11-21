@@ -6,11 +6,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { PaymentsService, type StripeTypes } from '../payments';
+import { PaymentsService } from '../payments';
 import { UserRepository } from '../../user';
 import { CheckoutCreateBodyDto, PaymentIntentGetParamsDto } from './dto';
 import { FinanceRepository } from './finance.repository';
 import { FinanceMapper } from './finance.mapper';
+import { resolveAllowedPrice } from '../price-allowlist';
+import { ErrorCode } from '../../../common/errors';
 
 @Injectable()
 export class FinanceService {
@@ -64,6 +66,11 @@ export class FinanceService {
     if (type === 'one-payment') {
       return await this.createPaymentIntent(userId, priceId);
     }
+
+    throw new BadRequestException({
+      code: ErrorCode.VALIDATION_FAILED,
+      message: 'Unsupported checkout type',
+    });
   }
 
   async createSubscription(userId: string, priceId: string) {
@@ -75,10 +82,12 @@ export class FinanceService {
       throw new Error('User not found');
     }
 
-    const price = await this.paymentsService.getPrice(priceId);
-
-    // getPrice запрашивает price с expand: ['product']
-    const product = price.product as StripeTypes.Product;
+    const { product } = await resolveAllowedPrice(
+      this.financeRepository,
+      this.paymentsService,
+      priceId,
+      'recurring',
+    );
     const productName = product.name;
 
     const subscription = await this.paymentsService.createSubscription(
@@ -118,15 +127,17 @@ export class FinanceService {
       throw new Error('User not found');
     }
 
-    const price = await this.paymentsService.getPrice(priceId);
-
-    // getPrice запрашивает price с expand: ['product']
-    const product = price.product as StripeTypes.Product;
+    const { price, product } = await resolveAllowedPrice(
+      this.financeRepository,
+      this.paymentsService,
+      priceId,
+      'one_time',
+    );
     const productName = product.name;
 
     const paymentIntent = await this.paymentsService.createPaymentIntent({
       stripeCustomerId,
-      currency: 'usd',
+      currency: price.currency,
       amount: price.unit_amount,
       metadata: {
         type: 'one_time',
@@ -148,26 +159,57 @@ export class FinanceService {
     };
   }
 
-  async getPaymentIntent(params: PaymentIntentGetParamsDto) {
-    const paymentIntent = await this.paymentsService.getPaymentIntent(
-      params.paymentIntentId,
-    );
+  async getPaymentIntent(userId: string, params: PaymentIntentGetParamsDto) {
+    const billingProfile = await this.getUserBilling(userId);
+    const stripeCustomerId = billingProfile?.billing.stripeCustomerId;
+
+    const notFound = () =>
+      new NotFoundException({
+        code: ErrorCode.NOT_FOUND,
+        message: 'Payment intent not found',
+      });
+
+    let paymentIntent: Awaited<ReturnType<PaymentsService['getPaymentIntent']>>;
+
+    try {
+      paymentIntent = await this.paymentsService.getPaymentIntent(
+        params.paymentIntentId,
+      );
+    } catch {
+      throw notFound();
+    }
+
+    // Чужой PaymentIntent неотличим от несуществующего.
+    const owner =
+      typeof paymentIntent.customer === 'string'
+        ? paymentIntent.customer
+        : paymentIntent.customer?.id;
+
+    if (!stripeCustomerId || owner !== stripeCustomerId) {
+      throw notFound();
+    }
 
     if (paymentIntent.status !== 'succeeded') {
-      throw new BadRequestException('Payment not successful');
+      throw new BadRequestException({
+        code: ErrorCode.VALIDATION_FAILED,
+        message: 'Payment not successful',
+      });
     }
 
     return {
       amount: paymentIntent.amount,
       currency: paymentIntent.currency,
       status: paymentIntent.status,
-      customer: paymentIntent.customer,
+      customer: owner,
       metadata: isEmpty(paymentIntent.metadata)
         ? {
             name: 'Premium',
             type: 'subscription',
           }
-        : paymentIntent.metadata,
+        : {
+            name: paymentIntent.metadata.name,
+            type: paymentIntent.metadata.type,
+          },
     };
   }
 

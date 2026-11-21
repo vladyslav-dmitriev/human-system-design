@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import { LogOut, Loader2, ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
+import { useRouter } from "@/i18n/navigation";
 import { ROUTE } from "@/constants";
+import { API_URL } from "@/api";
 import { useTranslations } from "next-intl";
 
 export function Logout() {
@@ -16,16 +17,30 @@ export function Logout() {
   const handleLogout = async () => {
     setIsLoading(true);
 
-    await signOut();
+    try {
+      // api инкрементирует версию сессии; ошибка не мешает локальному выходу
+      try {
+        await fetch(API_URL.auth.logout(), {
+          method: "POST",
+          credentials: "include",
+        });
+      } catch (cause) {
+        console.error(cause);
+      }
 
-    router.replace(ROUTE.LOGIN);
-    router.refresh();
+      // redirect: false: ждём ответ signout (cookie сброшена) и только потом
+      // уходим на логин сами, без гонки с автоматическим переходом next-auth
+      await signOut({ redirect: false });
 
-    setIsLoading(false);
+      router.replace(ROUTE.LOGIN);
+      router.refresh();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="w-full p-5 bg-white dark:bg-zinc-950 border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
+    <div className="w-full p-5 bg-card border border-muted/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-200">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
         <div className="flex flex-col space-y-3 flex-1 pl-0.5">
           <div className="flex items-center gap-2.5">

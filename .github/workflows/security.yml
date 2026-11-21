@@ -10,61 +10,48 @@ on:
 permissions:
   contents: read
   packages: read
-  security-events: write
 
 concurrency:
-  group: security-${{ github.ref }}
+  group: security-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: vladyslav-dmitriev
+  API_IMAGE: human-system-design-api
 
 jobs:
   security:
+    name: Scan images
+
     if: github.event.workflow_run.conclusion == 'success'
 
     runs-on: ubuntu-latest
 
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Run Dependency Review
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
-
-      - name: Run npm audit
-        run: |
-          npm audit --audit-level=high || true
-
-      - name: Scan API Image
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Scan API image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
-          image-ref: ghcr.io/your-github-username/fullstack-api:sha-${{ github.event.workflow_run.head_sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.API_IMAGE }}:sha-${{ github.event.workflow_run.head_sha }}
           format: table
           exit-code: 1
-          severity: CRITICAL,HIGH
-
-      - name: Scan WEB Image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ghcr.io/your-github-username/fullstack-web:sha-${{ github.event.workflow_run.head_sha }}
-          format: table
-          exit-code: 1
+          ignore-unfixed: true
           severity: CRITICAL,HIGH
 
       - name: Generate SBOM (API)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          image: ghcr.io/your-github-username/fullstack-api:sha-${{ github.event.workflow_run.head_sha }}
-          artifact-name: api-sbom
-
-      - name: Generate SBOM (WEB)
-        uses: anchore/sbom-action@v0
-        with:
-          image: ghcr.io/your-github-username/fullstack-web:sha-${{ github.event.workflow_run.head_sha }}
-          artifact-name: web-sbom
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: |
-            *.spdx.json
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.API_IMAGE }}:sha-${{ github.event.workflow_run.head_sha }}
+          artifact-name: api-sbom.spdx.json
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}

@@ -9,7 +9,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../auth/decorators/get-user.decorator';
-import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { PaymentMethodService } from '../payment-method/payment-method.service';
 import { PaymentMethod } from './payment-method.interface';
 import {
@@ -22,6 +28,8 @@ import {
 import { Serialize } from 'interceptors';
 
 @ApiTags('Payment Methods')
+@ApiCookieAuth()
+@ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('billing/payment-methods')
 @UseGuards(AuthGuard)
 export class PaymentMethodsController {
@@ -30,8 +38,8 @@ export class PaymentMethodsController {
     private readonly paymentMethodService: PaymentMethodService,
   ) {}
 
-  @ApiCookieAuth()
   @Get()
+  @ApiOkResponse({ type: PaymentMethodGetListResponseDto, isArray: true })
   @Serialize(PaymentMethodGetListResponseDto)
   async getPaymentMethods(
     @GetUser('id') userId: string,
@@ -39,8 +47,9 @@ export class PaymentMethodsController {
     return this.paymentMethodService.getPaymentMethods(userId);
   }
 
-  @ApiCookieAuth()
   @Post(':paymentMethodId')
+  @ApiOkResponse({ type: PaymentMethodAddResponseDto })
+  @ApiNotFoundResponse({ description: 'Payment method not found or not owned' })
   @Serialize(PaymentMethodAddResponseDto)
   async addPaymentMethod(
     @GetUser('id') userId: string,
@@ -49,8 +58,9 @@ export class PaymentMethodsController {
     return this.paymentMethodService.addPaymentMethod(userId, params);
   }
 
-  @ApiCookieAuth()
   @Delete(':paymentMethodId')
+  @ApiOkResponse({ type: PaymentMethodDeleteResponseDto })
+  @ApiNotFoundResponse({ description: 'Payment method not found or not owned' })
   @Serialize(PaymentMethodDeleteResponseDto)
   async deletePaymentMethod(
     @GetUser('id') userId: string,

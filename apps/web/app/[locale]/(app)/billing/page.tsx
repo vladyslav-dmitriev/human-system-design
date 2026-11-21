@@ -12,11 +12,15 @@ export default async function BillingPage() {
     getTranslations(),
   ]);
 
-  console.log("paymentMethods b", paymentMethods);
-  console.log("userBilling b", userBilling);
-
   if (!userBilling) {
-    return null;
+    return (
+      <div className="py-10 max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">{t("billing")}</h1>
+        <p role="alert" className="text-sm text-destructive">
+          {t("page_load_failed")}
+        </p>
+      </div>
+    );
   }
 
   return (

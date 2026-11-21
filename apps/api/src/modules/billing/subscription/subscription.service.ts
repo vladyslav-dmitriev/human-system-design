@@ -1,7 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { UserRepository } from '../../user';
-import { PaymentsService, type StripeTypes } from '../payments';
+import { PaymentsService } from '../payments';
+import { resolveAllowedPrice } from '../price-allowlist';
 import { SubscriptionRenewBodyDto, SubscriptionUpgradeBodyDto } from './dto';
 import { SubscriptionRepository } from './subscription.repository';
 
@@ -69,10 +70,13 @@ export class SubscriptionService {
       throw new NotFoundException('Subscription not found');
     }
 
-    const price = await this.paymentsService.getPrice(priceId);
-
-    // getPrice запрашивает price с expand: ['product']
-    const productName = (price.product as StripeTypes.Product).name;
+    const { product } = await resolveAllowedPrice(
+      this.subscriptionRepository,
+      this.paymentsService,
+      priceId,
+      'recurring',
+    );
+    const productName = product.name;
 
     const id = subscription.items.data[0].id;
 

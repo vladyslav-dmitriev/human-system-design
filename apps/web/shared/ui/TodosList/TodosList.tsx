@@ -12,7 +12,11 @@ type TodosListProps = {
   todoSetTitle?: string;
 };
 
-export const TodosList = ({ todos, setTodos, todoSetTitle }: TodosListProps) => {
+export const TodosList = ({
+  todos,
+  setTodos,
+  todoSetTitle,
+}: TodosListProps) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleDragStart = (index: number) => {
