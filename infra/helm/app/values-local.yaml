@@ -1,0 +1,23 @@
+# minikube: образы собираются локально (`minikube image build`) и не тянутся из реестра.
+# Применение: helm upgrade --install app infra/helm/app -n app -f infra/helm/app/values.yaml -f infra/helm/app/values-local.yaml
+api:
+  image:
+    repository: hsd-api
+    tag: local
+    pullPolicy: Never
+
+web:
+  image:
+    repository: hsd-web
+    tag: local
+    pullPolicy: Never
+
+config:
+  api:
+    NODE_ENV: production
+
+ingress:
+  className: traefik
+  host: myapp.local
+  tls:
+    enabled: false

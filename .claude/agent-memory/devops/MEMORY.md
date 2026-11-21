@@ -1,0 +1,1 @@
+- [Guard hook and disk gotchas](feedback_guard_hook_shell.md) — Bash with .env/prisma migrations paths is blocked; host disk near full breaks docker builds

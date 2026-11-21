@@ -1,55 +1,47 @@
-name: Update Helm Charts
+name: Helm
 
 on:
-  workflow_run:
-    workflows:
-      - Build & Push Docker Images
-    types:
-      - completed
+  pull_request:
+    paths:
+      - "infra/helm/**"
+      - ".github/workflows/helm.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/helm/**"
+      - ".github/workflows/helm.yml"
+
+concurrency:
+  group: helm-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  update-helm:
-    if: github.event.workflow_run.conclusion == 'success'
-
+  lint:
+    name: Lint & template
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout GitOps Repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
         with:
-          repository: your-org/fullstack-gitops   # TODO
-          token: ${{ secrets.GITOPS_TOKEN }}
-          path: gitops
+          version: v3.16.4
 
-      - name: Install yq
-        uses: mikefarah/yq@master
-
-      - name: Update API image tag
+      - name: Lint charts
         run: |
-          cd gitops
-          yq -i '.image.tag = "sha-${{ github.event.workflow_run.head_sha }}"' \
-            helm/api/values.yaml
+          helm lint infra/helm/app -f infra/helm/app/values-local.yaml
+          helm lint infra/helm/app -f infra/helm/app/values-prod.yaml
+          helm lint infra/helm/deps
 
-      - name: Update WEB image tag
+      - name: Render charts
         run: |
-          cd gitops
-          yq -i '.image.tag = "sha-${{ github.event.workflow_run.head_sha }}"' \
-            helm/web/values.yaml
-
-      - name: Commit changes
-        run: |
-          cd gitops
-          git config user.name "vladyslav-dmitriev"
-          git config user.email "vladyslav.dmitriev@gmail.com"
-
-          git add .
-
-          git commit -m "Update image tag to sha-${{ github.event.workflow_run.head_sha }}" || echo "Nothing to commit"
-
-      - name: Push
-        run: |
-          cd gitops
-          git push
+          helm template app infra/helm/app -n app -f infra/helm/app/values-local.yaml > /dev/null
+          helm template app infra/helm/app -n app -f infra/helm/app/values-prod.yaml > /dev/null
+          helm template deps infra/helm/deps -n app > /dev/null

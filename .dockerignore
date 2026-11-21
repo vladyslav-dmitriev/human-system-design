@@ -1,10 +1,15 @@
 # prettier-ignore
+# Секреты: ни один .env не должен попадать в контекст сборки и образ (только .env.example)
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
+
 node_modules
 **/node_modules
 dist
 **/dist
 .git
-.env
 .next
 **/.next
 .output
@@ -15,3 +20,9 @@ coverage
 test-results
 playwright-report
 npm-debug.log
+backups
+.claude
+.github
+.amplitude
+docs
+infra

@@ -1,0 +1,26 @@
+{{- /* Несекретные переменные. Секреты приходят из внешних Secret через envFrom (см. api.existingSecret / web.existingSecret) */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.fullname" . }}-api
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  {{- $api := omit .Values.config.api "CLIENT_URL" }}
+  {{- range $k, $v := $api }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+  CLIENT_URL: {{ include "app.clientUrl" . | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.fullname" . }}-web
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+data:
+  {{- range $k, $v := .Values.config.web }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

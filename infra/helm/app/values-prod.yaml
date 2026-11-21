@@ -1,23 +1,43 @@
-config:
-  NODE_ENV: production
-
+# Сервер (k3s, 4 GB RAM): образы из GHCR, TLS через cert-manager.
+# Тег образа обновляет CI (фаза 5: коммит `[skip ci]`), руками не править без причины.
 api:
-  replicas: 3
+  replicas: 1
+  image:
+    repository: ghcr.io/vladyslav-dmitriev/hsd-api
+    tag: main # TODO: CI подставляет sha-<commit>; до первой сборки используем ветку
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
 
 web:
-  replicas: 3
+  replicas: 1
+  image:
+    repository: ghcr.io/vladyslav-dmitriev/hsd-web
+    tag: main # TODO: CI подставляет sha-<commit>
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 512Mi
 
-worker:
-  replicas: 2
+config:
+  api:
+    NODE_ENV: production
+    # На проде платные SMS включаются значением "enabled", иначе проверка кода всегда проходит
+    PAID_API: "false"
 
 ingress:
-  enabled: true
-
-resources:
-  requests:
-    cpu: 500m
-    memory: 512Mi
-
-  limits:
-    cpu: 2
-    memory: 2Gi
+  className: traefik
+  # TODO: заменить на реальный адрес сервера (sslip.io превращает IP в DNS-имя) или на свой домен.
+  # Хост должен совпадать с хостом в NEXT_PUBLIC_API_CLIENT_URL, с которым собран образ web.
+  host: 203.0.113.10.sslip.io
+  tls:
+    enabled: true
+    secretName: app-tls
+    clusterIssuer: letsencrypt-prod # TODO: имя ClusterIssuer из infra/k8s/clusterissuer.yaml (фаза 4)

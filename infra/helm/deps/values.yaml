@@ -1,0 +1,53 @@
+# Зависимости приложения. Ставятся ДО чарта app: helm upgrade --install deps infra/helm/deps -n app
+#
+# Имена Service (на них ссылается api), фиксированы:
+#   postgres:5432   redis:6379   rabbitmq:5672 (AMQP), rabbitmq:15672 (management), rabbitmq:15692 (prometheus)
+#
+# Пароли в values не хранятся: Secret создаётся вне чарта (локально скриптом, на сервере Sealed Secrets).
+# Ключи Secret (secrets.existingSecret):
+#   POSTGRES_PASSWORD, REDIS_PASSWORD, RABBITMQ_PASSWORD
+# Те же пароли нужны в Secret api (DATABASE_URL, REDIS_URL, RABBITMQ_URL).
+
+secrets:
+  existingSecret: app-deps
+
+# Образы: официальные, версии закреплены (как в docker-compose.yml)
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  user: user
+  database: mydb
+  storage: 5Gi
+  storageClassName: "" # пусто = класс по умолчанию (minikube: standard, k3s: local-path)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 384Mi
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 1Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+rabbitmq:
+  enabled: true
+  image: rabbitmq:3.13-management-alpine
+  user: admin
+  vhost: /
+  storage: 2Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

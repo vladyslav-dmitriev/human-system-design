@@ -1,15 +1,7 @@
-{{/*
-Expand the name of the chart.
-*/}}
 {{- define "app.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
 {{- define "app.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
@@ -23,40 +15,52 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
 {{- define "app.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Common labels
-*/}}
+{{/* Общие метки (без component) */}}
 {{- define "app.labels" -}}
 helm.sh/chart: {{ include "app.chart" . }}
-{{ include "app.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
+app.kubernetes.io/name: {{ include "app.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{/*
-Selector labels
-*/}}
+{{/* Метки селектора компонента. Вызов: include "app.selectorLabels" (dict "root" . "component" "api") */}}
 {{- define "app.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "app.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/name: {{ include "app.name" .root }}
+app.kubernetes.io/instance: {{ .root.Release.Name }}
+app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "app.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "app.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{/* Образ компонента. Вызов: include "app.image" (dict "image" .Values.api.image) */}}
+{{- define "app.image" -}}
+{{- if .image.tag -}}
+{{- printf "%s:%s" .image.repository .image.tag -}}
+{{- else -}}
+{{- fail "image.tag обязателен (latest в прод не используем): задайте api.image.tag / web.image.tag" -}}
+{{- end -}}
 {{- end }}
+
+{{/* Схема и URL клиента: https при включённом TLS */}}
+{{- define "app.clientUrl" -}}
+{{- if .Values.config.api.CLIENT_URL -}}
+{{- .Values.config.api.CLIENT_URL -}}
+{{- else -}}
+{{- printf "%s://%s" (ternary "https" "http" .Values.ingress.tls.enabled) .Values.ingress.host -}}
+{{- end -}}
+{{- end }}
+
+{{/* Контекст безопасности контейнера */}}
+{{- define "app.containerSecurityContext" -}}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: true
+runAsNonRoot: true
+runAsUser: 1000
+runAsGroup: 1000
+capabilities:
+  drop: ["ALL"]
+seccompProfile:
+  type: RuntimeDefault
 {{- end }}
