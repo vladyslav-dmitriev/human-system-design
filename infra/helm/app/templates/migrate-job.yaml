@@ -38,10 +38,13 @@ spec:
           command: ["/opt/prisma/node_modules/.bin/prisma", "migrate", "deploy"]
           securityContext:
             {{- include "app.containerSecurityContext" . | nindent 12 }}
-          # нужен только DATABASE_URL из Secret api
-          envFrom:
-            - secretRef:
-                name: {{ required "api.existingSecret обязателен" .Values.api.existingSecret }}
+          # из Secret api нужен только DATABASE_URL (остальные секреты Job не получает)
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "api.existingSecret обязателен" .Values.api.existingSecret }}
+                  key: DATABASE_URL
           resources:
             {{- toYaml .Values.migrations.resources | nindent 12 }}
           volumeMounts:

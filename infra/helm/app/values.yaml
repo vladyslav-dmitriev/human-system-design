@@ -103,7 +103,7 @@ migrations:
 
 ingress:
   enabled: true
-  className: traefik
+  className: traefik # другие классы не поддерживаются: чарт падает (нужны Traefik Middleware)
   host: myapp.local
   annotations: {}
   tls:
@@ -111,6 +111,18 @@ ingress:
     secretName: app-tls
     # имя ClusterIssuer cert-manager; если пусто, аннотация не добавляется
     clusterIssuer: ""
+  # Лимиты тела запроса (nginx: client_max_body_size 1m для web, 6m для /api/)
+  limits:
+    webBodyBytes: 1048576
+    apiBodyBytes: 6291456
+  # Заголовки безопасности (паритет с nginx/snippets/*.inc). HSTS только при ingress.tls.enabled.
+  headers:
+    referrerPolicy: strict-origin-when-cross-origin
+    permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=(self)"
+    contentSecurityPolicy: "frame-ancestors 'none'"
+    stsSeconds: 31536000
+    # Полная CSP пока Report-Only (см. nginx/snippets/csp-report-only.inc). Держать в синхроне с nginx.
+    cspReportOnly: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://challenges.cloudflare.com https://cdn.amplitude.com https://cdn.growthbook.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://api.stripe.com https://m.stripe.network https://www.google.com/recaptcha/ https://challenges.cloudflare.com https://*.amplitude.com https://cdn.growthbook.io; frame-src https://js.stripe.com https://hooks.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'"
   traefik:
     # k3s с Traefik v3 и minikube (Helm-чарт Traefik v3): traefik.io. Для Traefik v2: traefik.containo.us/v1alpha1
     apiVersion: traefik.io/v1alpha1

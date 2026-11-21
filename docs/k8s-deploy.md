@@ -75,6 +75,9 @@
 - pnpm-скрипты в корне: `k8s:up`, `k8s:deploy`, `k8s:down`.
 - Доступ: `minikube tunnel` и строка `127.0.0.1 myapp.local` в `/etc/hosts`.
 - Перед запуском остановить compose, потому что оба занимают порт 80.
+- **TLS на minikube** (mkcert или самоподписанный сертификат в Secret `app-tls`, `ingress.tls.enabled: true` в `values-local.yaml`). Иначе Secure-cookie next-auth (`secure: NODE_ENV === "production"` в `apps/web/auth.ts`) не сохранится на `http://myapp.local`, и вход не заработает. Заодно Ingress с `tls.enabled` слушает только `websecure`.
+- **Проверка обходов на живом Traefik**: `/apimetrics`, `/APImetrics`, `/api//metrics`, `/api/%6detrics`, `/api/docs`, `/api/service-auth/validate` должны отвечать 404 (проверять при `ENABLE_METRICS=true`, иначе 404 даёт сам api и проверка ничего не доказывает).
+- **NetworkPolicy**: default-deny в namespace `app` и разрешения: Traefik -> web/api, web -> api, api и migrate -> deps (postgres, redis, rabbitmq), Prometheus -> метрики. На minikube для этого нужен `--cni=calico` (иначе политики не применяются).
 
 ### Фаза 4. Сервер (devops + пользователь)
 Делает пользователь:
@@ -87,6 +90,14 @@
 - Привести в порядок `infra/argocd/applications`: убрать пустые `backend.yaml`, `frontend.yaml` и `ingress-nginx`, у `app` поставить `values-prod.yaml` и namespace `app` вместо `production`.
 - Инструкция, как зашифровать секреты через `kubeseal` и закоммитить их.
 - CronJob для бэкапа Postgres.
+- **Traefik в k3s**: `externalTrafficPolicy: Local` (через HelmChartConfig), иначе клиентский IP теряется, и в `TRUST_PROXY` задать подсеть подов, иначе rate limit общий на всех клиентов.
+- **Глобальный редирект http -> https** через HelmChartConfig для Traefik (сейчас Ingress с TLS слушает только `websecure`, http не обслуживается).
+- **Удалить старые Application** `redis.yaml`, `postgresql.yaml`, `ingress-nginx.yaml` (redis без пароля) ДО применения `root-app`, иначе они развернутся.
+- **Сузить AppProject**: `sourceRepos`, `destinations`, whitelist ресурсов.
+- **Образы deps**: закрепить digest (`postgres`, `redis`, `rabbitmq`), рассмотреть RabbitMQ 4.x (3.13 вышел из поддержки).
+- **prisma-cli** в Dockerfile ставить с lock-файлом (сейчас `npm install` с одной закреплённой версией, транзитивные зависимости не зафиксированы).
+- **Пароли deps**: при смене пароля в Secret `app-deps` пароль в уже инициализированном томе Postgres/RabbitMQ не меняется. Менять нужно и в самой БД (`ALTER USER`, `rabbitmqctl change_password`), либо пересоздавать том.
+- ArgoCD-приложение `app` работает с ручным sync, включить `automated` в фазе 5, когда CI подставляет реальный `sha-` тег.
 
 ### Фаза 5. CI → деплой (devops)
 - `helm.yml`: после сборки образа обновить `image.tag` в `values-prod.yaml` в этом репозитории коммитом `[skip ci]`.
