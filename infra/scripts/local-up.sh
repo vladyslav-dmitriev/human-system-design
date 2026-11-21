@@ -25,6 +25,10 @@ docker build --target prod -t "$API_IMAGE" "$PROJECT_ROOT"
 # Публичные ключи web (reCAPTCHA site key, Stripe pk_test, ...) инлайнятся в бандл при сборке.
 # `--build-arg NAME` без значения берёт его из окружения, если переменная задана (иначе пусто).
 # URL API задаём явно: они должны указывать на Ingress minikube, а не на compose.
+if [ -z "${NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY:-}" ]; then
+  printf '\nВНИМАНИЕ: NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY не задан: web соберётся без reCAPTCHA,\n' >&2
+  printf 'регистрация и вход в кластере работать не будут. Как передать ключи: docs/k8s-deploy.md, фаза 3.\n\n' >&2
+fi
 docker build --target web -t "$WEB_IMAGE" \
   --build-arg "NEXT_PUBLIC_API_CLIENT_URL=https://${HOST}/api" \
   --build-arg "NEXT_PUBLIC_API_SERVER_URL=http://api:3001" \
@@ -52,10 +56,16 @@ log "Traefik $TRAEFIK_CHART_VERSION"
 
 # --- 3. Загрузка образов в кластер ---
 log "Загрузка образов в minikube"
-minikube -p "$PROFILE" image load "$API_IMAGE"
-minikube -p "$PROFILE" image load "$WEB_IMAGE"
-# Тег local не меняется, поэтому id образов уходит в аннотацию подов: при новой сборке helm пересоздаёт поды
-IMAGE_IDS="$(docker image inspect --format '{{ .Id }}' "$API_IMAGE" "$WEB_IMAGE" | tr -d '\n' | shasum | cut -c1-16)"
+# Уникальный тег на каждую сборку (local-<id образа>): `minikube image load` с драйвером docker не перезаписывает
+# образ с уже существующим тегом (даже с --overwrite), и под молча запускался бы со старой сборкой.
+# Новый тег заодно сам пересоздаёт поды при helm upgrade.
+image_tag() { echo "local-$(docker image inspect --format '{{ .Id }}' "$1" | sed 's/^sha256://' | cut -c1-12)"; }
+API_TAG="$(image_tag "$API_IMAGE")"
+WEB_TAG="$(image_tag "$WEB_IMAGE")"
+docker tag "$API_IMAGE" "${API_IMAGE%:*}:$API_TAG"
+docker tag "$WEB_IMAGE" "${WEB_IMAGE%:*}:$WEB_TAG"
+minikube -p "$PROFILE" image load "${API_IMAGE%:*}:$API_TAG"
+minikube -p "$PROFILE" image load "${WEB_IMAGE%:*}:$WEB_TAG"
 
 # --- 4. Namespace, Secret'ы, TLS ---
 "${KUBECTL[@]}" get namespace "$NAMESPACE" >/dev/null 2>&1 || "${KUBECTL[@]}" create namespace "$NAMESPACE"
@@ -105,7 +115,7 @@ log "helm: deps"
 log "helm: app (миграции идут Job'ом pre-install/pre-upgrade)"
 "${HELM[@]}" upgrade --install app "$CHARTS/app" --namespace "$NAMESPACE" \
   -f "$CHARTS/app/values.yaml" -f "$CHARTS/app/values-local.yaml" \
-  --set-string "podAnnotations.local-image-ids=$IMAGE_IDS" \
+  --set-string "api.image.tag=$API_TAG" --set-string "web.image.tag=$WEB_TAG" \
   --wait --timeout 10m
 
 log "Готово"

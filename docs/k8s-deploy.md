@@ -96,7 +96,15 @@ grep -E '^(GOOGLE_CAPTCHA_SECRET_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|AWS
   | kubectl --context human-system-design apply -f -
 kubectl --context human-system-design -n app rollout restart deploy/app-api
 ```
-- `NEXT_PUBLIC_*` вшиваются в образ web при сборке. URL API скрипт задаёт сам (`https://myapp.local/api`, `http://api:3001`), а публичные ключи (reCAPTCHA site key, Stripe `pk_test`, Turnstile, Amplitude, GrowthBook) берёт из окружения. Пересборка с ключами из `apps/web/.env`: `(set -a; . apps/web/.env; set +a; pnpm k8s:deploy)`. Ключи reCAPTCHA должны разрешать домен `myapp.local`.
+- `NEXT_PUBLIC_*` вшиваются в образ web при сборке. URL API скрипт задаёт сам (`https://myapp.local/api`, `http://api:3001`), а публичные ключи (reCAPTCHA site key, Stripe `pk_test`, Turnstile, Amplitude, GrowthBook) берёт из окружения. Без `NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY` скрипт предупреждает: web соберётся без reCAPTCHA, и регистрация с входом не заработают. Поэтому **каждый** `pnpm k8s:deploy` с пересборкой web запускайте с ключами. Ключи reCAPTCHA должны разрешать домен `myapp.local`.
+
+  Загружать env-файлы через `. файл` ненадёжно: shell выполняет их как скрипт и падает на `&`, BOM, `\r` или пробелах вокруг `=`. Надёжный вариант: команда берёт только строки `NEXT_PUBLIC_*` из `.env` и `.env.local` (второй перекрывает первый, как в Next.js), ничего не выполняет, снимает кавычки и печатает только имена:
+
+```bash
+# из корня worktree/checkout, где лежит infra/; путь к apps/web поправьте под своё расположение
+(while IFS= read -r kv; do export "$kv"; print -u2 "  экспортирован: ${kv%%=*}"; done < <(awk '{ sub(/^\xEF\xBB\xBF/, ""); sub(/\r$/, "") } /^[[:space:]]*(export[[:space:]]+)?NEXT_PUBLIC_[A-Z0-9_]+[[:space:]]*=/ { sub(/^[[:space:]]*(export[[:space:]]+)?/, ""); k=$0; sub(/[[:space:]]*=.*/, "", k); v=$0; sub(/^[^=]*=[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); if (v ~ /^".*"$/ || v ~ /^\x27.*\x27$/) v=substr(v, 2, length(v)-2); if (length(v) > 0) print k "=" v }' apps/web/.env apps/web/.env.local); pnpm k8s:deploy)
+```
+- Образы загружаются в minikube под уникальным тегом `local-<id образа>`: `minikube image load` с драйвером docker не перезаписывает образ с существующим тегом (даже с `--overwrite`), и раньше поды молча запускались со старой сборкой.
 - Проверка обходов закрытых путей на живом Traefik и NetworkPolicy входят в `pnpm k8s:check` (29 проверок, все проходят). `/api/metrics` и прочие внутренние пути закрывает только middleware `block-internal` (отдельного правила в web Ingress нет: оно давало 308 на `/api/metrics/`). `/apimetrics` уходит в web, как `location /` в nginx; метрик в ответе нет.
 - Занято памяти после `pnpm k8s:up`: около 1.7 ГиБ из 3.9 ГиБ узла minikube.
 
