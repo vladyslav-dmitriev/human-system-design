@@ -34,7 +34,8 @@ export class LoginPage {
     this.forgotPasswordLink = page.getByRole("link", {
       name: /forgot password|забули/i,
     });
-    this.createAccountLink = page.getByRole("link", {
+    // Ссылка под формой входа. Такая же есть в шапке сайта, поэтому ищем внутри #main.
+    this.createAccountLink = page.locator("#main").getByRole("link", {
       name: "Create account",
     });
     this.otpInput = page.getByRole("textbox", {
