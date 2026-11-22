@@ -107,6 +107,12 @@ kubectl --context human-system-design -n app rollout restart deploy/app-api
 - Образы загружаются в minikube под уникальным тегом `local-<id образа>`: `minikube image load` с драйвером docker не перезаписывает образ с существующим тегом (даже с `--overwrite`), и раньше поды молча запускались со старой сборкой.
 - Проверка обходов закрытых путей на живом Traefik и NetworkPolicy входят в `pnpm k8s:check` (29 проверок, все проходят). `/api/metrics` и прочие внутренние пути закрывает только middleware `block-internal` (отдельного правила в web Ingress нет: оно давало 308 на `/api/metrics/`). `/apimetrics` уходит в web, как `location /` в nginx; метрик в ответе нет.
 - Занято памяти после `pnpm k8s:up`: около 1.7 ГиБ из 3.9 ГиБ узла minikube.
+- e2e на minikube (проверено 2026-11-22: 78 из 78, полный прогон около 4.5 минут). Нужны `pnpm k8s:proxy`, доверенный сертификат mkcert, реальные ключи reCAPTCHA (см. выше) и отдельный тестовый пользователь для проектов `authenticated` (`E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, зарегистрируйте его на `https://myapp.local`):
+
+```bash
+E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
+```
+- Найдено при первом прогоне e2e на minikube, всё исправлено: web в production ставил cookie `__Secure-next-auth.session-token`, а api там принимает только `__Secure-authjs.session-token`, поэтому каждый авторизованный запрос получал 401. В compose это не видно, потому что там `NODE_ENV=development`. Кроме того, часть e2e отстала от security-правок: выход и смена email или пароля отзывают все сессии пользователя, 2FA требует текущий пароль, а письмо подтверждения отправляет сам api.
 
 ### Фаза 4. Сервер (devops + пользователь)
 Делает пользователь:

@@ -28,6 +28,14 @@ const otpInput = (page: import("@playwright/test").Page) =>
   page.getByRole("textbox", { name: "6-digit verification code" });
 const confirm = (page: import("@playwright/test").Page) =>
   page.getByRole("button", { name: /confirm|підтвердити/i });
+// Change of 2FA requires the current password (security fix wave). The settings page has several
+// "Current password" fields, so take the one inside the innermost block that holds the OTP input.
+const twoFactorPassword = (page: import("@playwright/test").Page) =>
+  page
+    .locator("div", { has: otpInput(page) })
+    .filter({ has: page.getByLabel("Current password") })
+    .last()
+    .getByLabel("Current password");
 
 async function openPhoneStep(page: import("@playwright/test").Page) {
   const settingsPage = new SettingsPage(page);
@@ -97,8 +105,9 @@ test("2FA: valid phone is stored, an SMS is requested with an empty body, and th
   await expect(otp).toHaveValue("123456");
 });
 
-test("2FA: confirm is disabled until the 6 digits are entered", async ({
+test("2FA: confirm is disabled until the 6 digits and the current password are entered", async ({
   page,
+  freshUser,
 }) => {
   await openOtpStep(page);
 
@@ -106,16 +115,19 @@ test("2FA: confirm is disabled until the 6 digits are entered", async ({
   await otpInput(page).fill("12345");
   await expect(confirm(page)).toBeDisabled();
   await otpInput(page).fill("123456");
+  await expect(confirm(page)).toBeDisabled();
+  await twoFactorPassword(page).fill(freshUser.password);
   await expect(confirm(page)).toBeEnabled();
 });
 
-test("2FA: correct code enables two-factor", async ({ page }) => {
+test("2FA: correct code enables two-factor", async ({ page, freshUser }) => {
   await openOtpStep(page);
   await page.route("**/user/profile/2fa", (route) =>
     route.fulfill(json(200, ok)),
   );
 
   await otpInput(page).fill("123456");
+  await twoFactorPassword(page).fill(freshUser.password);
   const request = page.waitForRequest("**/user/profile/2fa");
   await confirm(page).click();
 
@@ -123,6 +135,7 @@ test("2FA: correct code enables two-factor", async ({ page }) => {
     phone: "+380501234567",
     code: "123456",
     twoFactorEnabled: true,
+    currentPassword: freshUser.password,
   });
   await expect(otpInput(page)).toHaveCount(0);
   await expect(page.getByText("+380501234567")).toBeVisible();
@@ -132,6 +145,7 @@ test("2FA: correct code enables two-factor", async ({ page }) => {
 // USER_INVALID_OTP, the hook keeps the OTP step and shows the error.
 test("2FA: rejected code does not enable two-factor and shows an error", async ({
   page,
+  freshUser,
 }) => {
   await openOtpStep(page);
   await page.route("**/user/profile/2fa", (route) =>
@@ -146,6 +160,7 @@ test("2FA: rejected code does not enable two-factor and shows an error", async (
   );
 
   await otpInput(page).fill("000000");
+  await twoFactorPassword(page).fill(freshUser.password);
   await confirm(page).click();
 
   await expect(page.getByText("Invalid or expired code")).toBeVisible();
@@ -155,6 +170,7 @@ test("2FA: rejected code does not enable two-factor and shows an error", async (
 
 test("2FA: a 200 answer without {success: true} is not treated as success", async ({
   page,
+  freshUser,
 }) => {
   await openOtpStep(page);
   await page.route("**/user/profile/2fa", (route) =>
@@ -162,6 +178,7 @@ test("2FA: a 200 answer without {success: true} is not treated as success", asyn
   );
 
   await otpInput(page).fill("123456");
+  await twoFactorPassword(page).fill(freshUser.password);
   await confirm(page).click();
 
   await expect(

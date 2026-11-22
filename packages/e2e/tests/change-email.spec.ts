@@ -1,4 +1,5 @@
 import { test, testIsolated, expect } from "../fixtures";
+import { LoginPage } from "../pages/login-page";
 import { SETTINGS_TEXT, SettingsPage } from "../pages/settings-page";
 
 testIsolated(
@@ -12,23 +13,20 @@ testIsolated(
     const patch = page.waitForRequest(
       (r) => r.url().endsWith("/user/profile") && r.method() === "PATCH",
     );
-    // after the change the web asks for a fresh confirmation mail (no body, server makes the token)
-    const verification = page.waitForRequest(
-      (r) =>
-        r.url().endsWith("/sender/emails/send-verification") &&
-        r.method() === "POST",
-    );
+    // The confirmation mail for the new address is sent by the API itself (user.service.ts),
+    // the web no longer calls /sender/emails/send-verification after the change.
     await settingsPage.changeEmail(newEmail, freshUser.password);
 
     expect((await patch).postDataJSON()).toEqual({
       email: newEmail,
       currentPassword: freshUser.password,
     });
-    expect((await verification).postData()).toBeNull();
-    await expect(page.getByText(SETTINGS_TEXT.emailChanged)).toBeVisible();
-    await expect(settingsPage.emailInput).toHaveValue(newEmail);
-    await expect(settingsPage.emailPasswordInput).toHaveValue("");
-    await page.reload();
+    // The API revokes all sessions of the user on an email change: the web signs out at once
+    // and sends the user to the login page. Signing in with the NEW email proves the change was saved.
+    await expect(page).toHaveURL(/\/login/);
+    await new LoginPage(page).loginAndGetStatus(newEmail, freshUser.password);
+    await page.waitForURL("**/dashboard");
+    await settingsPage.goto();
     await expect(settingsPage.emailInput).toHaveValue(newEmail);
   },
 );

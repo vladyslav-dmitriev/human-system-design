@@ -15,13 +15,16 @@ testIsolated(
         r.request().method() === "PATCH",
     );
     await settingsPage.changePassword(freshUser.password, newPassword);
-    const result = await response;
-    expect(result.ok()).toBe(true);
-    expect(await result.json()).toEqual({ success: true });
-    await expect(page.getByText(SETTINGS_TEXT.passwordChanged)).toBeVisible();
+    // The body is not read: right after the answer the web leaves the page (see below),
+    // and the browser drops the response body on navigation.
+    expect((await response).ok()).toBe(true);
 
-    // Drop the session and sign in again with the new password.
-    await page.context().clearCookies();
+    // The API revokes all sessions of the user on a password change, so the web signs out
+    // at once and sends the user to the login page; the old session must not work any more.
+    await expect(page).toHaveURL(/\/login/);
+    await page.goto("/en/dashboard");
+    await expect(page).toHaveURL(/\/login/);
+
     const loginPage = new LoginPage(page);
     await loginPage.loginAndGetStatus(freshUser.email, newPassword);
     await expect(page).toHaveURL(/\/dashboard/);
