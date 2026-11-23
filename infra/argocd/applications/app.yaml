@@ -15,16 +15,18 @@ spec:
 
     helm:
       valueFiles:
-        - values-dev.yaml
+        - values-prod.yaml
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: production
+    namespace: app
 
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+    # Автосинхронизация выключена (ручной sync). Включить в фазе 5, когда CI подставляет реальный sha-тег:
+    # сейчас в values-prod.yaml заглушка тега, образа с таким тегом нет.
+    # automated:
+    #   prune: true
+    #   selfHeal: true
 
     syncOptions:
       - CreateNamespace=true

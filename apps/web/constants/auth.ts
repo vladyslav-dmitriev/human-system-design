@@ -1,7 +1,11 @@
-/** Имя cookie сессии next-auth: одно место для auth.ts и proxy.ts */
+/**
+ * Имя cookie сессии next-auth: одно место для auth.ts и proxy.ts.
+ * Контракт с api (apps/api/src/modules/auth/session-cookie.ts): в production api принимает
+ * только `__Secure-authjs.session-token` (имя же служит salt при расшифровке JWT), любое другое имя даёт 401.
+ */
 export const SESSION_COOKIE_NAME =
   process.env.NODE_ENV === "production"
-    ? "__Secure-next-auth.session-token"
+    ? "__Secure-authjs.session-token"
     : "next-auth.session-token";
 
 /** Query-параметр со страницей возврата после входа */

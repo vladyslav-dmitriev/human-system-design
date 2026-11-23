@@ -8,6 +8,9 @@ const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // standalone: минимальный server.js + нужные node_modules для prod-образа (Docker / k8s)
+  output: "standalone",
+  outputFileTracingRoot: monorepoRoot,
   allowedDevOrigins: ["myapp.local"],
   turbopack: {
     root: monorepoRoot,

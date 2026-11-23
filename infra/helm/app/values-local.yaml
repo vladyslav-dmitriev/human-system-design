@@ -1,0 +1,31 @@
+# minikube: образы собираются на хосте и загружаются в кластер (`minikube image load`), из реестра не тянутся.
+# Ставится скриптом infra/scripts/local-up.sh (pnpm k8s:up)
+api:
+  image:
+    repository: human-system-design-api
+    tag: local
+    pullPolicy: Never
+  # Реальные сторонние ключи (reCAPTCHA, Stripe test, почта) поверх плейсхолдеров из app-api.
+  # Создаёт пользователь сам, см. docs/k8s-deploy.md, фаза 3. Нет Secret - работают плейсхолдеры.
+  overridesSecret: app-api-overrides
+
+web:
+  image:
+    repository: human-system-design-web
+    tag: local
+    pullPolicy: Never
+
+config:
+  api:
+    NODE_ENV: production
+    # Только локально: чтобы проверка блокировки /api/metrics была честной (иначе 404 отдаёт сам api). В prod не включать.
+    ENABLE_METRICS: "true"
+
+ingress:
+  className: traefik
+  host: myapp.local
+  # Самоподписанный сертификат в Secret app-tls создаёт infra/scripts/local-up.sh
+  tls:
+    enabled: true
+    secretName: app-tls
+    clusterIssuer: ""

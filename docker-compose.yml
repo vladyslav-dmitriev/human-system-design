@@ -102,7 +102,9 @@ services:
       backup.dest: "remote"         # В S3 или MinIO
       backup.retention: "7d"        # Хранить 7 дней
 
-  label-backup:   # ← Добавьте ЭТОТ сервис
+  label-backup:
+    # Вспомогательный сервис: docker compose --profile tools up -d
+    profiles: ["tools"]
     image: resulgg/label-backup@sha256:d48b1a266d73e9a125b4c4b441f4157f9b563506adc401ffdf984005e7f3f9d4
     environment:
       LOCAL_BACKUP_PATH: "/backups"
@@ -122,6 +124,8 @@ services:
           memory: 128M
 
   pgadmin:
+    # Вспомогательный сервис: docker compose --profile tools up -d
+    profiles: ["tools"]
     image: dpage/pgadmin4@sha256:40fa840c5bb7c8463957f1255b01283732c2d8c9396a956d180f8e6c296753b3
     restart: unless-stopped
     environment:

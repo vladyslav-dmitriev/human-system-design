@@ -1,43 +1,175 @@
-{{- if .Values.ingress.enabled -}}
+{{- if .Values.ingress.enabled }}
+{{- if ne .Values.ingress.className "traefik" }}
+{{- fail "ingress.className должен быть traefik: без Traefik-middleware внутренние пути (/api/metrics, /api/docs, /api/service-auth/validate) окажутся снаружи, а префикс /api не срежется" }}
+{{- end }}
+{{- $mw := printf "%s-%s" .Release.Namespace (include "app.fullname" .) }}
+{{- /*
+Два Ingress, потому что Traefik-middleware (strip /api) вешается на весь Ingress целиком:
+/api/auth и / должны идти в web БЕЗ среза префикса, а /api -> api С срезом.
+Правила повторяют nginx/templates/default.conf.template.
+*/}}
+# Ingress web: /api/auth/ -> web, / -> web (/api/metrics и прочие внутренние пути закрывает middleware block-internal в Ingress api)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "app.fullname" . }}
+  name: {{ include "app.fullname" . }}-web
   labels:
     {{- include "app.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    app.kubernetes.io/component: web
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  {{- with .Values.ingress.className }}
-  ingressClassName: {{ . }}
-  {{- end }}
-  {{- if .Values.ingress.tls }}
-  tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
+    # порядок middleware: заголовки безопасности, CSP Report-Only, лимит тела запроса (как client_max_body_size 1m)
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $mw }}-security-headers@kubernetescrd,{{ $mw }}-csp-report-only@kubernetescrd,{{ $mw }}-limit-web@kubernetescrd
+    {{- if .Values.ingress.tls.enabled }}
+    # без TLS http не обслуживается; глобальный редирект http -> https настраивается на уровне Traefik (HelmChartConfig)
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
     {{- end }}
+    {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            {{- with .pathType }}
-            pathType: {{ . }}
-            {{- end }}
+          # NextAuth живёт в web (location /api/auth/ в nginx)
+          - path: /api/auth/
+            pathType: Prefix
             backend:
               service:
-                name: {{ include "app.fullname" $ }}
+                name: web
                 port:
-                  number: {{ $.Values.service.port }}
-          {{- end }}
+                  number: {{ .Values.web.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: {{ .Values.web.port }}
+---
+# Ingress api: /api/* -> api со срезанием префикса /api
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "app.fullname" . }}-api
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    # порядок важен: сначала блокировка внутренних путей (в любом регистре), потом срез префикса /api,
+    # затем заголовки безопасности и лимит тела запроса (как client_max_body_size 6m)
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $mw }}-block-internal@kubernetescrd,{{ $mw }}-strip-api@kubernetescrd,{{ $mw }}-security-headers@kubernetescrd,{{ $mw }}-limit-api@kubernetescrd
+    {{- if .Values.ingress.tls.enabled }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
     {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: {{ .Values.api.port }}
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-strip-api
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-block-internal
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  # Наружу не отдаём (как return 404 в nginx): метрики Prometheus, внутренний service-auth/validate
+  # (его зовёт только web изнутри кластера) и Swagger. Express не различает регистр и хвостовой слэш,
+  # а Traefik сопоставляет путь с учётом регистра, поэтому regex (?i) и необязательный /.
+  # Такой путь переписываем в несуществующий, после strip-api Nest ответит 404.
+  replacePathRegex:
+    regex: "(?i)^/api/+(metrics/?|service-auth/validate/?|docs.*)$"
+    replacement: "/api/__blocked__"
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-security-headers
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  # Паритет с nginx/snippets/security-headers.inc
+  headers:
+    contentTypeNosniff: true
+    frameDeny: true
+    referrerPolicy: {{ .Values.ingress.headers.referrerPolicy | quote }}
+    contentSecurityPolicy: {{ .Values.ingress.headers.contentSecurityPolicy | quote }}
+    {{- if .Values.ingress.tls.enabled }}
+    stsSeconds: {{ .Values.ingress.headers.stsSeconds | int64 }}
+    stsIncludeSubdomains: true
+    {{- end }}
+    customResponseHeaders:
+      Permissions-Policy: {{ .Values.ingress.headers.permissionsPolicy | quote }}
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-csp-report-only
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  # Паритет с nginx/snippets/csp-report-only.inc (только для web)
+  headers:
+    customResponseHeaders:
+      Content-Security-Policy-Report-Only: {{ .Values.ingress.headers.cspReportOnly | quote }}
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-limit-web
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  buffering:
+    maxRequestBodyBytes: {{ .Values.ingress.limits.webBodyBytes | int64 }}
+---
+apiVersion: {{ .Values.ingress.traefik.apiVersion }}
+kind: Middleware
+metadata:
+  name: {{ include "app.fullname" . }}-limit-api
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  buffering:
+    maxRequestBodyBytes: {{ .Values.ingress.limits.apiBodyBytes | int64 }}
 {{- end }}

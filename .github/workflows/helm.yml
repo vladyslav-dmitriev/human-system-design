@@ -1,0 +1,48 @@
+name: Helm
+
+on:
+  pull_request:
+    paths:
+      - "infra/helm/**"
+      - ".github/workflows/helm.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/helm/**"
+      - ".github/workflows/helm.yml"
+
+concurrency:
+  group: helm-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & template
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Helm предустановлен в образе ubuntu-latest: без стороннего action
+      - name: Helm version
+        run: helm version
+
+      - name: Lint charts
+        run: |
+          helm lint infra/helm/app -f infra/helm/app/values-local.yaml
+          helm lint infra/helm/app -f infra/helm/app/values-prod.yaml
+          helm lint infra/helm/deps
+
+      - name: Render charts
+        run: |
+          helm template app infra/helm/app -n app -f infra/helm/app/values-local.yaml > /dev/null
+          helm template app infra/helm/app -n app -f infra/helm/app/values-prod.yaml > /dev/null
+          helm template deps infra/helm/deps -n app > /dev/null

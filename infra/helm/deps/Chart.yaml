@@ -1,0 +1,6 @@
+apiVersion: v2
+name: deps
+description: "Postgres, Redis и RabbitMQ на официальных образах (StatefulSet + headless Service + PVC)"
+type: application
+version: 0.1.0
+appVersion: "16"

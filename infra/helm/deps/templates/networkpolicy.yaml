@@ -1,0 +1,69 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /* Каждая зависимость принимает только api и Job миграций (метки чарта app). Нужен CNI с NetworkPolicy. */}}
+{{- if .Values.postgres.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  labels:
+    {{- include "deps.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "deps.clients" . | nindent 8 }}
+      ports:
+        - port: 5432
+          protocol: TCP
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis
+  labels:
+    {{- include "deps.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "deps.clients" . | nindent 8 }}
+      ports:
+        - port: 6379
+          protocol: TCP
+{{- end }}
+{{- if .Values.rabbitmq.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq
+  labels:
+    {{- include "deps.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- include "deps.clients" . | nindent 8 }}
+      ports:
+        - port: 5672
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+      ports:
+        - port: 15692
+          protocol: TCP
+{{- end }}
+{{- end }}

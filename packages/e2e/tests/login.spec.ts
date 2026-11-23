@@ -98,6 +98,8 @@ test.describe("login with two-factor authentication (API mocked)", () => {
         body: JSON.stringify({
           twoFactorRequired: true,
           phoneMasked: "**********67",
+          // билет второго шага: verify-otp получает его вместо email (см. login-page.test.tsx в apps/web)
+          otpChallenge: "chal-e2e",
         }),
       }),
     );
@@ -122,7 +124,7 @@ test.describe("login with two-factor authentication (API mocked)", () => {
     await expect(loginPage.loginButton).toBeVisible();
   });
 
-  test("wrong code: verify-otp gets only email and code, the error is shown, no session", async ({
+  test("wrong code: verify-otp gets only otpChallenge and code, the error is shown, no session", async ({
     page,
   }) => {
     await page.route("**/service-auth/verify-otp", (route) =>
@@ -146,9 +148,9 @@ test.describe("login with two-factor authentication (API mocked)", () => {
     const request = page.waitForRequest("**/service-auth/verify-otp");
     await loginPage.verifyButton.click();
 
-    // the password is NOT sent again: it was verified at the first step
+    // neither the password nor the email is sent again: the challenge from the first step identifies the attempt
     expect((await request).postDataJSON()).toEqual({
-      email: "qa-e2e-mock@example.test",
+      otpChallenge: "chal-e2e",
       code: "000000",
     });
     await expect(page.getByText(LOGIN_TEXT.invalidOtp)).toBeVisible();
