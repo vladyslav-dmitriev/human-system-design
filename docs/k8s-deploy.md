@@ -12,14 +12,14 @@
 
 ## Окружения
 
-| | compose (разработка) | minikube (проверка деплоя) | k3s на сервере (прод) |
-|---|---|---|---|
-| Запуск | `docker compose up -d` | `pnpm k8s:up` | ArgoCD сам подтягивает `main` |
-| Код | volume + dev-сервер | prod-образ, собранный в minikube | prod-образ из GHCR |
-| Конфиг | `apps/*/.env` | Secret из локального `.env` (скрипт) | Sealed Secrets из git |
-| Маршруты | `nginx/templates/default.conf.template` | Ingress (Traefik) | Ingress (Traefik) + TLS |
-| Хост | `myapp.local` | `myapp.local` | свой домен или `<ip>.sslip.io` |
-| Values | — | `values.yaml` + `values-local.yaml` | `values.yaml` + `values-prod.yaml` |
+|          | compose (разработка)                    | minikube (проверка деплоя)           | k3s на сервере (прод)              |
+| -------- | --------------------------------------- | ------------------------------------ | ---------------------------------- |
+| Запуск   | `docker compose up -d`                  | `pnpm k8s:up`                        | ArgoCD сам подтягивает `main`      |
+| Код      | volume + dev-сервер                     | prod-образ, собранный в minikube     | prod-образ из GHCR                 |
+| Конфиг   | `apps/*/.env`                           | Secret из локального `.env` (скрипт) | Sealed Secrets из git              |
+| Маршруты | `nginx/templates/default.conf.template` | Ingress (Traefik)                    | Ingress (Traefik) + TLS            |
+| Хост     | `myapp.local`                           | `myapp.local`                        | свой домен или `<ip>.sslip.io`     |
+| Values   | —                                       | `values.yaml` + `values-local.yaml`  | `values.yaml` + `values-prod.yaml` |
 
 ## Решения
 
@@ -35,11 +35,11 @@
 
 ## Где взять сервер
 
-| Вариант | Ресурсы | Цена | Минусы |
-|---|---|---|---|
-| **Oracle Cloud Always Free** (Ampere A1) | 2 OCPU, 12 GB RAM, ARM | 0 € | ARM, поэтому нужны arm64-образы. Свободных мощностей в регионе часто нет («out of host capacity»). В 2026 году лимит урезали вдвое, и Oracle может менять условия дальше. Нужна карта для верификации. |
-| **Hetzner CX23** | 2 vCPU, 4 GB RAM, x86 | ~6 €/мес с IPv4 | 4 GB впритык, без мониторинга. Тариф бывает распродан. |
-| **Hetzner CAX11** | 2 vCPU, 4 GB RAM, ARM | ~6.5 €/мес с IPv4 | Тоже ARM. |
+| Вариант                                  | Ресурсы                | Цена              | Минусы                                                                                                                                                                                                 |
+| ---------------------------------------- | ---------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Oracle Cloud Always Free** (Ampere A1) | 2 OCPU, 12 GB RAM, ARM | 0 €               | ARM, поэтому нужны arm64-образы. Свободных мощностей в регионе часто нет («out of host capacity»). В 2026 году лимит урезали вдвое, и Oracle может менять условия дальше. Нужна карта для верификации. |
+| **Hetzner CX23**                         | 2 vCPU, 4 GB RAM, x86  | ~6 €/мес с IPv4   | 4 GB впритык, без мониторинга. Тариф бывает распродан.                                                                                                                                                 |
+| **Hetzner CAX11**                        | 2 vCPU, 4 GB RAM, ARM  | ~6.5 €/мес с IPv4 | Тоже ARM.                                                                                                                                                                                              |
 
 Решение (2026-11-21): Oracle не используем. Сервер x86 (Hetzner CX23 для постоянного прода; вариант с AWS EKS на время занятий ещё обсуждается), поэтому CI собирает только `linux/amd64`. Если позже понадобится ARM, добавить `linux/arm64` в `docker.yml`.
 
@@ -48,17 +48,20 @@
 ## Фазы
 
 ### Фаза 0. Порядок в compose (devops)
+
 - Многоэтапный `Dockerfile`: стадии `dev` (для compose, `build.target: dev`), `api` и `web` (prod).
 - pgadmin и label-backup вынести в профиль `tools` (`docker compose --profile tools up`).
 - Поведение compose для разработки не меняется.
 
 ### Фаза 1. Образы (devops + frontend)
+
 - frontend: `output: 'standalone'` в `apps/web/next.config.js`.
 - devops: prod-стадия для web. Облегчить api-образ: сейчас в финальный образ копируется весь builder.
 - devops: `docker.yml` собирает api (target `prod`) и web (target `web`), `linux/amd64`, тег `sha-<полный коммит>`, публикует в `ghcr.io/vladyslav-dmitriev/human-system-design-api` и `human-system-design-web`.
 - devops: убрать или исправить `release.yml`, он ссылается на несуществующий `apps/*/Dockerfile` и `your-org`.
 
 ### Фаза 2. Helm-чарт приложения (devops, backend по health-эндпоинту)
+
 - Заменить шаблонный `infra/helm/app` (сейчас там nginx из `helm create`):
   - Deployment и Service для `api` (3001) и `web` (3000);
   - ConfigMap с обычными переменными и ссылка на Secret с секретами (имена ключей как в `.env.example`);
@@ -70,17 +73,19 @@
 - CI: `helm lint` и `helm template` с обоими values-файлами.
 
 ### Фаза 3. Локальный minikube (devops) - реализовано
+
 Команды (корневой `package.json`):
 
-| Команда | Что делает |
-|---|---|
+| Команда                           | Что делает                                                                                                                                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm k8s:up` / `pnpm k8s:deploy` | `infra/scripts/local-up.sh`: сборка образов на хосте, старт кластера (если не запущен), Traefik, Secret'ы, TLS, `helm upgrade --install` для `deps`, затем `app`. Повторный запуск пересобирает образы и обновляет релиз |
-| `pnpm k8s:secrets [-- --force]` | `local-secrets.sh`: Secret'ы `app-deps`, `app-api`, `app-web` со случайными значениями (не печатаются), существующие не перезаписываются |
-| `pnpm k8s:check` | `local-check.sh`: проверка маршрутов, закрытых путей, заголовков, лимитов тела и NetworkPolicy |
-| `pnpm k8s:proxy [-- stop]` | `local-proxy.sh`: доступ на `https://myapp.local` (127.0.0.1:80/443) без sudo |
-| `pnpm k8s:down` | `local-down.sh`: `minikube delete` с подтверждением (`-- --yes` без вопроса); данные БД удаляются |
+| `pnpm k8s:secrets [-- --force]`   | `local-secrets.sh`: Secret'ы `app-deps`, `app-api`, `app-web` со случайными значениями (не печатаются), существующие не перезаписываются                                                                                 |
+| `pnpm k8s:check`                  | `local-check.sh`: проверка маршрутов, закрытых путей, заголовков, лимитов тела и NetworkPolicy                                                                                                                           |
+| `pnpm k8s:proxy [-- stop]`        | `local-proxy.sh`: доступ на `https://myapp.local` (127.0.0.1:80/443) без sudo                                                                                                                                            |
+| `pnpm k8s:down`                   | `local-down.sh`: `minikube delete` с подтверждением (`-- --yes` без вопроса); данные БД удаляются                                                                                                                        |
 
 Как устроено:
+
 - Профиль `human-system-design`, `--driver=docker --cni=calico` (Calico нужен, чтобы работали NetworkPolicy). Ресурсы: `MINIKUBE_CPUS` (по умолчанию 3) и `MINIKUBE_MEMORY` в МБ (по умолчанию 4000). Docker Desktop должен иметь больше памяти, чем `MINIKUBE_MEMORY`.
 - Образы собираются на хосте ДО старта кластера (сборка Next и minikube вместе не помещаются в ~5 ГБ Docker Desktop), потом `minikube image load`. Тег `local`, `pullPolicy: Never`. id образов кладётся в аннотацию подов, поэтому пересборка приводит к rollout без ручного `rollout restart`.
 - Traefik v3 ставится из официального чарта `https://traefik.github.io/charts` (версия закреплена в скрипте) в namespace `traefik`, Service LoadBalancer 80/443.
@@ -96,6 +101,7 @@ grep -E '^(GOOGLE_CAPTCHA_SECRET_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|AWS
   | kubectl --context human-system-design apply -f -
 kubectl --context human-system-design -n app rollout restart deploy/app-api
 ```
+
 - `NEXT_PUBLIC_*` вшиваются в образ web при сборке. URL API скрипт задаёт сам (`https://myapp.local/api`, `http://api:3001`), а публичные ключи (reCAPTCHA site key, Stripe `pk_test`, Turnstile, Amplitude, GrowthBook) берёт из окружения. Без `NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY` скрипт предупреждает: web соберётся без reCAPTCHA, и регистрация с входом не заработают. Поэтому **каждый** `pnpm k8s:deploy` с пересборкой web запускайте с ключами. Ключи reCAPTCHA должны разрешать домен `myapp.local`.
 
   Загружать env-файлы через `. файл` ненадёжно: shell выполняет их как скрипт и падает на `&`, BOM, `\r` или пробелах вокруг `=`. Надёжный вариант: команда берёт только строки `NEXT_PUBLIC_*` из `.env` и `.env.local` (второй перекрывает первый, как в Next.js), ничего не выполняет, снимает кавычки и печатает только имена:
@@ -104,6 +110,7 @@ kubectl --context human-system-design -n app rollout restart deploy/app-api
 # из корня worktree/checkout, где лежит infra/; путь к apps/web поправьте под своё расположение
 (while IFS= read -r kv; do export "$kv"; print -u2 "  экспортирован: ${kv%%=*}"; done < <(awk '{ sub(/^\xEF\xBB\xBF/, ""); sub(/\r$/, "") } /^[[:space:]]*(export[[:space:]]+)?NEXT_PUBLIC_[A-Z0-9_]+[[:space:]]*=/ { sub(/^[[:space:]]*(export[[:space:]]+)?/, ""); k=$0; sub(/[[:space:]]*=.*/, "", k); v=$0; sub(/^[^=]*=[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v); if (v ~ /^".*"$/ || v ~ /^\x27.*\x27$/) v=substr(v, 2, length(v)-2); if (length(v) > 0) print k "=" v }' apps/web/.env apps/web/.env.local); pnpm k8s:deploy)
 ```
+
 - Образы загружаются в minikube под уникальным тегом `local-<id образа>`: `minikube image load` с драйвером docker не перезаписывает образ с существующим тегом (даже с `--overwrite`), и раньше поды молча запускались со старой сборкой.
 - Проверка обходов закрытых путей на живом Traefik и NetworkPolicy входят в `pnpm k8s:check` (29 проверок, все проходят). `/api/metrics` и прочие внутренние пути закрывает только middleware `block-internal` (отдельного правила в web Ingress нет: оно давало 308 на `/api/metrics/`). `/apimetrics` уходит в web, как `location /` в nginx; метрик в ответе нет.
 - Занято памяти после `pnpm k8s:up`: около 1.7 ГиБ из 3.9 ГиБ узла minikube.
@@ -112,15 +119,19 @@ kubectl --context human-system-design -n app rollout restart deploy/app-api
 ```bash
 E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 ```
+
 - Найдено при первом прогоне e2e на minikube, всё исправлено: web в production ставил cookie `__Secure-next-auth.session-token`, а api там принимает только `__Secure-authjs.session-token`, поэтому каждый авторизованный запрос получал 401. В compose это не видно, потому что там `NODE_ENV=development`. Кроме того, часть e2e отстала от security-правок: выход и смена email или пароля отзывают все сессии пользователя, 2FA требует текущий пароль, а письмо подтверждения отправляет сам api.
 
 ### Фаза 4. Сервер (devops + пользователь)
+
 Делает пользователь:
+
 1. Создать VM (Ubuntu 24.04), добавить SSH-ключ, открыть порты 22, 80 и 443. Порт 6443 наружу не открывать.
 2. Поставить k3s: `curl -sfL https://get.k3s.io | sh -`.
 3. Скопировать `/etc/rancher/k3s/k3s.yaml` к себе в `~/.kube/` и ходить в кластер через SSH-туннель.
 
 Делает devops:
+
 - `infra/scripts/server-bootstrap.sh`: ArgoCD, Sealed Secrets, cert-manager с ClusterIssuer Let's Encrypt (заполнить `k8s/clusterissuer.yaml`), применение `root-app`.
 - Привести в порядок `infra/argocd/applications`: убрать пустые `backend.yaml`, `frontend.yaml` и `ingress-nginx`, у `app` поставить `values-prod.yaml` и namespace `app` вместо `production`.
 - Инструкция, как зашифровать секреты через `kubeseal` и закоммитить их.
@@ -135,10 +146,12 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 - ArgoCD-приложение `app` работает с ручным sync, включить `automated` в фазе 5, когда CI подставляет реальный `sha-` тег.
 
 ### Фаза 5. CI → деплой (devops)
+
 - `helm.yml`: после сборки образа обновить `image.tag` в `values-prod.yaml` в этом репозитории коммитом `[skip ci]`.
 - ArgoCD синхронизирует изменение, на сервере появляется новая версия.
 
 ### Фаза 6. Документация
+
 - README и `CLAUDE.md` (правит человек или основная сессия по просьбе): три режима и их команды.
 
 ## Критерии приёмки
