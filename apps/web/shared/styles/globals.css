@@ -10,9 +10,12 @@ body {
   overflow-x: hidden;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* В @layer base, иначе неслойное правило перебивает утилиты Tailwind 4 (text-*) у ссылок */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 .imgDark {
