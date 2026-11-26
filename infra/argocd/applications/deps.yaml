@@ -1,0 +1,31 @@
+# Зависимости приложения: Postgres, Redis, RabbitMQ (свой чарт infra/helm/deps, официальные образы).
+# Пароли берутся из Secret app-deps, который создаёт Application app-secrets.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: deps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+
+spec:
+  project: human-system-design
+
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/helm/deps
+    helm:
+      releaseName: deps
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

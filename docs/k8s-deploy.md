@@ -186,7 +186,7 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 Осталось (следующие шаги):
 
-- Деплой зависимостей: Application `deps` для чарта `infra/helm/deps` (Postgres, Redis, RabbitMQ) в namespace `app`, секреты `app-deps`, `app-api`, `app-web` как SealedSecret.
+- Секреты и зависимости (шаг 2): `infra/scripts/seal-secrets.sh` генерирует случайные пароли и шифрует `app-deps`, `app-api`, `app-web` в `infra/k8s/app-secrets/` (SealedSecret, безопасны для git; значения не печатаются). Реальные ключи Stripe, почты, R2 и т.д. шифруются отдельно: `seal-secrets.sh --overrides <env-файл>` создаёт `app-api-overrides` (подключён через `api.overridesSecret`). Applications `app-secrets` (sync-wave 1) и `deps` (sync-wave 2, чарт `infra/helm/deps`: Postgres, Redis, RabbitMQ) в namespace `app`.
 - В `TRUST_PROXY` задать подсеть подов (клиентский IP через Traefik).
 - Пока `app` остаётся на ручном sync: образ с реальным тегом появится в фазе 5.
 
