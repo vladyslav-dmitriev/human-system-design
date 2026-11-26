@@ -11,6 +11,10 @@
 #       Шифрует реальные ключи сторонних сервисов (Stripe, S3/R2, почта, Twilio, reCAPTCHA) из вашего env-файла
 #       в app-api-overrides. Подходят только перечисленные в скрипте ключи, пустые значения пропускаются.
 #
+#   infra/scripts/seal-secrets.sh --r2 [HOST]
+#       Спрашивает в терминале ключи Cloudflare R2 (endpoint, бакет, Access Key ID, Secret Access Key; секрет вводится
+#       без эха) и шифрует их в postgres-backup-r2. Этот секрет нужен CronJob бэкапа Postgres и хуку восстановления.
+#
 # Значения паролей и ключей нигде не печатаются и не попадают в аргументы процессов (только через stdin).
 # Для шифрования нужен публичный сертификат контроллера: он берётся с сервера по SSH.
 set -euo pipefail
@@ -22,11 +26,13 @@ NAMESPACE="app"
 DOMAIN="${DOMAIN:-vladyslavdmitriev.com}"
 
 FORCE=false
+R2_MODE=false
 OVERRIDES_FILE=""
 HOST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=true ;;
+    --r2) R2_MODE=true ;;
     --overrides)
       shift
       OVERRIDES_FILE="${1:-}"
@@ -86,6 +92,33 @@ can_write() { # файл
   fi
   return 0
 }
+
+if $R2_MODE; then
+  echo "== Ключи R2 для бэкапа Postgres -> postgres-backup-r2"
+  [ -t 0 ] || { echo "Нужен интерактивный терминал: значения вводятся вручную" >&2; exit 1; }
+  OUT="$OUT_DIR/postgres-backup-r2.yaml"
+  can_write "$OUT" || exit 0
+  read -r -p "R2 endpoint (https://<id аккаунта>.r2.cloudflarestorage.com): " R2_ENDPOINT
+  read -r -p "Бакет для бэкапов [hsd-backups]: " R2_BUCKET
+  R2_BUCKET="${R2_BUCKET:-hsd-backups}"
+  read -r -p "Access Key ID: " R2_ACCESS_KEY_ID
+  read -r -s -p "Secret Access Key (ввод не отображается): " R2_SECRET_ACCESS_KEY
+  echo
+  case "$R2_ENDPOINT" in https://*) ;; *) echo "endpoint должен начинаться с https://" >&2; exit 1 ;; esac
+  if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_SECRET_ACCESS_KEY" ]; then
+    echo "Access Key ID и Secret Access Key обязательны" >&2
+    exit 1
+  fi
+  seal_env postgres-backup-r2 "$OUT" <<ENV
+R2_ENDPOINT=${R2_ENDPOINT}
+R2_BUCKET=${R2_BUCKET}
+R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+ENV
+  unset R2_SECRET_ACCESS_KEY R2_ACCESS_KEY_ID
+  echo "Готово: ${OUT#"$ROOT"/} (только шифртекст). Закоммитьте и слейте PR, дальше ArgoCD создаст Secret."
+  exit 0
+fi
 
 if [ -n "$OVERRIDES_FILE" ]; then
   echo "== Реальные ключи из $OVERRIDES_FILE -> app-api-overrides"

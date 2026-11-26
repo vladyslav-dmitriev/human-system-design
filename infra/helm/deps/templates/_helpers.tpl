@@ -20,11 +20,20 @@ app.kubernetes.io/instance: {{ .root.Release.Name }}
       app.kubernetes.io/component: migrate
 {{- end }}
 
-{{- /* Только Postgres: Job синхронизации цен Stripe пишет в таблицу Product, Redis и RabbitMQ ему не нужны. */}}
+{{- /* Только Postgres: Job синхронизации цен Stripe, восстановление из бэкапа и CronJob бэкапа. Redis и RabbitMQ им не нужны. */}}
 {{- define "deps.postgresClients" -}}
 {{ include "deps.clients" . }}
 - podSelector:
     matchLabels:
       app.kubernetes.io/name: {{ .Values.networkPolicy.appName }}
       app.kubernetes.io/component: sync-products
+- podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.appName }}
+      app.kubernetes.io/component: restore
+{{- if .Values.backup.enabled }}
+- podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-backup
+{{- end }}
 {{- end }}

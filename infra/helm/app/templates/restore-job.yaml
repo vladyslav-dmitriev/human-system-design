@@ -1,0 +1,171 @@
+{{- if .Values.restore.enabled }}
+# Восстановление базы из бэкапа в R2 на ПУСТОЙ базе (после пересоздания сервера).
+# Хук pre-install,pre-upgrade с весом -5 выполняется раньше миграций (вес 0): восстановленная таблица _prisma_migrations
+# говорит prisma migrate deploy, что миграции уже применены, и он применит только новые.
+# Три шага (общий emptyDir /work):
+#   check   - в базе нет ни одной таблицы в схеме public? Если есть, ничего не делаем (обычный деплой, данные не трогаем).
+#   fetch   - скачивает postgres/latest.dump из R2 (нет бэкапа или нет секрета: пропускает, будет чистая установка).
+#   restore - pg_restore одной транзакцией: при ошибке откат, и база остаётся пустой для повторной попытки.
+# Бэкапы делает CronJob postgres-backup в чарте deps.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "app.fullname" . }}-restore
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: restore
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.restore.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.restore.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "app.labels" . | nindent 8 }}
+        app.kubernetes.io/component: restore
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: check
+          image: {{ .Values.restore.postgresImage | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              n="$(psql "$DATABASE_URL" -tAc "select count(*) from information_schema.tables where table_schema = 'public'")"
+              if [ "$n" = "0" ]; then
+                touch /work/empty
+                echo "база пуста: нужно восстановление"
+              else
+                echo "в базе уже есть таблицы ($n): восстановление не нужно"
+              fi
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "api.existingSecret обязателен" .Values.api.existingSecret }}
+                  key: DATABASE_URL
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.restore.resources | nindent 12 }}
+          volumeMounts:
+            - name: work
+              mountPath: /work
+            - name: tmp
+              mountPath: /tmp
+        - name: fetch
+          image: {{ .Values.restore.rcloneImage | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              [ -f /work/empty ] || { echo "скачивать не нужно"; exit 0; }
+              [ -n "${R2_BUCKET:-}" ] || { echo "секрет {{ .Values.restore.existingSecret }} не найден: восстановление пропущено"; exit 0; }
+              if rclone copyto "r2:${R2_BUCKET}/postgres/latest.dump" /work/latest.dump; then
+                ls -l /work/latest.dump
+              else
+                echo "бэкапа в R2 нет: чистая установка"
+                rm -f /work/latest.dump
+              fi
+          env:
+            - name: HOME
+              value: /tmp
+            - name: RCLONE_CONFIG_R2_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_R2_PROVIDER
+              value: Cloudflare
+            - name: RCLONE_CONFIG_R2_NO_CHECK_BUCKET
+              value: "true"
+            - name: RCLONE_CONFIG_R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.restore.existingSecret }}
+                  key: R2_ACCESS_KEY_ID
+                  optional: true
+            - name: RCLONE_CONFIG_R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.restore.existingSecret }}
+                  key: R2_SECRET_ACCESS_KEY
+                  optional: true
+            - name: RCLONE_CONFIG_R2_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.restore.existingSecret }}
+                  key: R2_ENDPOINT
+                  optional: true
+            - name: R2_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.restore.existingSecret }}
+                  key: R2_BUCKET
+                  optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.restore.resources | nindent 12 }}
+          volumeMounts:
+            - name: work
+              mountPath: /work
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: restore
+          image: {{ .Values.restore.postgresImage | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              if [ ! -s /work/latest.dump ]; then
+                echo "восстанавливать нечего"
+                exit 0
+              fi
+              pg_restore --single-transaction --exit-on-error --no-owner --no-privileges --dbname "$DATABASE_URL" /work/latest.dump
+              echo "база восстановлена из latest.dump"
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.existingSecret }}
+                  key: DATABASE_URL
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.restore.resources | nindent 12 }}
+          volumeMounts:
+            - name: work
+              mountPath: /work
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: work
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+{{- end }}

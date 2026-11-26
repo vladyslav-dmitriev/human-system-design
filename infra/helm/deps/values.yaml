@@ -52,6 +52,23 @@ rabbitmq:
     limits:
       memory: 512Mi
 
+# Ежесуточный бэкап Postgres в бакет Cloudflare R2: pg_dump (формат custom) + загрузка rclone.
+# Файлы: postgres/mydb-<UTC дата-время>.dump (хранятся retentionDays суток) и postgres/latest.dump (его берёт восстановление).
+# Секрет existingSecret (создаёт infra/scripts/seal-secrets.sh --r2) с ключами:
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT (https://<id аккаунта>.r2.cloudflarestorage.com), R2_BUCKET
+backup:
+  enabled: false # включается в Application deps (прод); локально бэкапов нет
+  schedule: "0 3 * * *" # UTC
+  retentionDays: 14
+  rcloneImage: rclone/rclone:1.68.2
+  existingSecret: postgres-backup-r2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
 # NetworkPolicy: postgres/redis/rabbitmq принимают только api и Job миграций чарта app
 networkPolicy:
   enabled: true
