@@ -1,0 +1,22 @@
+# Скопируйте в backend.hcl (он в .gitignore) и подставьте id аккаунта Cloudflare.
+# Ключи доступа сюда НЕ пишем: R2-токен передаётся переменными окружения
+#   export AWS_ACCESS_KEY_ID=...        # Access Key ID токена R2
+#   export AWS_SECRET_ACCESS_KEY=...    # Secret Access Key токена R2
+# Инициализация: terraform init -backend-config=backend.hcl   (первый раз с -migrate-state)
+
+bucket = "hsd-tfstate"
+key    = "prod/ip.tfstate" # у основного корня: "prod/server.tfstate"
+region = "auto"
+
+# Cloudflare R2: https://<ID_АККАУНТА>.r2.cloudflarestorage.com (Cloudflare -> R2 -> Overview -> Account details)
+endpoints = {
+  s3 = "https://REPLACE_WITH_ACCOUNT_ID.r2.cloudflarestorage.com"
+}
+
+# R2 не AWS: отключаем проверки, которые рассчитаны на AWS
+use_path_style              = true
+skip_credentials_validation = true
+skip_region_validation      = true
+skip_requesting_account_id  = true
+skip_metadata_api_check     = true
+skip_s3_checksum            = true

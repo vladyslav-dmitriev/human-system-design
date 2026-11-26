@@ -15,6 +15,9 @@ terraform {
     }
   }
 
-  # State пока локальный (terraform.tfstate рядом, в .gitignore).
-  # Следующий шаг плана: перенести его в бакет Cloudflare R2 (backend "s3"), см. docs/k8s-deploy.md, решение 11.
+  # State лежит в приватном бакете Cloudflare R2 (S3-совместимое хранилище), а не на одном ноутбуке.
+  # Настройки подключения (бакет, endpoint с id аккаунта) не в git: они в backend.hcl (см. backend.hcl.example),
+  # ключи доступа из окружения: AWS_ACCESS_KEY_ID и AWS_SECRET_ACCESS_KEY (ключи R2, не AWS).
+  #   terraform init -backend-config=backend.hcl
+  backend "s3" {}
 }
