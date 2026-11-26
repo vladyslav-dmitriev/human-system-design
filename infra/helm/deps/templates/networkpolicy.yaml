@@ -1,5 +1,5 @@
 {{- if .Values.networkPolicy.enabled }}
-{{- /* Каждая зависимость принимает только api и Job миграций (метки чарта app). Нужен CNI с NetworkPolicy. */}}
+{{- /* Каждая зависимость принимает только api и Job миграций (метки чарта app); Postgres ещё и Job синхронизации цен. Нужен CNI с NetworkPolicy. */}}
 {{- if .Values.postgres.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -14,7 +14,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        {{- include "deps.clients" . | nindent 8 }}
+        {{- include "deps.postgresClients" . | nindent 8 }}
       ports:
         - port: 5432
           protocol: TCP
