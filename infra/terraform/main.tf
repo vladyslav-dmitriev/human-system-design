@@ -44,6 +44,12 @@ resource "hcloud_firewall" "server" {
   }
 }
 
+# Постоянный IPv4, созданный отдельно (infra/terraform/ip). Здесь мы только читаем его по имени
+# и привязываем к серверу. Пока `ip/` не применён, plan здесь упадёт с «primary IP not found».
+data "hcloud_primary_ip" "ipv4" {
+  name = var.primary_ipv4_name
+}
+
 # 3. Сервер. cloud-init (user_data) выполнится один раз при первом старте: пользователь, защита SSH, k3s.
 resource "hcloud_server" "main" {
   name         = var.server_name
@@ -59,6 +65,7 @@ resource "hcloud_server" "main" {
 
   public_net {
     ipv4_enabled = true
+    ipv4         = data.hcloud_primary_ip.ipv4.id # постоянный адрес, переживает destroy сервера
     ipv6_enabled = true
   }
 

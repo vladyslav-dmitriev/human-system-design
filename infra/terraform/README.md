@@ -8,6 +8,43 @@
 - файрвол (22, 80, 443, ping; 6443 закрыт),
 - сервер с Ubuntu 24.04, где cloud-init создаёт пользователя `deploy`, закрывает вход по паролю и под root и ставит k3s.
 
+## Два корня: постоянный IP и сервер
+
+- **`ip/`** создаёт Primary IPv4 (`hsd-prod-ipv4`) с `auto_delete = false` и защитой от удаления. У него свой state. Стоит ~0,73 $ в месяц, пока существует.
+- **Корень `infra/terraform`** (SSH-ключ, файрвол, сервер) только читает этот IP по имени (`data "hcloud_primary_ip"`) и привязывает к серверу.
+
+Зачем так: `terraform destroy` в основном корне удаляет всё, что в его state. IP вынесен в отдельный корень, поэтому при `destroy` и повторном `apply` сервера адрес остаётся тем же, а A-запись домена не приходится менять.
+
+Порядок: сначала `ip/`, потом основной корень.
+
+```bash
+cd infra/terraform/ip
+terraform init
+terraform apply           # создаёт IP; адрес покажет terraform output ipv4
+cd ..
+terraform plan            # у существующего сервера адрес сменится: ожидайте `-/+` (replace)
+terraform apply
+```
+
+Если сервер уже был создан без постоянного IP, `plan` покажет пересоздание сервера (`must be replaced`): у него сменится IP. Данных на нём ещё нет, поэтому это безопасно. После пересоздания SSH может ругаться на смену ключа хоста: уберите старую запись `ssh-keygen -R <ip>`.
+
+Обычный цикл занятий: `terraform destroy` и `terraform apply` в `infra/terraform` (IP остаётся). `terraform destroy` в `ip/` намеренно упрётся в защиту: чтобы удалить адрес, поставьте `protect = false`, выполните `apply`, затем `destroy`.
+
+## DNS в Cloudflare (`dns.tf`)
+
+Основной корень создаёт A-записи `app.<domain>` (и `extra_subdomains`) на IP сервера. Нужно:
+
+1. Купить домен в Cloudflare (Domain Registration, делает человек).
+2. Создать API-токен Cloudflare: My Profile → API Tokens → Create Token, права **Zone → DNS → Edit** и **Zone → Zone → Read**, область: только ваша зона. Передавать только переменной окружения:
+
+```bash
+export CLOUDFLARE_API_TOKEN=...
+```
+
+3. В `terraform.tfvars` указать `domain = "example.com"` (обязательная переменная).
+
+Режим записей «DNS only» (без оранжевого облака): Let's Encrypt проверяет сервер напрямую.
+
 ## Первый запуск
 
 ```bash

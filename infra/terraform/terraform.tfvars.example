@@ -1,6 +1,10 @@
 # Скопируйте в terraform.tfvars (он в .gitignore) и поправьте под себя.
 # Токены сюда не пишем: HCLOUD_TOKEN передаётся переменной окружения.
 
+# ОБЯЗАТЕЛЬНО: ваш домен в Cloudflare. Без него plan спросит значение.
+# domain = "example.com"
+# extra_subdomains = ["argocd", "grafana"]   # по необходимости
+
 # server_name         = "hsd-prod"
 # server_type         = "cpx32"   # cx/cax у Hetzner сейчас недоступны; cpx22 (4 ГБ) впритык, cpx42 (16 ГБ) избыточен
 # keep_disk           = true      # true: можно вернуться на тариф дешевле
