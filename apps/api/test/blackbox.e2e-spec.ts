@@ -115,22 +115,22 @@ suite('black-box API over HTTP', () => {
     it('POST /service-auth/verify-otp: DTO is validated, no captcha needed, rate limited at 5/min', async () => {
       // 1-й запрос: невалидный DTO -> 400 со списком сообщений (ValidationPipe работает в рантайме стека)
       const invalid = await call('POST', '/service-auth/verify-otp', {
-        body: { email: 'not-an-email', code: 1 },
+        body: { otpChallenge: 'short', code: 1 },
       });
       expect(invalid.status).toBe(400);
       expect(Array.isArray(invalid.json.message)).toBe(true);
 
-      // 2-5: валидная форма, но шага с паролем не было -> 400 AUTH_INVALID_OTP, а не 403 (капчи нет)
+      // 2-5: валидная форма, но челлендж не выдавался (шага с паролем не было) -> 400 AUTH_INVALID_OTP, а не 403 (капчи нет)
       for (let i = 0; i < 4; i++) {
         const res = await call('POST', '/service-auth/verify-otp', {
-          body: { email: 'qa-bb@example.test', code: '000000' },
+          body: { otpChallenge: 'x'.repeat(43), code: '000000' },
         });
         expect(res.status).toBe(400);
         expect(res.json).toMatchObject({ code: 'AUTH_INVALID_OTP' });
       }
 
       const limited = await call('POST', '/service-auth/verify-otp', {
-        body: { email: 'qa-bb@example.test', code: '000000' },
+        body: { otpChallenge: 'x'.repeat(43), code: '000000' },
       });
       expect(limited.status).toBe(429);
       expect(limited.json).toMatchObject({ code: 'RATE_LIMITED' });
@@ -192,12 +192,13 @@ suite('black-box API over HTTP', () => {
       expect(res.json).toMatchObject({ code: 'EMAIL_TOKEN_INVALID' });
     });
 
-    it('POST /service-auth/validate is not reachable from outside (nginx -> 404); the old {email,password} contract gives no user', async () => {
+    it('POST /service-auth/validate is not reachable from outside (nginx -> 404, api without X-Internal-Secret -> 401); the old {email,password} contract gives no user', async () => {
       const res = await call('POST', '/service-auth/validate', {
         body: { email: 'qa-nobody@example.test', password: 'wrong' },
       });
-      // 404 за nginx; при прямом обращении к api (API_E2E_URL без nginx) валидатор даст 400
-      expect([400, 404]).toContain(res.status);
+      // 404 за nginx; при прямом обращении к api (API_E2E_URL без nginx): 401, если задан
+      // INTERNAL_API_SECRET (гард раньше валидатора), иначе 400 от валидатора
+      expect([400, 401, 404]).toContain(res.status);
       expect(res.json?.user).toBeUndefined();
     });
 

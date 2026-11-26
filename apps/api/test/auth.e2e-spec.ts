@@ -23,6 +23,8 @@ import { createFakeRedis } from './helpers/fake-redis';
 
 const GOOD_CAPTCHA = 'captcha-ok';
 const PASSWORD = 'Qa-Passw0rd-test';
+// validate закрыт X-Internal-Secret: тест сам задаёт секрет, не завися от окружения (в CI он уже есть)
+const INTERNAL_SECRET = 'e2e-internal-secret-0123456789-0123456789';
 
 type StoredUser = {
   id: string;
@@ -34,6 +36,20 @@ type StoredUser = {
 };
 
 describe('AuthController (nest testing module, mocks)', () => {
+  const originalInternalSecret = process.env.INTERNAL_API_SECRET;
+
+  beforeAll(() => {
+    process.env.INTERNAL_API_SECRET = INTERNAL_SECRET;
+  });
+
+  afterAll(() => {
+    if (originalInternalSecret === undefined) {
+      delete process.env.INTERNAL_API_SECRET;
+    } else {
+      process.env.INTERNAL_API_SECRET = originalInternalSecret;
+    }
+  });
+
   let app: INestApplication;
   let users: Map<string, StoredUser>;
   let redis: ReturnType<typeof createFakeRedis>;
@@ -124,7 +140,10 @@ describe('AuthController (nest testing module, mocks)', () => {
   const login = (body: Record<string, unknown>) =>
     request(app.getHttpServer()).post('/service-auth/login').send(body);
   const validate = (body: Record<string, unknown>) =>
-    request(app.getHttpServer()).post('/service-auth/validate').send(body);
+    request(app.getHttpServer())
+      .post('/service-auth/validate')
+      .set('X-Internal-Secret', INTERNAL_SECRET)
+      .send(body);
   const verify = (body: Record<string, unknown>) =>
     request(app.getHttpServer()).post('/service-auth/verify-otp').send(body);
 
