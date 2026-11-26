@@ -11,10 +11,12 @@ spec:
       spec:
         externalTrafficPolicy: Local
     # Глобальный редирект http -> https (Ingress с TLS слушает только websecure)
+    # Ключ: ports.web.http.redirections.entryPoint (чарт Traefik 41.x; в старых версиях было ports.web.redirections)
     ports:
       web:
-        redirections:
-          entryPoint:
-            to: websecure
-            scheme: https
-            permanent: true
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
