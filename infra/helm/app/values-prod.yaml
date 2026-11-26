@@ -4,7 +4,7 @@ api:
   replicas: 1
   image:
     repository: ghcr.io/vladyslav-dmitriev/human-system-design-api
-    tag: sha-set-by-ci # меняет CI: job deploy-tag в docker.yml открывает PR с sha-<полный коммит>
+    tag: sha-4ebada9b62ea703d94eee05f57f1818c57dd5ac5
     pullPolicy: IfNotPresent
   # Реальные ключи сторонних сервисов (Stripe, почта, R2 и т.д.) перекрывают заглушки из app-api.
   # SealedSecret app-api-overrides создаёт infra/scripts/seal-secrets.sh --overrides; без него секрет просто не подключается.
@@ -20,7 +20,7 @@ web:
   replicas: 1
   image:
     repository: ghcr.io/vladyslav-dmitriev/human-system-design-web
-    tag: sha-set-by-ci # меняет CI, см. api.image.tag
+    tag: sha-4ebada9b62ea703d94eee05f57f1818c57dd5ac5
     pullPolicy: IfNotPresent
   resources:
     requests:
