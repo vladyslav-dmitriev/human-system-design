@@ -100,6 +100,8 @@ jobs:
       TWILIO_AUTH_TOKEN: ci-placeholder
       TWILIO_VERIFY_SERVICE_SID: VAci00000000000000000000000000000
       GOOGLE_CAPTCHA_SECRET_KEY: ci-placeholder
+      # /metrics закрыт флагом (вне production он включён по умолчанию); blackbox-тест проверяет закрытость
+      ENABLE_METRICS: "false"
       API_E2E_URL: http://127.0.0.1:3001
 
     steps:
