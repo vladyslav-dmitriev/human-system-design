@@ -7,3 +7,5 @@ crash.log
 *.tfvars
 !*.tfvars.example
 # .terraform.lock.hcl, наоборот, КОММИТИМ: он фиксирует версии провайдеров.
+# Настройки подключения к бакету с state (id аккаунта). Образец (.example) коммитим.
+backend.hcl

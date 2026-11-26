@@ -74,6 +74,26 @@ ssh deploy@<ipv4> 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/hsd-prod.yaml
 KUBECONFIG=~/.kube/hsd-prod.yaml kubectl get nodes
 ```
 
+## State в Cloudflare R2
+
+State (файл, где Terraform помнит, какие ресурсы он создал) хранится в приватном бакете R2, а не на одном ноутбуке. Потеряете локальный файл, и Terraform «забудет» сервер, IP и DNS. Оба корня (`infra/terraform` и `infra/terraform/ip`) используют один бакет, но разные ключи (`prod/server.tfstate` и `prod/ip.tfstate`).
+
+Один раз подготовьте в Cloudflare (R2 -> Create bucket) приватный бакет `hsd-tfstate` и R2-токен (Manage R2 API Tokens, права Object Read & Write на этот бакет и бакет бэкапов). Значения токена вводит только человек.
+
+Миграция существующего локального state (запускать в каждом корне):
+
+```bash
+cp backend.hcl.example backend.hcl      # подставьте id аккаунта Cloudflare в endpoint (ip/: ключ prod/ip.tfstate)
+export AWS_ACCESS_KEY_ID=...            # Access Key ID токена R2
+export AWS_SECRET_ACCESS_KEY=...        # Secret Access Key токена R2
+terraform init -migrate-state -backend-config=backend.hcl   # на вопрос про копирование state ответьте yes
+terraform plan                                              # ожидаем "No changes"
+```
+
+После успешной миграции локальные `terraform.tfstate` и `terraform.tfstate.backup` можно удалить. В новой копии репозитория достаточно `terraform init -backend-config=backend.hcl`.
+
+Блокировки state нет (один пользователь): не запускайте `apply` одновременно из двух окон.
+
 ## Опасные команды
 
 - `terraform destroy` удаляет сервер вместе с диском и базой. Только после проверенного бэкапа.

@@ -4,3 +4,5 @@ crash.log
 .terraform/
 *.tfvars
 !*.tfvars.example
+# Настройки подключения к бакету с state (id аккаунта). Образец (.example) коммитим.
+backend.hcl
