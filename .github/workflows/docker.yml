@@ -27,7 +27,8 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
 
     runs-on: ubuntu-latest
 
@@ -111,3 +112,54 @@ jobs:
             NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY=${{ vars.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # После того как обе картинки (api и web) запушены, открываем PR, который меняет image.tag в values-prod.yaml,
+  # и сразу сливаем его. ArgoCD видит новый коммит в main и выкатывает версию.
+  # Почему PR, а не прямой push: на main действует ruleset protect-main (прямые push запрещены, исключений нет).
+  # Метка [skip ci] в заголовке: слияние этого PR не должно снова запускать CI, сборку образов и новый PR (цикл).
+  # Нужна настройка репозитория: Settings -> Actions -> General -> "Allow GitHub Actions to create and approve pull requests".
+  deploy-tag:
+    name: Bump image tag in values-prod.yaml
+
+    needs: docker
+
+    if: needs.docker.result == 'success'
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+
+      - name: Open and merge the deploy PR
+        run: |
+          set -euo pipefail
+          short="${SHA::8}"
+          # обе строки `    tag:` (api и web) получают один и тот же тег sha-<полный коммит>
+          sed -i -E "s|^(    tag: ).*|\1sha-${SHA}|" infra/helm/app/values-prod.yaml
+          if git diff --quiet; then
+            echo "Тег уже sha-${SHA}, менять нечего"
+            exit 0
+          fi
+          branch="ci/deploy-${short}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "chore(deploy): images sha-${short} [skip ci]"
+          git push origin "$branch"
+          url="$(gh pr create --base main --head "$branch" \
+            --title "chore(deploy): images sha-${short} [skip ci]" \
+            --body "Автоматически: образы api и web для коммита ${SHA} собраны и запушены в GHCR. Меняет image.tag в values-prod.yaml, дальше ArgoCD выкатывает версию.")"
+          gh pr merge "$url" --squash --delete-branch
