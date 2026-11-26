@@ -13,16 +13,16 @@
 
 ## Стек и роли
 
-| Что                     | Где                                                              | Цена            |
-| ----------------------- | ---------------------------------------------------------------- | --------------- |
-| Сервер                  | VPS **Hetzner** (x86), создаётся Terraform                       | ~6 €/мес        |
-| Kubernetes и деплой     | k3s + Traefik + cert-manager + ArgoCD + Sealed Secrets           | 0               |
-| Образы                  | GHCR (публичный репозиторий)                                     | 0               |
-| DNS                     | **Cloudflare** (свой домен) или `<ip>.sslip.io`                  | 0 / ~10 $ в год |
-| Бэкапы Postgres и файлы | **Cloudflare R2** (S3-совместимое хранилище)                     | ~0              |
-| Terraform state         | R2-бакет как S3-backend                                          | ~0              |
-| Мониторинг              | Grafana Cloud free (агент в кластере шлёт метрики и логи наружу) | 0               |
-| Платежи                 | Stripe, тестовый режим                                           | 0               |
+| Что                     | Где                                                              | Цена        |
+| ----------------------- | ---------------------------------------------------------------- | ----------- |
+| Сервер                  | VPS **Hetzner** (x86), создаётся Terraform                       | ~6 €/мес    |
+| Kubernetes и деплой     | k3s + Traefik + cert-manager + ArgoCD + Sealed Secrets           | 0           |
+| Образы                  | GHCR (публичный репозиторий)                                     | 0           |
+| DNS и домен             | **Cloudflare**: свой домен, A-записи через Terraform             | ~10 $ в год |
+| Бэкапы Postgres и файлы | **Cloudflare R2** (S3-совместимое хранилище)                     | ~0          |
+| Terraform state         | R2-бакет как S3-backend                                          | ~0          |
+| Мониторинг              | Grafana Cloud free (агент в кластере шлёт метрики и логи наружу) | 0           |
+| Платежи                 | Stripe, тестовый режим                                           | 0           |
 
 AWS (EKS, S3) не используем: для текущей цели достаточно Hetzner и Cloudflare, а Kubernetes, GitOps и Terraform переносятся на любое облако.
 
@@ -34,7 +34,7 @@ AWS (EKS, S3) не используем: для текущей цели дост
 | Код      | volume + dev-сервер                     | prod-образ, собранный в minikube     | prod-образ из GHCR                 |
 | Конфиг   | `apps/*/.env`                           | Secret из локального `.env` (скрипт) | Sealed Secrets из git              |
 | Маршруты | `nginx/templates/default.conf.template` | Ingress (Traefik)                    | Ingress (Traefik) + TLS            |
-| Хост     | `myapp.local`                           | `myapp.local`                        | свой домен или `<ip>.sslip.io`     |
+| Хост     | `myapp.local`                           | `myapp.local`                        | свой домен (`app.<домен>`)         |
 | Values   | —                                       | `values.yaml` + `values-local.yaml`  | `values.yaml` + `values-prod.yaml` |
 
 ## Решения
@@ -68,7 +68,7 @@ AWS (EKS, S3) не используем: для текущей цели дост
 
 Решение (2026-11-26): Oracle и AWS EKS не используем. Сервер x86 на Hetzner, CI собирает только `linux/amd64`. Если позже понадобится ARM (Hetzner CAX), добавить `linux/arm64` в `docker.yml`.
 
-Домен: бесплатно через `<ip>.sslip.io`, с ним работает Let's Encrypt HTTP-01. Свой домен стоит примерно 10 $ в год, его DNS ведёт Cloudflare (в Terraform: провайдер `cloudflare/cloudflare`, запись A на IP сервера, режим «DNS only», чтобы Let's Encrypt проходил проверку напрямую).
+Решение (2026-11-26): **свой домен в Cloudflare** (~10 $ в год), а не `<ip>.sslip.io`. Причины: адрес сайта вшивается в образ web (`NEXT_PUBLIC_API_CLIENT_URL`), а сервер мы удаляем и пересоздаём; на чужом `sslip.io` нельзя подтвердить домен отправителя почты (SPF, DKIM) и нельзя сделать нормальный публичный домен для бакета R2. A-запись `app.<домен>` ведёт на IP сервера и обновляется Terraform (`infra/terraform/dns.tf`, провайдер `cloudflare/cloudflare`, режим «DNS only», TTL 60, чтобы Let's Encrypt HTTP-01 проходил напрямую). Дополнительно сервер имеет постоянный Primary IPv4 (`infra/terraform/ip`, `auto_delete = false`, защита от удаления, ~0,73 $ в месяц): он переживает `terraform destroy` сервера, и A-запись не приходится менять.
 
 ## Фазы
 
@@ -166,7 +166,7 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 - `versions.tf`, `providers.tf`: провайдеры `hcloud` и `cloudflare` с закреплёнными версиями; `backend "s3"` с endpoint R2 и флагами `skip_credentials_validation`, `skip_region_validation`, `skip_requesting_account_id`, `use_path_style`.
 - `main.tf`: `hcloud_ssh_key`, `hcloud_firewall` (входящие 22, 80, 443; 22 лучше ограничить своим IP через переменную; порт 6443 закрыт), `hcloud_server` (Ubuntu 24.04, `server_type` из переменной, `user_data` с cloud-init).
 - `cloud-init.yaml`: обновление пакетов, `unattended-upgrades`, установка k3s с закреплённой версией, запрет входа по паролю и под root. Traefik остаётся встроенным.
-- `dns.tf` (по флагу): запись A на IP сервера в Cloudflare. Без домена используется `<ip>.sslip.io`, и значение `ingress.host` в `values-prod.yaml` подставляется из output Terraform.
+- `dns.tf`: запись A `app.<домен>` (и дополнительные поддомены) на IP сервера в Cloudflare. Значение `ingress.host` в `values-prod.yaml` берётся из output `app_host`.
 - `outputs.tf`: IP сервера, готовая команда SSH.
 - `variables.tf`, `terraform.tfvars.example` (образец без значений), `README.md` с командами `init`, `plan`, `apply`, `destroy`.
 - `.gitignore`: `*.tfstate*`, `*.tfvars` (кроме `.example`), `.terraform/`. Файл `.terraform.lock.hcl` коммитить.

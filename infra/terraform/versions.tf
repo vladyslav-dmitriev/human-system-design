@@ -8,6 +8,11 @@ terraform {
       source  = "hetznercloud/hcloud"
       version = "~> 1.49"
     }
+
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
   }
 
   # State пока локальный (terraform.tfstate рядом, в .gitignore).

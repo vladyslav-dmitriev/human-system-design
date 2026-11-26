@@ -22,6 +22,29 @@ variable "location" {
   default     = "hel1"
 }
 
+variable "primary_ipv4_name" {
+  description = "Имя постоянного Primary IPv4, созданного в infra/terraform/ip (там variable name). Должно совпадать."
+  type        = string
+  default     = "hsd-prod-ipv4"
+}
+
+variable "domain" {
+  description = "Ваш домен в Cloudflare, например example.com. Обязательная переменная: задайте в terraform.tfvars."
+  type        = string
+}
+
+variable "app_subdomain" {
+  description = "Поддомен приложения: app.<domain>. Этот адрес идёт в ingress.host и в сборку web (NEXT_PUBLIC_API_CLIENT_URL)."
+  type        = string
+  default     = "app"
+}
+
+variable "extra_subdomains" {
+  description = "Дополнительные поддомены на тот же сервер (например argocd, grafana), когда понадобятся."
+  type        = list(string)
+  default     = []
+}
+
 variable "image" {
   description = "Образ ОС."
   type        = string

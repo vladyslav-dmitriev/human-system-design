@@ -8,9 +8,14 @@ output "ssh_command" {
   value       = "ssh ${var.admin_user}@${hcloud_server.main.ipv4_address}"
 }
 
-output "sslip_host" {
-  description = "Хост без своего домена: sslip.io превращает IP в DNS-имя. Подставляется в ingress.host в values-prod.yaml."
-  value       = "${hcloud_server.main.ipv4_address}.sslip.io"
+output "app_host" {
+  description = "Адрес приложения. Подставляется в ingress.host (values-prod.yaml) и в NEXT_PUBLIC_API_CLIENT_URL."
+  value       = cloudflare_dns_record.host[var.app_subdomain].name
+}
+
+output "hosts" {
+  description = "Все созданные DNS-имена."
+  value       = [for r in cloudflare_dns_record.host : r.name]
 }
 
 output "kubectl_tunnel" {

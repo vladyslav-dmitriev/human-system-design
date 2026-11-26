@@ -34,9 +34,9 @@ config:
 
 ingress:
   className: traefik
-  # TODO: заменить на реальный адрес сервера (sslip.io превращает IP в DNS-имя) или на свой домен.
+  # Адрес приложения: A-запись создаёт Terraform (infra/terraform/dns.tf), output `app_host`.
   # Хост должен совпадать с хостом в NEXT_PUBLIC_API_CLIENT_URL, с которым собран образ web.
-  host: 203.0.113.10.sslip.io
+  host: app.vladyslavdmitriev.com
   tls:
     enabled: true
     secretName: app-tls
