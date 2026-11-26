@@ -1,0 +1,9 @@
+# State содержит всё, что Terraform знает о ресурсах (иногда и секреты). В git не попадает никогда.
+*.tfstate
+*.tfstate.*
+crash.log
+.terraform/
+# Ваши значения переменных. Образец (.example) коммитим.
+*.tfvars
+!*.tfvars.example
+# .terraform.lock.hcl, наоборот, КОММИТИМ: он фиксирует версии провайдеров.

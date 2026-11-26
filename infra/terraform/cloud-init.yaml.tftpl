@@ -1,0 +1,36 @@
+#cloud-config
+# Выполняется один раз при первом старте сервера. Лог: /var/log/cloud-init-output.log
+# Файл шаблон Terraform: значения в фигурных скобках после знака доллара подставляет Terraform, а не shell.
+
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+  - ca-certificates
+  - unattended-upgrades # автоматические security-обновления Ubuntu
+  - fail2ban # банит IP после серии неудачных входов по SSH
+
+# Обычный пользователь с sudo вместо работы под root.
+users:
+  - name: ${admin_user}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "${ssh_public_key}"
+
+# Ужесточение SSH: только ключи, root не входит.
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+
+runcmd:
+  - systemctl reload ssh
+  # k3s: один бинарь с Kubernetes, containerd и Traefik (Ingress). Официальный установщик.
+  # kubeconfig доступен только root (режим 600): ${admin_user} читает его через sudo.
+  - curl -sfL https://get.k3s.io | ${k3s_install_env} sh -s - --write-kubeconfig-mode 600

@@ -1,0 +1,17 @@
+# Скопируйте в terraform.tfvars (он в .gitignore) и поправьте под себя.
+# Токены сюда не пишем: HCLOUD_TOKEN передаётся переменной окружения.
+
+# server_name         = "hsd-prod"
+# server_type         = "cpx32"   # cx/cax у Hetzner сейчас недоступны; cpx22 (4 ГБ) впритык, cpx42 (16 ГБ) избыточен
+# keep_disk           = true      # true: можно вернуться на тариф дешевле
+# location            = "hel1"   # в консоли Hetzner Нюрнберг и Фалькенштайн дороже на ~6,5 $/мес
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+
+# Сузьте SSH до своего IP (curl -4 ifconfig.me), иначе порт 22 открыт всему интернету.
+# ssh_allowed_cidrs = ["203.0.113.7/32"]
+
+# Закрепите версию k3s: https://github.com/k3s-io/k3s/releases
+# k3s_version = "v1.33.5+k3s1"
+
+# Включить, когда на сервере появятся данные.
+# protect = true
