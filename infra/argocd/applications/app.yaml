@@ -4,6 +4,11 @@ kind: Application
 metadata:
   name: app
   namespace: argocd
+  annotations:
+    # Последним: приложению нужны расшифрованные секреты (app-secrets, волна 1) и база (deps, волна 2).
+    # Без волны (то есть 0) app синхронизируется раньше них на свежем кластере: хуки restore и миграций не находят
+    # ни секретов, ни Postgres, app не становится Healthy, и root не запускает следующие волны (взаимная блокировка).
+    argocd.argoproj.io/sync-wave: "3"
 
 spec:
   project: human-system-design
