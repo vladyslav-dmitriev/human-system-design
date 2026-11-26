@@ -1,6 +1,6 @@
 # Kubernetes: локально через minikube, на сервере через k3s
 
-Статус: черновик плана, ждёт утверждения. Обновлено 2026-11-21.
+Статус: фазы 0-3 готовы, фазы 4-5 (сервер) ждут реализации. Обновлено 2026-11-26.
 
 ## Цель
 
@@ -8,7 +8,23 @@
 - **Деплой** — Kubernetes. Один и тот же Helm-чарт работает в двух местах:
   - локально в **minikube**, чтобы проверить деплой перед пушем;
   - на сервере в **k3s** (лёгкий Kubernetes для одного сервера), где живёт приложение.
+- **Инфраструктура как код** — сервер, файрвол и DNS описаны в **Terraform**, а не создаются руками в консоли. Сервер можно уничтожить и пересоздать командами.
 - Бюджет пет-проекта: 0 € или до ~7 € в месяц.
+
+## Стек и роли
+
+| Что                     | Где                                                              | Цена            |
+| ----------------------- | ---------------------------------------------------------------- | --------------- |
+| Сервер                  | VPS **Hetzner** (x86), создаётся Terraform                       | ~6 €/мес        |
+| Kubernetes и деплой     | k3s + Traefik + cert-manager + ArgoCD + Sealed Secrets           | 0               |
+| Образы                  | GHCR (публичный репозиторий)                                     | 0               |
+| DNS                     | **Cloudflare** (свой домен) или `<ip>.sslip.io`                  | 0 / ~10 $ в год |
+| Бэкапы Postgres и файлы | **Cloudflare R2** (S3-совместимое хранилище)                     | ~0              |
+| Terraform state         | R2-бакет как S3-backend                                          | ~0              |
+| Мониторинг              | Grafana Cloud free (агент в кластере шлёт метрики и логи наружу) | 0               |
+| Платежи                 | Stripe, тестовый режим                                           | 0               |
+
+AWS (EKS, S3) не используем: для текущей цели достаточно Hetzner и Cloudflare, а Kubernetes, GitOps и Terraform переносятся на любое облако.
 
 ## Окружения
 
@@ -26,24 +42,31 @@
 1. **На сервере k3s, а не minikube.** minikube рассчитан на локальную машину. k3s ставится одной командой, держит нагрузку и потребляет мало памяти. Для Helm-чарта разницы нет.
 2. **Один чарт, разные values.** Всё общее лежит в `values.yaml`, отличия только в `values-local.yaml` и `values-prod.yaml` (образ, хост, TLS, ресурсы, число реплик). Текущий `values-dev.yaml` переименовать в `values-local.yaml`.
 3. **Ingress через Traefik, а не ingress-nginx.** Проект ingress-nginx в 2026 году перестал развиваться (Kubernetes объявил о его retirement). Traefik уже встроен в k3s, в minikube он ставится Helm-чартом. Так локально и на сервере будет одинаково. ArgoCD-приложение `ingress-nginx` убрать.
-4. **Образы в GHCR.** Репозиторий публичный, так что хранение и скачивание бесплатные. Если сервер на ARM (Oracle), собирать multi-arch `linux/amd64,linux/arm64`.
+4. **Образы в GHCR.** Репозиторий публичный, так что хранение и скачивание бесплатные. Сервер x86, поэтому образы собираются только под `linux/amd64`.
 5. **ArgoCD только на сервере.** Он сам забирает изменения из git, поэтому API кластера не нужно открывать в интернет, а GitHub Actions не нужен kubeconfig. Локально ArgoCD не ставим: `helm upgrade --install` проще, и не нужно пушить, чтобы проверить изменения.
 6. **Секреты на сервере через Sealed Secrets.** В git лежат только зашифрованные `SealedSecret`, расшифровать их может только контроллер в кластере. Локально секреты создаёт скрипт из `.env`, и запускает его пользователь сам. Пустые файлы `infra/helm/secrets/*` удалить.
 7. **Обновление тега образа.** CI собирает образ с тегом `sha-<commit>` и коммитит этот тег в `values-prod.yaml` с пометкой `[skip ci]`, после чего ArgoCD выкатывает новую версию. Внешний gitops-репозиторий (`your-org/fullstack-gitops` в `helm.yml`) не нужен.
-8. **БД.** Postgres, Redis и RabbitMQ работают в кластере на томах (на k3s это встроенный `local-path`). Бэкап Postgres делает CronJob с `pg_dump` в бесплатное S3-хранилище (Cloudflare R2 или Oracle Object Storage). Образы Bitnami проверить: в 2025 году Bitnami убрал бесплатные образы из основного репозитория. Если они не скачиваются, использовать официальные образы `postgres`, `redis`, `rabbitmq` (простой StatefulSet) или оператор CloudNativePG для Postgres.
-9. **Мониторинг (kube-prometheus-stack) необязателен.** На 4 GB он не поместится вместе с приложением. Включать только на сервере, где 8 GB и больше.
+8. **БД.** Postgres, Redis и RabbitMQ работают в кластере на томах (на k3s это встроенный `local-path`). Бэкап Postgres делает CronJob с `pg_dump` в бакет Cloudflare R2. Образы Bitnami проверить: в 2025 году Bitnami убрал бесплатные образы из основного репозитория. Если они не скачиваются, использовать официальные образы `postgres`, `redis`, `rabbitmq` (простой StatefulSet) или оператор CloudNativePG для Postgres.
+9. **Мониторинг (kube-prometheus-stack) необязателен.** На 4 GB он не поместится вместе с приложением. Включать только на сервере, где 8 GB и больше. На 4 GB вместо него Grafana Cloud free: в кластер ставится лёгкий агент (Grafana Alloy), который отправляет метрики и логи наружу.
+10. **Сервер создаёт Terraform.** Каталог `infra/terraform/` описывает SSH-ключ, файрвол, сервер Hetzner (с cloud-init, который ставит k3s) и DNS-записи в Cloudflare. Terraform, а не OpenTofu: оба совместимы по синтаксису, но Terraform проще гуглить. Если лицензия HashiCorp станет проблемой, переход на OpenTofu не требует переписывать код.
+11. **State Terraform лежит в R2**, а не в git и не только на ноутбуке (backend `s3` с endpoint R2). State может содержать секреты, поэтому бакет приватный, а `*.tfstate`, `*.tfvars` и `.terraform/` в `.gitignore`. Токены (`HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, ключи R2) передаются переменными окружения и не попадают в git и в чат.
+12. **`terraform apply` запускает человек.** CI делает только `terraform fmt -check` и `terraform validate`. Автоматический apply из CI не нужен: он требует токены облака в GitHub Secrets, а выгоды для одного сервера нет.
+13. **Файлы пользователей в R2.** Сейчас `S3StorageService` ходит только в AWS и собирает публичную ссылку вида `https://<bucket>.s3.<region>.amazonaws.com/...`. Для R2 нужны две необязательные переменные: `AWS_S3_ENDPOINT` (endpoint R2) и `AWS_S3_PUBLIC_URL` (публичный адрес бакета: домен или `r2.dev`). Регион для R2 `auto`. `forcePathStyle: true` в клиенте уже стоит. Без новых переменных поведение не меняется. Это задача `backend` (фаза 1b).
 
-## Где взять сервер
+## Сервер
 
-| Вариант                                  | Ресурсы                | Цена              | Минусы                                                                                                                                                                                                 |
-| ---------------------------------------- | ---------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Oracle Cloud Always Free** (Ampere A1) | 2 OCPU, 12 GB RAM, ARM | 0 €               | ARM, поэтому нужны arm64-образы. Свободных мощностей в регионе часто нет («out of host capacity»). В 2026 году лимит урезали вдвое, и Oracle может менять условия дальше. Нужна карта для верификации. |
-| **Hetzner CX23**                         | 2 vCPU, 4 GB RAM, x86  | ~6 €/мес с IPv4   | 4 GB впритык, без мониторинга. Тариф бывает распродан.                                                                                                                                                 |
-| **Hetzner CAX11**                        | 2 vCPU, 4 GB RAM, ARM  | ~6.5 €/мес с IPv4 | Тоже ARM.                                                                                                                                                                                              |
+**Hetzner** сдаёт обычные виртуальные серверы (VPS): без managed Kubernetes и managed Postgres, поэтому дёшево, а k3s и базы вы поднимаете сами. Для Terraform есть официальный провайдер `hetznercloud/hcloud`.
 
-Решение (2026-11-21): Oracle не используем. Сервер x86 (Hetzner CX23 для постоянного прода; вариант с AWS EKS на время занятий ещё обсуждается), поэтому CI собирает только `linux/amd64`. Если позже понадобится ARM, добавить `linux/arm64` в `docker.yml`.
+| Вариант          | Ресурсы               | Цена            | Заметки                                                                             |
+| ---------------- | --------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| **Hetzner CX23** | 2 vCPU, 4 GB RAM, x86 | ~6 €/мес с IPv4 | Стартовый вариант. 4 GB впритык, без kube-prometheus-stack. Тариф бывает распродан. |
+| Следующий тариф  | 4 vCPU, 8 GB RAM, x86 | дороже          | Брать, если 4 GB не хватает под Postgres, Redis, RabbitMQ, ArgoCD и приложение.     |
 
-Домен: бесплатно через `<ip>.sslip.io`, с ним работает Let's Encrypt HTTP-01. Свой домен стоит примерно 10 $ в год.
+Тип сервера задаётся переменной Terraform (`server_type`), поэтому смена тарифа делается правкой одной строки. Цены и доступность тарифов проверить на сайте Hetzner перед созданием.
+
+Решение (2026-11-26): Oracle и AWS EKS не используем. Сервер x86 на Hetzner, CI собирает только `linux/amd64`. Если позже понадобится ARM (Hetzner CAX), добавить `linux/arm64` в `docker.yml`.
+
+Домен: бесплатно через `<ip>.sslip.io`, с ним работает Let's Encrypt HTTP-01. Свой домен стоит примерно 10 $ в год, его DNS ведёт Cloudflare (в Terraform: провайдер `cloudflare/cloudflare`, запись A на IP сервера, режим «DNS only», чтобы Let's Encrypt проходил проверку напрямую).
 
 ## Фазы
 
@@ -59,6 +82,12 @@
 - devops: prod-стадия для web. Облегчить api-образ: сейчас в финальный образ копируется весь builder.
 - devops: `docker.yml` собирает api (target `prod`) и web (target `web`), `linux/amd64`, тег `sha-<полный коммит>`, публикует в `ghcr.io/vladyslav-dmitriev/human-system-design-api` и `human-system-design-web`.
 - devops: убрать или исправить `release.yml`, он ссылается на несуществующий `apps/*/Dockerfile` и `your-org`.
+
+### Фаза 1b. S3-хранилище с поддержкой R2 (backend)
+
+- `s3.service.ts`: необязательные `AWS_S3_ENDPOINT` и `AWS_S3_PUBLIC_URL`. Если заданы, `S3Client` получает `endpoint`, а `upload` возвращает ссылку на `AWS_S3_PUBLIC_URL`; если нет, поведение прежнее (AWS).
+- Обновить `apps/api/.env.example`, `apps/api/src/config/` (если там валидация env) и unit-тест `s3.service.spec.ts`.
+- Это не меняет контракт между web и api: меняется только значение ссылки на файл. Если web разрешает картинки по списку доменов (`next.config.js`, `images.remotePatterns`), добавить домен бакета R2.
 
 ### Фаза 2. Helm-чарт приложения (devops, backend по health-эндпоинту)
 
@@ -122,20 +151,35 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 - Найдено при первом прогоне e2e на minikube, всё исправлено: web в production ставил cookie `__Secure-next-auth.session-token`, а api там принимает только `__Secure-authjs.session-token`, поэтому каждый авторизованный запрос получал 401. В compose это не видно, потому что там `NODE_ENV=development`. Кроме того, часть e2e отстала от security-правок: выход и смена email или пароля отзывают все сессии пользователя, 2FA требует текущий пароль, а письмо подтверждения отправляет сам api.
 
-### Фаза 4. Сервер (devops + пользователь)
+### Фаза 4a. Сервер через Terraform (devops + пользователь)
 
-Делает пользователь:
+Делает пользователь (в браузере, значения токенов не передавать агентам и не коммитить):
 
-1. Создать VM (Ubuntu 24.04), добавить SSH-ключ, открыть порты 22, 80 и 443. Порт 6443 наружу не открывать.
-2. Поставить k3s: `curl -sfL https://get.k3s.io | sh -`.
-3. Скопировать `/etc/rancher/k3s/k3s.yaml` к себе в `~/.kube/` и ходить в кластер через SSH-туннель.
+1. Завести аккаунт Hetzner Cloud, создать проект и API-токен с правом записи (`HCLOUD_TOKEN`).
+2. Завести аккаунт Cloudflare, создать R2-бакеты: приватный для Terraform state, приватный для бэкапов, бакет для файлов приложения. Выпустить R2-токены (S3 access key) и, если есть свой домен, API-токен для DNS (`CLOUDFLARE_API_TOKEN`).
+3. Поставить Terraform локально (`brew install terraform`) и экспортировать токены переменными окружения.
 
-Делает devops:
+Делает devops, каталог `infra/terraform/`:
+
+- `versions.tf`, `providers.tf`: провайдеры `hcloud` и `cloudflare` с закреплёнными версиями; `backend "s3"` с endpoint R2 и флагами `skip_credentials_validation`, `skip_region_validation`, `skip_requesting_account_id`, `use_path_style`.
+- `main.tf`: `hcloud_ssh_key`, `hcloud_firewall` (входящие 22, 80, 443; 22 лучше ограничить своим IP через переменную; порт 6443 закрыт), `hcloud_server` (Ubuntu 24.04, `server_type` из переменной, `user_data` с cloud-init).
+- `cloud-init.yaml`: обновление пакетов, `unattended-upgrades`, установка k3s с закреплённой версией, запрет входа по паролю и под root. Traefik остаётся встроенным.
+- `dns.tf` (по флагу): запись A на IP сервера в Cloudflare. Без домена используется `<ip>.sslip.io`, и значение `ingress.host` в `values-prod.yaml` подставляется из output Terraform.
+- `outputs.tf`: IP сервера, готовая команда SSH.
+- `variables.tf`, `terraform.tfvars.example` (образец без значений), `README.md` с командами `init`, `plan`, `apply`, `destroy`.
+- `.gitignore`: `*.tfstate*`, `*.tfvars` (кроме `.example`), `.terraform/`. Файл `.terraform.lock.hcl` коммитить.
+- CI (`.github/workflows`): `terraform fmt -check` и `terraform validate` на изменения в `infra/terraform/**`, без токенов и без apply.
+- Доступ к кластеру: скопировать `/etc/rancher/k3s/k3s.yaml` в `~/.kube/` и ходить через SSH-туннель на `127.0.0.1:6443`.
+
+Проверка: `terraform destroy` и затем `terraform apply` возвращают рабочий пустой кластер без ручных шагов.
+
+### Фаза 4b. Bootstrap кластера (devops)
 
 - `infra/scripts/server-bootstrap.sh`: ArgoCD, Sealed Secrets, cert-manager с ClusterIssuer Let's Encrypt (заполнить `k8s/clusterissuer.yaml`), применение `root-app`.
 - Привести в порядок `infra/argocd/applications`: убрать пустые `backend.yaml`, `frontend.yaml` и `ingress-nginx`, у `app` поставить `values-prod.yaml` и namespace `app` вместо `production`.
 - Инструкция, как зашифровать секреты через `kubeseal` и закоммитить их.
-- CronJob для бэкапа Postgres.
+- CronJob для бэкапа Postgres: `pg_dump | gzip` в бакет R2 для бэкапов (ключ R2 в Sealed Secret), хранение 14 суток правилом lifecycle на бакете. Раз в квартал проверять восстановление на minikube.
+- Grafana Alloy (по желанию): метрики и логи в Grafana Cloud free, токен в Sealed Secret.
 - **Traefik в k3s**: `externalTrafficPolicy: Local` (через HelmChartConfig), иначе клиентский IP теряется, и в `TRUST_PROXY` задать подсеть подов, иначе rate limit общий на всех клиентов.
 - **Глобальный редирект http -> https** через HelmChartConfig для Traefik (сейчас Ingress с TLS слушает только `websecure`, http не обслуживается).
 - **Удалить старые Application** `redis.yaml`, `postgresql.yaml`, `ingress-nginx.yaml` (redis без пароля) ДО применения `root-app`, иначе они развернутся.
@@ -152,13 +196,16 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 ### Фаза 6. Документация
 
-- README и `CLAUDE.md` (правит человек или основная сессия по просьбе): три режима и их команды.
+- README и `CLAUDE.md` (правит человек или основная сессия по просьбе): три режима и их команды, плюс упоминание `infra/terraform/` и правило «`terraform apply` и `destroy` только после подтверждения пользователя».
 
 ## Критерии приёмки
 
 - `docker compose up` работает как раньше.
 - `pnpm k8s:up` на чистой машине поднимает всё в minikube. `http://myapp.local` открывается, вход работает, миграции применены.
 - `pnpm test:e2e` проходит на minikube.
+- Сервер создаётся и уничтожается командами Terraform из `infra/terraform/`; после `apply` и bootstrap кластер поднимается без ручных правок на самом сервере.
+- В git нет `*.tfstate`, `*.tfvars` и токенов; state лежит в приватном бакете R2.
+- Загрузка файла в приложении кладёт его в R2, а ссылка на файл открывается.
 - На сервере `https://<домен>` открывается с валидным сертификатом Let's Encrypt.
 - Мерж в `main` сам выкатывает новую версию на сервер за ~10 минут, без ручных действий.
 - Ни одного незашифрованного секрета в git.
@@ -166,7 +213,9 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 ## Риски
 
-- Oracle Free: может не быть свободных мощностей, условия меняются, неактивные инстансы иногда забирают.
-- 4 GB RAM на Hetzner CX23 — впритык. Ставим лимиты ресурсов, мониторинг выключен.
+- 4 GB RAM на Hetzner CX23 — впритык. Ставим лимиты ресурсов, мониторинг уходит в Grafana Cloud. Если не хватает, меняем `server_type` и делаем `terraform apply` (пересоздание сервера удалит тома, поэтому сначала бэкап).
+- Terraform state содержит секреты и привязан к R2: потеря бакета или токена означает ручной импорт ресурсов. Бакет приватный, токены хранит человек.
+- `terraform destroy` на сервере с данными удаляет диск вместе с Postgres. Запускать только после проверенного бэкапа.
+- Опечатка в правилах файрвола может закрыть SSH. Сначала `terraform plan`, правила порта 22 менять осторожно (в крайнем случае консоль Hetzner даёт доступ к серверу).
 - Образы Bitnami могут не скачиваться, см. решение 8.
 - Один сервер означает отсутствие отказоустойчивости. Для пет-проекта это нормально, а бэкапы защищают от потери данных.
