@@ -180,7 +180,7 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 Реализовано (шаг 1, GitOps-основа):
 
 - `infra/scripts/server-bootstrap.sh`: по SSH (без kubeconfig) ставит ArgoCD через Helm-контроллер k3s (чарт 10.20.0), применяет `project.yaml` и `root-app.yaml`. Идемпотентен. Режим `--backup-key` сохраняет ключ Sealed Secrets на Mac.
-- `root-app` (app of apps) подтягивает `infra/argocd/applications`: `sealed-secrets` (чарт 2.22.0), `cert-manager` (v1.21.3), `cluster-issuers` (Let's Encrypt staging и prod, HTTP-01 через Traefik), `traefik-config` (HelmChartConfig: `externalTrafficPolicy: Local` и редирект http -> https), `app` (ручной sync).
+- `root-app` (app of apps) подтягивает `infra/argocd/applications`: `sealed-secrets` (чарт 2.22.0), `cert-manager` (v1.21.3), `cluster-issuers` (Let's Encrypt staging и prod, HTTP-01 через Traefik), `traefik-config` (HelmChartConfig: `externalTrafficPolicy: Local` и редирект http -> https), `app` (автосинхронизация с `prune` и `selfHeal`).
 - Удалены устаревшие Application (`backend`, `frontend`, `ingress-nginx`, `postgresql`, `redis`, `monitoring`, старый `cert-manager`) и minikube-скрипт `bootstrap.sh`. AppProject сужен: `sourceRepos` и `destinations` перечислены явно.
 - **Решение (2026-11-26): ключ Sealed Secrets хранится вне git, на Mac** (`~/.config/human-system-design/sealed-secrets-key.yaml`, права 600). Сервер одноразовый, а у каждого нового кластера контроллер генерирует новый ключ, и старые SealedSecret перестали бы расшифровываться. Bootstrap восстанавливает ключ из файла ДО старта контроллера. Порядок: первый bootstrap, затем `--backup-key`, затем шифрование секретов `kubeseal`.
 
@@ -188,14 +188,12 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 - Секреты и зависимости (шаг 2): `infra/scripts/seal-secrets.sh` генерирует случайные пароли и шифрует `app-deps`, `app-api`, `app-web` в `infra/k8s/app-secrets/` (SealedSecret, безопасны для git; значения не печатаются). Реальные ключи Stripe, почты, R2 и т.д. шифруются отдельно: `seal-secrets.sh --overrides <env-файл>` создаёт `app-api-overrides` (подключён через `api.overridesSecret`). Applications `app-secrets` (sync-wave 1) и `deps` (sync-wave 2, чарт `infra/helm/deps`: Postgres, Redis, RabbitMQ) в namespace `app`.
 - В `TRUST_PROXY` задать подсеть подов (клиентский IP через Traefik).
-- Пока `app` остаётся на ручном sync: образ с реальным тегом появится в фазе 5.
 
 - CronJob для бэкапа Postgres: `pg_dump | gzip` в бакет R2 для бэкапов (ключ R2 в Sealed Secret), хранение 14 суток правилом lifecycle на бакете. Раз в квартал проверять восстановление на minikube.
 - Grafana Alloy (по желанию): метрики и логи в Grafana Cloud free, токен в Sealed Secret.
 - **Образы deps**: закрепить digest (`postgres`, `redis`, `rabbitmq`), рассмотреть RabbitMQ 4.x (3.13 вышел из поддержки).
 - **prisma-cli** в Dockerfile ставить с lock-файлом (сейчас `npm install` с одной закреплённой версией, транзитивные зависимости не зафиксированы).
 - **Пароли deps**: при смене пароля в Secret `app-deps` пароль в уже инициализированном томе Postgres/RabbitMQ не меняется. Менять нужно и в самой БД (`ALTER USER`, `rabbitmqctl change_password`), либо пересоздавать том.
-- ArgoCD-приложение `app` работает с ручным sync, включить `automated` в фазе 5, когда CI подставляет реальный `sha-` тег.
 
 ### Фаза 5. CI → деплой (devops)
 
@@ -204,7 +202,7 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 - `docker.yml`, job `deploy-tag`: после того как образы api и web запушены, меняет обе строки `tag:` в `values-prod.yaml` на `sha-<полный коммит>`, открывает PR `chore(deploy): images sha-<8 символов> [skip ci]` и сразу сливает его (`gh pr merge --squash`). Метка `[skip ci]` и условие в job `docker` не дают слиянию этого PR снова запустить CI и сборку (цикл).
 - Нужна настройка репозитория (делает человек): Settings -> Actions -> General -> «Allow GitHub Actions to create and approve pull requests».
 - Нужны Variables репозитория для сборки web (Settings -> Secrets and variables -> Actions -> Variables): `NEXT_PUBLIC_API_CLIENT_URL=https://app.vladyslavdmitriev.com/api` (сейчас там значение от minikube `https://myapp.local/api`, образы собираются с ним) и публичные ключи (`NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY` и т.д.).
-- ArgoCD синхронизирует изменение, на сервере появляется новая версия. Application `app` пока на ручном sync: первый раз нажимаем Sync, когда в `values-prod.yaml` появится реальный тег, затем включаем `automated`.
+- ArgoCD синхронизирует изменение, на сервере появляется новая версия. Application `app` работает с `automated` (`prune` и `selfHeal`, повторы `retry` для хуков при холодном старте): мерж PR от CI сам доезжает до сервера, ручной Sync не нужен. Ручные правки в кластере откатываются к git.
 - Синхронизация цен Stripe: база на сервере одноразовая, и после пересоздания таблица `Product` пуста, а api отвечает `Unknown or unavailable price` на любой `priceId`. Поэтому Helm-хук `post-install,post-upgrade` (в ArgoCD это PostSync) запускает Job `sync-products` (`infra/helm/app/templates/sync-products-job.yaml`, скрипт `infra/helm/app/files/sync-products.js`). Он берёт активные цены из Stripe и делает upsert в `Product`, как `POST /billing/products/sync`, но без сессии ADMIN. Job получает только `DATABASE_URL` и `STRIPE_SECRET_KEY`; с заглушкой вместо ключа (локально) пропускает синхронизацию. Postgres принимает этот Job отдельным правилом NetworkPolicy (`deps.postgresClients`).
 - Ограничение: PR, созданный через `GITHUB_TOKEN`, не запускает другие workflow. Если в `protect-main` появятся обязательные проверки, придётся заменить токен на GitHub App или PAT.
 

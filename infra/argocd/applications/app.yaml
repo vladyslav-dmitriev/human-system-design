@@ -22,11 +22,21 @@ spec:
     namespace: app
 
   syncPolicy:
-    # Автосинхронизация выключена (ручной sync). Включить в фазе 5, когда CI подставляет реальный sha-тег:
-    # сейчас в values-prod.yaml заглушка тега, образа с таким тегом нет.
-    # automated:
-    #   prune: true
-    #   selfHeal: true
+    # Автосинхронизация: новый коммит в main (в том числе PR от CI с новым тегом образа) выкатывается сам.
+    # prune: ресурс, удалённый из git, удаляется и из кластера.
+    # selfHeal: ручные правки в кластере (kubectl edit) откатываются к состоянию из git. Менять только через git.
+    automated:
+      prune: true
+      selfHeal: true
 
     syncOptions:
       - CreateNamespace=true
+
+    # Хуки (миграции Prisma и синхронизация цен Stripe) могут не успеть при холодном старте кластера:
+    # БД ещё поднимается. Повторяем несколько раз с растущей паузой.
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
