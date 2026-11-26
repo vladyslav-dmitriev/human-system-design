@@ -103,6 +103,19 @@ migrations:
     limits:
       memory: 384Mi
 
+# Job после деплоя (хук post-install,post-upgrade): подтягивает активные цены Stripe в таблицу "Product".
+# Образ тот же, что у api. С заглушкой вместо STRIPE_SECRET_KEY (локально) синхронизация пропускается.
+productSync:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+
 ingress:
   enabled: true
   className: traefik # другие классы не поддерживаются: чарт падает (нужны Traefik Middleware)

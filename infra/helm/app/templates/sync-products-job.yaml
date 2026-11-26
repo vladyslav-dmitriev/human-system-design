@@ -1,0 +1,88 @@
+{{- if .Values.productSync.enabled }}
+# Подтягивает активные цены Stripe в таблицу "Product" после каждой установки и обновления.
+# Без этого на свежей базе api отвечает "Unknown or unavailable price". Скрипт: files/sync-products.js.
+# В ArgoCD хук post-install/post-upgrade выполняется как PostSync (после выката).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.fullname" . }}-sync-products
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sync-products
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  sync-products.js: |
+    {{- .Files.Get "files/sync-products.js" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "app.fullname" . }}-sync-products
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sync-products
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.productSync.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.productSync.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "app.labels" . | nindent 8 }}
+        app.kubernetes.io/component: sync-products
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: sync-products
+          image: {{ include "app.image" (dict "image" .Values.api.image) | quote }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["node", "/scripts/sync-products.js"]
+          securityContext:
+            {{- include "app.containerSecurityContext" . | nindent 12 }}
+          # Job получает только два нужных ключа, а не весь Secret api
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "api.existingSecret обязателен" .Values.api.existingSecret }}
+                  key: DATABASE_URL
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.api.overridesSecret }}
+                  # реальный ключ лежит в overrides; пока его нет, ключ не задан и скрипт пропускает синхронизацию
+                  name: {{ .Values.api.overridesSecret }}
+                  optional: true
+                  {{- else }}
+                  name: {{ .Values.api.existingSecret }}
+                  {{- end }}
+                  key: STRIPE_SECRET_KEY
+          resources:
+            {{- toYaml .Values.productSync.resources | nindent 12 }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "app.fullname" . }}-sync-products
+        - name: tmp
+          emptyDir: {}
+{{- end }}
