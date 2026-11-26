@@ -1,23 +1,24 @@
+# Настройка Traefik, который встроен в k3s (HelmChartConfig дополняет его Helm-значения).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
-  name: postgres
+  name: traefik-config
   namespace: argocd
+
 spec:
   project: human-system-design
-  destination:
-    namespace: database
-    server: https://kubernetes.default.svc
+
   source:
     repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
     targetRevision: main
-    path: infra/helm/vendors/postgresql
-    helm:
-      valueFiles:
-      - values.yaml
+    path: infra/k8s/traefik
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-    - CreateNamespace=true

@@ -6,15 +6,26 @@ metadata:
   namespace: argocd
 
 spec:
-  description: My Fullstack Application
+  description: Human System Design (prod на k3s)
 
+  # Откуда ArgoCD вообще разрешено брать манифесты: наш репозиторий и закреплённые Helm-репозитории.
   sourceRepos:
-    - "*"
+    - https://github.com/vladyslav-dmitriev/human-system-design.git
+    - https://charts.jetstack.io
+    - https://bitnami.github.io/sealed-secrets
 
+  # Куда разрешено выкатывать. kube-system нужен для Sealed Secrets и конфигурации Traefik (встроен в k3s).
   destinations:
-    - namespace: "*"
-      server: https://kubernetes.default.svc
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: app
+    - server: https://kubernetes.default.svc
+      namespace: cert-manager
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
 
+  # CRD, ClusterRole и ClusterIssuer нужны cert-manager и Sealed Secrets, поэтому на уровне кластера остаются любые ресурсы.
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"

@@ -177,15 +177,21 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 ### Фаза 4b. Bootstrap кластера (devops)
 
-- `infra/scripts/server-bootstrap.sh`: ArgoCD, Sealed Secrets, cert-manager с ClusterIssuer Let's Encrypt (заполнить `k8s/clusterissuer.yaml`), применение `root-app`.
-- Привести в порядок `infra/argocd/applications`: убрать пустые `backend.yaml`, `frontend.yaml` и `ingress-nginx`, у `app` поставить `values-prod.yaml` и namespace `app` вместо `production`.
-- Инструкция, как зашифровать секреты через `kubeseal` и закоммитить их.
+Реализовано (шаг 1, GitOps-основа):
+
+- `infra/scripts/server-bootstrap.sh`: по SSH (без kubeconfig) ставит ArgoCD через Helm-контроллер k3s (чарт 10.20.0), применяет `project.yaml` и `root-app.yaml`. Идемпотентен. Режим `--backup-key` сохраняет ключ Sealed Secrets на Mac.
+- `root-app` (app of apps) подтягивает `infra/argocd/applications`: `sealed-secrets` (чарт 2.22.0), `cert-manager` (v1.21.3), `cluster-issuers` (Let's Encrypt staging и prod, HTTP-01 через Traefik), `traefik-config` (HelmChartConfig: `externalTrafficPolicy: Local` и редирект http -> https), `app` (ручной sync).
+- Удалены устаревшие Application (`backend`, `frontend`, `ingress-nginx`, `postgresql`, `redis`, `monitoring`, старый `cert-manager`) и minikube-скрипт `bootstrap.sh`. AppProject сужен: `sourceRepos` и `destinations` перечислены явно.
+- **Решение (2026-11-26): ключ Sealed Secrets хранится вне git, на Mac** (`~/.config/human-system-design/sealed-secrets-key.yaml`, права 600). Сервер одноразовый, а у каждого нового кластера контроллер генерирует новый ключ, и старые SealedSecret перестали бы расшифровываться. Bootstrap восстанавливает ключ из файла ДО старта контроллера. Порядок: первый bootstrap, затем `--backup-key`, затем шифрование секретов `kubeseal`.
+
+Осталось (следующие шаги):
+
+- Деплой зависимостей: Application `deps` для чарта `infra/helm/deps` (Postgres, Redis, RabbitMQ) в namespace `app`, секреты `app-deps`, `app-api`, `app-web` как SealedSecret.
+- В `TRUST_PROXY` задать подсеть подов (клиентский IP через Traefik).
+- Пока `app` остаётся на ручном sync: образ с реальным тегом появится в фазе 5.
+
 - CronJob для бэкапа Postgres: `pg_dump | gzip` в бакет R2 для бэкапов (ключ R2 в Sealed Secret), хранение 14 суток правилом lifecycle на бакете. Раз в квартал проверять восстановление на minikube.
 - Grafana Alloy (по желанию): метрики и логи в Grafana Cloud free, токен в Sealed Secret.
-- **Traefik в k3s**: `externalTrafficPolicy: Local` (через HelmChartConfig), иначе клиентский IP теряется, и в `TRUST_PROXY` задать подсеть подов, иначе rate limit общий на всех клиентов.
-- **Глобальный редирект http -> https** через HelmChartConfig для Traefik (сейчас Ingress с TLS слушает только `websecure`, http не обслуживается).
-- **Удалить старые Application** `redis.yaml`, `postgresql.yaml`, `ingress-nginx.yaml` (redis без пароля) ДО применения `root-app`, иначе они развернутся.
-- **Сузить AppProject**: `sourceRepos`, `destinations`, whitelist ресурсов.
 - **Образы deps**: закрепить digest (`postgres`, `redis`, `rabbitmq`), рассмотреть RabbitMQ 4.x (3.13 вышел из поддержки).
 - **prisma-cli** в Dockerfile ставить с lock-файлом (сейчас `npm install` с одной закреплённой версией, транзитивные зависимости не зафиксированы).
 - **Пароли deps**: при смене пароля в Secret `app-deps` пароль в уже инициализированном томе Postgres/RabbitMQ не меняется. Менять нужно и в самой БД (`ALTER USER`, `rabbitmqctl change_password`), либо пересоздавать том.

@@ -1,18 +1,41 @@
+# cert-manager выпускает и продлевает TLS-сертификаты Let's Encrypt для Ingress.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+
 spec:
   project: human-system-design
-  destination:
-    namespace: cert-manager
-    server: https://kubernetes.default.svc
+
   source:
-    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
-    targetRevision: main
-    path: infra/helm/vendors/cert-manager
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.21.3
     helm:
-      valueFiles:
-      - values.yaml
+      releaseName: cert-manager
+      valuesObject:
+        crds:
+          enabled: true # CRD ставит сам чарт
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-    - CreateNamespace=true
+      - CreateNamespace=true
+      # большие CRD не помещаются в client-side apply
+      - ServerSideApply=true

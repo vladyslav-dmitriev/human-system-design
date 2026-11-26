@@ -1,0 +1,36 @@
+# ClusterIssuer'ы Let's Encrypt (staging и prod). Лежат отдельным приложением, потому что CRD ClusterIssuer
+# появляется только после установки cert-manager: см. sync-wave.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: cluster-issuers
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+
+spec:
+  project: human-system-design
+
+  source:
+    repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+    targetRevision: main
+    path: infra/k8s/issuers
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # CRD ещё может не существовать в момент dry-run: пробуем применить и повторяем
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 3m

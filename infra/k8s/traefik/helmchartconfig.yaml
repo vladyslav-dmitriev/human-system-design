@@ -1,0 +1,20 @@
+# k3s ставит Traefik сам (Helm-контроллер k3s). HelmChartConfig добавляет наши значения поверх.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    # Клиентский IP доходит до api (иначе rate limit общий на всех клиентов, а в логах виден IP узла)
+    service:
+      spec:
+        externalTrafficPolicy: Local
+    # Глобальный редирект http -> https (Ingress с TLS слушает только websecure)
+    ports:
+      web:
+        redirections:
+          entryPoint:
+            to: websecure
+            scheme: https
+            permanent: true
