@@ -189,7 +189,13 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 - Секреты и зависимости (шаг 2): `infra/scripts/seal-secrets.sh` генерирует случайные пароли и шифрует `app-deps`, `app-api`, `app-web` в `infra/k8s/app-secrets/` (SealedSecret, безопасны для git; значения не печатаются). Реальные ключи Stripe, почты, R2 и т.д. шифруются отдельно: `seal-secrets.sh --overrides <env-файл>` создаёт `app-api-overrides` (подключён через `api.overridesSecret`). Applications `app-secrets` (sync-wave 1) и `deps` (sync-wave 2, чарт `infra/helm/deps`: Postgres, Redis, RabbitMQ) в namespace `app`.
 - В `TRUST_PROXY` задать подсеть подов (клиентский IP через Traefik).
 
-- CronJob для бэкапа Postgres: `pg_dump | gzip` в бакет R2 для бэкапов (ключ R2 в Sealed Secret), хранение 14 суток правилом lifecycle на бакете. Раз в квартал проверять восстановление на minikube.
+- Бэкап и восстановление Postgres (R2):
+  - CronJob `postgres-backup` (чарт `deps`, включён в Application `deps`): каждый день в 03:00 UTC `pg_dump` (формат custom) в бакет R2, файлы `postgres/mydb-<UTC дата-время>.dump` (хранятся 14 суток, чистит сам CronJob) и `postgres/latest.dump`. Пустой дамп не отправляется.
+  - Хук `restore` (чарт `app`, `pre-install,pre-upgrade`, вес -5, раньше миграций): если в схеме `public` нет таблиц, скачивает `latest.dump` и делает `pg_restore` одной транзакцией. На непустой базе ничего не делает. Нет бэкапа или секрета: чистая установка.
+  - Секрет `postgres-backup-r2` (ключи `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`): создаёт человек командой `infra/scripts/seal-secrets.sh --r2` (значения вводятся в терминале, секрет без эха), файл `infra/k8s/app-secrets/postgres-backup-r2.yaml` с шифртекстом коммитится.
+  - Postgres принимает CronJob и Job восстановления отдельными правилами NetworkPolicy (`deps.postgresClients`).
+  - Ограничения: потеря данных до 24 часов (RPO); если сервер пересоздан до первого бэкапа, восстанавливать нечего; ночной бэкап на пустой базе перезапишет `latest.dump`, но временные копии `mydb-*.dump` остаются 14 суток. Перед `terraform destroy` сделайте внеплановый бэкап: `kubectl -n app create job --from=cronjob/postgres-backup backup-manual`.
+  - Ручное восстановление из другой копии: скачать нужный `mydb-*.dump` и `pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" файл` внутри пода с `psql`. Раз в квартал проверять восстановление на minikube.
 - Grafana Alloy (по желанию): метрики и логи в Grafana Cloud free, токен в Sealed Secret.
 - **Образы deps**: закрепить digest (`postgres`, `redis`, `rabbitmq`), рассмотреть RabbitMQ 4.x (3.13 вышел из поддержки).
 - **prisma-cli** в Dockerfile ставить с lock-файлом (сейчас `npm install` с одной закреплённой версией, транзитивные зависимости не зафиксированы).

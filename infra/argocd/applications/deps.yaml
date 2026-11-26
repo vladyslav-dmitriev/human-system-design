@@ -18,6 +18,10 @@ spec:
     path: infra/helm/deps
     helm:
       releaseName: deps
+      valuesObject:
+        # Ежесуточный бэкап в R2: нужен SealedSecret postgres-backup-r2 (infra/scripts/seal-secrets.sh --r2)
+        backup:
+          enabled: true
 
   destination:
     server: https://kubernetes.default.svc

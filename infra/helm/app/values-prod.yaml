@@ -47,3 +47,7 @@ ingress:
 
 networkPolicy:
   ingressControllerNamespace: kube-system # Traefik во встроенном k3s
+
+# Одноразовый сервер: на пустой базе поднимаем данные из последнего бэкапа в R2
+restore:
+  enabled: true

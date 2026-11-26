@@ -116,6 +116,23 @@ productSync:
     limits:
       memory: 192Mi
 
+# Восстановление базы из бэкапа в R2 на ПУСТОЙ базе (хук pre-install,pre-upgrade, раньше миграций).
+# Бэкап делает CronJob postgres-backup в чарте deps. Секрет existingSecret (создаёт infra/scripts/seal-secrets.sh --r2):
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT, R2_BUCKET. Выключено по умолчанию (локально бэкапов нет).
+restore:
+  enabled: false
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  postgresImage: postgres:16-alpine # та же версия, что у Postgres в чарте deps
+  rcloneImage: rclone/rclone:1.68.2
+  existingSecret: postgres-backup-r2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
 ingress:
   enabled: true
   className: traefik # другие классы не поддерживаются: чарт падает (нужны Traefik Middleware)
