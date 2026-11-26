@@ -19,3 +19,12 @@ app.kubernetes.io/instance: {{ .root.Release.Name }}
       app.kubernetes.io/name: {{ .Values.networkPolicy.appName }}
       app.kubernetes.io/component: migrate
 {{- end }}
+
+{{- /* Только Postgres: Job синхронизации цен Stripe пишет в таблицу Product, Redis и RabbitMQ ему не нужны. */}}
+{{- define "deps.postgresClients" -}}
+{{ include "deps.clients" . }}
+- podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.appName }}
+      app.kubernetes.io/component: sync-products
+{{- end }}
