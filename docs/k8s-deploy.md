@@ -45,7 +45,7 @@ AWS (EKS, S3) не используем: для текущей цели дост
 4. **Образы в GHCR.** Репозиторий публичный, так что хранение и скачивание бесплатные. Сервер x86, поэтому образы собираются только под `linux/amd64`.
 5. **ArgoCD только на сервере.** Он сам забирает изменения из git, поэтому API кластера не нужно открывать в интернет, а GitHub Actions не нужен kubeconfig. Локально ArgoCD не ставим: `helm upgrade --install` проще, и не нужно пушить, чтобы проверить изменения.
 6. **Секреты на сервере через Sealed Secrets.** В git лежат только зашифрованные `SealedSecret`, расшифровать их может только контроллер в кластере. Локально секреты создаёт скрипт из `.env`, и запускает его пользователь сам. Пустые файлы `infra/helm/secrets/*` удалить.
-7. **Обновление тега образа.** CI собирает образ с тегом `sha-<commit>` и коммитит этот тег в `values-prod.yaml` с пометкой `[skip ci]`, после чего ArgoCD выкатывает новую версию. Внешний gitops-репозиторий (`your-org/fullstack-gitops` в `helm.yml`) не нужен.
+7. **Обновление тега образа.** CI собирает образ с тегом `sha-<commit>` и через PR (см. фазу 5) меняет этот тег в `values-prod.yaml` с пометкой `[skip ci]`, после чего ArgoCD выкатывает новую версию. Внешний gitops-репозиторий (`your-org/fullstack-gitops` в `helm.yml`) не нужен.
 8. **БД.** Postgres, Redis и RabbitMQ работают в кластере на томах (на k3s это встроенный `local-path`). Бэкап Postgres делает CronJob с `pg_dump` в бакет Cloudflare R2. Образы Bitnami проверить: в 2025 году Bitnami убрал бесплатные образы из основного репозитория. Если они не скачиваются, использовать официальные образы `postgres`, `redis`, `rabbitmq` (простой StatefulSet) или оператор CloudNativePG для Postgres.
 9. **Мониторинг (kube-prometheus-stack) необязателен.** На 4 GB он не поместится вместе с приложением. Включать только на сервере, где 8 GB и больше. На 4 GB вместо него Grafana Cloud free: в кластер ставится лёгкий агент (Grafana Alloy), который отправляет метрики и логи наружу.
 10. **Сервер создаёт Terraform.** Каталог `infra/terraform/` описывает SSH-ключ, файрвол, сервер Hetzner (с cloud-init, который ставит k3s) и DNS-записи в Cloudflare. Terraform, а не OpenTofu: оба совместимы по синтаксису, но Terraform проще гуглить. Если лицензия HashiCorp станет проблемой, переход на OpenTofu не требует переписывать код.
@@ -199,8 +199,13 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 
 ### Фаза 5. CI → деплой (devops)
 
-- `helm.yml`: после сборки образа обновить `image.tag` в `values-prod.yaml` в этом репозитории коммитом `[skip ci]`.
-- ArgoCD синхронизирует изменение, на сервере появляется новая версия.
+Решение (2026-11-26): прямые push в `main` запрещены ruleset'ом `protect-main` (исключений нет), поэтому тег обновляет **PR от CI**, а не коммит в `main`.
+
+- `docker.yml`, job `deploy-tag`: после того как образы api и web запушены, меняет обе строки `tag:` в `values-prod.yaml` на `sha-<полный коммит>`, открывает PR `chore(deploy): images sha-<8 символов> [skip ci]` и сразу сливает его (`gh pr merge --squash`). Метка `[skip ci]` и условие в job `docker` не дают слиянию этого PR снова запустить CI и сборку (цикл).
+- Нужна настройка репозитория (делает человек): Settings -> Actions -> General -> «Allow GitHub Actions to create and approve pull requests».
+- Нужны Variables репозитория для сборки web (Settings -> Secrets and variables -> Actions -> Variables): `NEXT_PUBLIC_API_CLIENT_URL=https://app.vladyslavdmitriev.com/api` (сейчас там значение от minikube `https://myapp.local/api`, образы собираются с ним) и публичные ключи (`NEXT_PUBLIC_GOOGLE_CAPTCHA_PUBLIC_KEY` и т.д.).
+- ArgoCD синхронизирует изменение, на сервере появляется новая версия. Application `app` пока на ручном sync: первый раз нажимаем Sync, когда в `values-prod.yaml` появится реальный тег, затем включаем `automated`.
+- Ограничение: PR, созданный через `GITHUB_TOKEN`, не запускает другие workflow. Если в `protect-main` появятся обязательные проверки, придётся заменить токен на GitHub App или PAT.
 
 ### Фаза 6. Документация
 
