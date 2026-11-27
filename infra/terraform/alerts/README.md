@@ -3,6 +3,7 @@
 Правила алертов и получатель писем для стека Grafana Cloud. Отдельный корень Terraform со своим state (`prod/alerts.tfstate` в бакете R2): алерты можно менять, не трогая сервер.
 
 Что здесь:
+
 - `rules.tf`: папка и группы правил (`api`, `kubernetes`, `uptime`, `node`). Запрос в Prometheus, затем `reduce last` и порог. Часть правил перенесена из старой заготовки kube-prometheus-stack (удалена).
 - `dashboards.tf` и `dashboards/api-overview.json`: дашборд «API Overview» (запросы, 5xx, p95, Redis, БД, память Node.js).
 - `contact.tf`: контакт `email-owner` (письмо на `alert_email`) и корневая политика уведомлений (группировка по `alertname`, повтор раз в 4 часа).
