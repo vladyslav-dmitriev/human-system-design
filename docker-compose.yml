@@ -1,6 +1,6 @@
 services:
   nginx:
-    image: nginx:1.31-alpine
+    image: nginx:1.31-alpine@sha256:7fc0fb4af7bf006aeb31aea88069976060f8f0a0a86b667126742cc17f4e31ae
     restart: unless-stopped
     ports:
       - "80:80"
@@ -72,7 +72,7 @@ services:
           memory: 1536M
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
@@ -143,7 +143,7 @@ services:
           memory: 512M
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     restart: unless-stopped
     deploy:
       resources:
@@ -163,7 +163,7 @@ services:
       retries: 5
   
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+    image: rabbitmq:3.13-management-alpine@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
     container_name: rabbitmq
     hostname: rabbitmq
     restart: unless-stopped
