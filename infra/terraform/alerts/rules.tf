@@ -1,5 +1,5 @@
 # Правила алертов Grafana (Grafana-managed alerting) на метрики из Prometheus стека Grafana Cloud.
-# Часть правил перенесена из заготовки infra/helm/vendors/monitoring/templates/alerts-api.yaml (kube-prometheus-stack).
+# Часть правил перенесена из старой заготовки kube-prometheus-stack (PrometheusRule api-alerts), которая удалена из репозитория.
 # Запрос возвращает число (или ничего), условие после него: op/threshold. Пустой ответ (no_data) для «пропавших»
 # метрик считается тревогой (no_data = "Alerting"), для остальных правил нормой (no_data = "OK").
 
