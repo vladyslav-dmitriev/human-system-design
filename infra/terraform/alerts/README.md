@@ -3,10 +3,12 @@
 Правила алертов и получатель писем для стека Grafana Cloud. Отдельный корень Terraform со своим state (`prod/alerts.tfstate` в бакете R2): алерты можно менять, не трогая сервер.
 
 Что здесь:
-- `rules.tf`: папка и группы правил (`api`, `kubernetes`, `node`). Запрос в Prometheus, затем `reduce last` и порог. Часть правил перенесена из заготовки `infra/helm/vendors/monitoring`.
+- `rules.tf`: папка и группы правил (`api`, `kubernetes`, `uptime`, `node`). Запрос в Prometheus, затем `reduce last` и порог. Часть правил перенесена из заготовки `infra/helm/vendors/monitoring`.
 - `contact.tf`: контакт `email-owner` (письмо на `alert_email`) и корневая политика уведомлений (группировка по `alertname`, повтор раз в 4 часа).
 
-Правила: `ApiDown`, `ApiHighErrorRate`, `ApiHighLatencyP95`, `PodNotReady`, `PodRestartingOften`, `PostgresBackupStale`, `NodeDiskAlmostFull`, `NodeMemoryHigh`.
+Правила: `ApiDown`, `ApiHighErrorRate`, `ApiHighLatencyP95`, `PodNotReady`, `PodRestartingOften`, `PostgresBackupStale`, `SiteDown`, `ApiHealthDown`, `TlsCertificateExpiresSoon`, `NodeDiskAlmostFull`, `NodeMemoryHigh`.
+
+Правила группы `uptime` читают метрики Grafana Synthetic Monitoring (`probe_success`, `probe_ssl_earliest_cert_expiry`). Сами проверки (HTTP, 3 точки Frankfurt/London/Paris, раз в 5 минут, около 52 тыс. запусков в месяц из 100 тыс. бесплатных) созданы в интерфейсе Grafana: Testing & synthetics -> Synthetics: `hsd-web` (`https://app.vladyslavdmitriev.com/en`) и `hsd-api` (`https://app.vladyslavdmitriev.com/api/health`). Если их удалить или переименовать job, правила замолчат (`no_data = OK`).
 
 ## Применение (в вашем терминале)
 

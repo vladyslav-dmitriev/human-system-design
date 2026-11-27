@@ -80,6 +80,45 @@ locals {
       ]
     }
 
+    # Проверки доступности снаружи: Grafana Synthetic Monitoring (проверки hsd-web и hsd-api, 3 европейские точки,
+    # раз в 5 минут). Сами проверки созданы в интерфейсе Grafana; метрики probe_* попадают в тот же Prometheus.
+    # Усредняем успех по всем точкам за 10 минут: тревога, когда успешно меньше половины запросов.
+    uptime = {
+      interval = 60
+      items = [
+        {
+          name      = "SiteDown"
+          summary   = "Сайт app.vladyslavdmitriev.com недоступен снаружи (меньше половины проверок успешны за 10 минут)"
+          expr      = "avg(avg_over_time(probe_success{job=\"hsd-web\"}[10m]))"
+          op        = "lt"
+          threshold = 0.5
+          for       = "0s"
+          severity  = "critical"
+          no_data   = "OK"
+        },
+        {
+          name      = "ApiHealthDown"
+          summary   = "/api/health не отвечает снаружи (меньше половины проверок успешны за 10 минут)"
+          expr      = "avg(avg_over_time(probe_success{job=\"hsd-api\"}[10m]))"
+          op        = "lt"
+          threshold = 0.5
+          for       = "0s"
+          severity  = "critical"
+          no_data   = "OK"
+        },
+        {
+          name      = "TlsCertificateExpiresSoon"
+          summary   = "TLS-сертификат сайта истекает меньше чем через 14 дней: автопродление cert-manager не сработало"
+          expr      = "min(probe_ssl_earliest_cert_expiry{job=\"hsd-web\"}) - time()"
+          op        = "lt"
+          threshold = 1209600
+          for       = "0s"
+          severity  = "warning"
+          no_data   = "OK"
+        },
+      ]
+    }
+
     # Метрики узла приходят после включения hostMetrics (node-exporter, PR «infra: scrape node-exporter»)
     node = {
       interval = 60
