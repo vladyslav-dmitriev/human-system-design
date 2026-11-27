@@ -36,6 +36,14 @@ clusterMetrics:
   enabled: true
   collector: alloy-metrics
 
+# Метрики самого сервера (CPU, память, диск, сеть): скрейпим развёрнутый ниже node-exporter, привилегированный Alloy не нужен
+hostMetrics:
+  enabled: true
+  collector: alloy-metrics
+  linuxHosts:
+    enabled: true
+    source: node-exporter
+
 # Метрики подов, помеченных аннотациями prometheus.io/scrape (api: /metrics)
 annotationAutodiscovery:
   enabled: true
