@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "infra/helm/**"
+      - "infra/argocd/applications/monitoring.yaml"
       - ".github/workflows/helm.yml"
   push:
     branches:
       - main
     paths:
       - "infra/helm/**"
+      - "infra/argocd/applications/monitoring.yaml"
       - ".github/workflows/helm.yml"
 
 concurrency:
@@ -46,3 +48,24 @@ jobs:
           helm template app infra/helm/app -n app -f infra/helm/app/values-local.yaml > /dev/null
           helm template app infra/helm/app -n app -f infra/helm/app/values-prod.yaml > /dev/null
           helm template deps infra/helm/deps -n app > /dev/null
+
+  # Внешний чарт мониторинга (его ставит ArgoCD, см. infra/argocd/applications/monitoring.yaml):
+  # рендерим с нашими values, чтобы схема чарта поймала опечатки в ключах до выката.
+  monitoring:
+    name: Render monitoring chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Render k8s-monitoring
+        run: |
+          VERSION="$(sed -n 's/^ *targetRevision: *\(4\.[0-9.]*\).*/\1/p' infra/argocd/applications/monitoring.yaml | head -1)"
+          test -n "$VERSION"
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm template k8s-monitoring grafana/k8s-monitoring --version "$VERSION" \
+            -n monitoring -f infra/helm/monitoring/values.yaml > /dev/null

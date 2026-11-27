@@ -1,0 +1,59 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform.yml"
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Format & validate (${{ matrix.root }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Корни Terraform: сервер и DNS, IP-адрес, алерты Grafana
+        root:
+          - infra/terraform
+          - infra/terraform/ip
+          - infra/terraform/alerts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      # Только синтаксис и типы: без state и без секретов (backend отключён, провайдеры не вызываются)
+      - name: Format
+        run: terraform fmt -check -diff
+        working-directory: ${{ matrix.root }}
+
+      - name: Init (no backend)
+        run: terraform init -backend=false -input=false
+        working-directory: ${{ matrix.root }}
+
+      - name: Validate
+        run: terraform validate
+        working-directory: ${{ matrix.root }}
