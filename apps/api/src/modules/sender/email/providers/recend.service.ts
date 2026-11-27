@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
 import type { EmailMessage, IEmailService } from '../email.interface';
+import { emailSendFailed } from './provider-error';
 
 @Injectable()
 export class RecendService implements IEmailService {
@@ -35,17 +36,22 @@ export class RecendService implements IEmailService {
       throw new InternalServerErrorException('EMAIL_FROM is not configured');
     }
 
+    // SDK Resend не бросает исключение при отказе API, а возвращает { data, error }
+    let result: Awaited<ReturnType<Resend['emails']['send']>>;
+
     try {
-      await this.resend.emails.send({
+      result = await this.resend.emails.send({
         from: sender,
         to,
         subject,
         html,
       });
     } catch (error) {
-      throw new InternalServerErrorException('Error sending email', {
-        cause: error,
-      });
+      throw emailSendFailed('resend', error);
+    }
+
+    if (result.error) {
+      throw emailSendFailed('resend', result.error);
     }
   }
 }
