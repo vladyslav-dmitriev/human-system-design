@@ -17,9 +17,13 @@ const growthbook = new GrowthBook({
   },
 });
 
-growthbook.init({
-  streaming: true,
-});
+// Без ключа (образ собран без NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY) init() отклоняется с «Missing clientKey»
+// и роняет unhandledRejection при каждом старте. Тогда флаги просто остаются значениями по умолчанию.
+if (process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY) {
+  growthbook.init({ streaming: true }).catch((error: unknown) => {
+    console.warn("GrowthBook init failed", error);
+  });
+}
 
 export const GBProvider = ({ children }: { children: React.ReactNode }) => {
   const { data: session } = useSession();
