@@ -14,7 +14,7 @@ secrets:
 # Образы: официальные, версии закреплены (как в docker-compose.yml)
 postgres:
   enabled: true
-  image: postgres:16-alpine
+  image: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
   user: user
   database: mydb
   storage: 5Gi
@@ -28,7 +28,7 @@ postgres:
 
 redis:
   enabled: true
-  image: redis:7-alpine
+  image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
   storage: 1Gi
   storageClassName: ""
   resources:
@@ -40,7 +40,7 @@ redis:
 
 rabbitmq:
   enabled: true
-  image: rabbitmq:3.13-management-alpine
+  image: rabbitmq:3.13-management-alpine@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
   user: admin
   vhost: /
   storage: 2Gi
@@ -60,7 +60,7 @@ backup:
   enabled: false # включается в Application deps (прод); локально бэкапов нет
   schedule: "0 3 * * *" # UTC
   retentionDays: 14
-  rcloneImage: rclone/rclone:1.68.2
+  rcloneImage: rclone/rclone:1.68.2@sha256:74c51b8817e5431bd6d7ed27cb2a50d8ee78d77f6807b72a41ef6f898845942b
   existingSecret: postgres-backup-r2
   resources:
     requests:

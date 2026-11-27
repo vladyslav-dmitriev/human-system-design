@@ -125,8 +125,8 @@ restore:
   enabled: false
   backoffLimit: 3
   activeDeadlineSeconds: 900
-  postgresImage: postgres:16-alpine # та же версия, что у Postgres в чарте deps
-  rcloneImage: rclone/rclone:1.68.2
+  postgresImage: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d # та же версия, что у Postgres в чарте deps
+  rcloneImage: rclone/rclone:1.68.2@sha256:74c51b8817e5431bd6d7ed27cb2a50d8ee78d77f6807b72a41ef6f898845942b
   existingSecret: postgres-backup-r2
   resources:
     requests:
