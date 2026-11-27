@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import SendGrid from '@sendgrid/mail';
 
 import type { EmailMessage, IEmailService } from '../email.interface';
+import { emailSendFailed } from './provider-error';
 
 @Injectable()
 export class SendGridService implements IEmailService {
@@ -42,9 +43,7 @@ export class SendGridService implements IEmailService {
         html,
       });
     } catch (error) {
-      throw new InternalServerErrorException('Error sending email', {
-        cause: error,
-      });
+      throw emailSendFailed('sendgrid', error);
     }
   }
 }
