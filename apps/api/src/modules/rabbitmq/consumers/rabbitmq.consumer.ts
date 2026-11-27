@@ -33,33 +33,27 @@ export class RabbitMQConsumer extends EventEmitter {
         await channel.prefetch(prefetch);
       }
 
-      try {
-        await channel.checkQueue(queue);
+      // Только assertQueue: он идемпотентен и безопасен при гонке с инициализацией очередей.
+      // Раньше сначала шёл checkQueue: для ещё не созданной очереди брокер отвечает 404 и закрывает канал,
+      // следующий assertQueue падал с «Channel closed by server», и api не стартовал.
+      const queueDef = Object.values(QUEUES).find((def) => def.name === queue);
 
-        this.logger.debug(`✅ Очередь "${queue}" существует`);
-      } catch {
-        this.logger.warn(`⚠️ Очередь "${queue}" не существует, создаём...`);
-
-        const queueDef = Object.values(QUEUES).find(
-          (def) => def.name === queue,
-        );
-
-        if (queueDef) {
-          await channel.assertQueue(queue, {
-            durable: queueDef.durable ?? true,
-            arguments: queueDef.arguments || {},
-          });
-        } else {
-          await channel.assertQueue(queue, {
-            durable: true,
-            arguments: {
-              'x-queue-type': 'quorum',
-              'x-max-priority': 5,
+      await channel.assertQueue(
+        queue,
+        queueDef
+          ? {
+              durable: queueDef.durable ?? true,
+              arguments: queueDef.arguments || {},
+            }
+          : {
+              durable: true,
+              arguments: {
+                'x-queue-type': 'quorum',
+                'x-max-priority': 5,
+              },
             },
-          });
-        }
-        this.logger.debug(`✅ Очередь "${queue}" создана`);
-      }
+      );
+      this.logger.debug(`✅ Очередь "${queue}" объявлена`);
 
       await channel.bindQueue(queue, this.config.exchange, routingKey);
 
