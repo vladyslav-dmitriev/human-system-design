@@ -30,6 +30,8 @@ api:
   # Необязательный Secret, перекрывающий ключи existingSecret (подключается с optional: true). Пусто - не подключается.
   overridesSecret: ""
   env: [] # дополнительные env в формате контейнера (name/value)
+  # Аннотации только пода api (например, k8s.grafana.com/scrape для сбора /metrics агентом Alloy)
+  podAnnotations: {}
   resources:
     requests:
       cpu: 100m

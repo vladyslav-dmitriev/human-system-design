@@ -13,6 +13,7 @@ spec:
     - https://github.com/vladyslav-dmitriev/human-system-design.git
     - https://charts.jetstack.io
     - https://bitnami.github.io/sealed-secrets
+    - https://grafana.github.io/helm-charts
 
   # Куда разрешено выкатывать. kube-system нужен для Sealed Secrets и конфигурации Traefik (встроен в k3s).
   destinations:
@@ -24,6 +25,8 @@ spec:
       namespace: cert-manager
     - server: https://kubernetes.default.svc
       namespace: kube-system
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
 
   # CRD, ClusterRole и ClusterIssuer нужны cert-manager и Sealed Secrets, поэтому на уровне кластера остаются любые ресурсы.
   clusterResourceWhitelist:

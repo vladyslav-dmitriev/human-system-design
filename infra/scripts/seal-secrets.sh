@@ -15,6 +15,10 @@
 #       Спрашивает в терминале ключи Cloudflare R2 (endpoint, бакет, Access Key ID, Secret Access Key; секрет вводится
 #       без эха) и шифрует их в postgres-backup-r2. Этот секрет нужен CronJob бэкапа Postgres и хуку восстановления.
 #
+#   infra/scripts/seal-secrets.sh --grafana [HOST]
+#       Спрашивает в терминале ID экземпляров Grafana Cloud (Prometheus и Loki) и токен (вводится без эха) и шифрует их
+#       в grafana-cloud (namespace monitoring) для Alloy. Токен: Cloud access policy с правами metrics:write и logs:write.
+#
 # Значения паролей и ключей нигде не печатаются и не попадают в аргументы процессов (только через stdin).
 # Для шифрования нужен публичный сертификат контроллера: он берётся с сервера по SSH.
 set -euo pipefail
@@ -27,12 +31,14 @@ DOMAIN="${DOMAIN:-vladyslavdmitriev.com}"
 
 FORCE=false
 R2_MODE=false
+GRAFANA_MODE=false
 OVERRIDES_FILE=""
 HOST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=true ;;
     --r2) R2_MODE=true ;;
+    --grafana) GRAFANA_MODE=true ;;
     --overrides)
       shift
       OVERRIDES_FILE="${1:-}"
@@ -68,7 +74,7 @@ gen() { openssl rand -hex 24; } # 48 hex-символов, безопасно д
 
 # KEY=VALUE со stdin -> JSON-манифест Secret (имя в $1) -> SealedSecret в файл $2
 seal_env() {
-  local name="$1" out="$2"
+  local name="$1" out="$2" ns="${3:-$NAMESPACE}"
   python3 -I -c '
 import json, sys
 name = sys.argv[1]
@@ -81,7 +87,7 @@ for line in sys.stdin.read().splitlines():
 json.dump({"apiVersion": "v1", "kind": "Secret",
            "metadata": {"name": name, "namespace": sys.argv[2]},
            "type": "Opaque", "stringData": data}, sys.stdout)
-' "$name" "$NAMESPACE" | kubeseal --cert "$CERT" --format yaml >"$out"
+' "$name" "$ns" | kubeseal --cert "$CERT" --format yaml >"$out"
   echo "  запечатан $name -> ${out#"$ROOT"/}"
 }
 
@@ -117,6 +123,31 @@ R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
 ENV
   unset R2_SECRET_ACCESS_KEY R2_ACCESS_KEY_ID
   echo "Готово: ${OUT#"$ROOT"/} (только шифртекст). Закоммитьте и слейте PR, дальше ArgoCD создаст Secret."
+  exit 0
+fi
+
+if $GRAFANA_MODE; then
+  echo "== Токен Grafana Cloud для Alloy -> grafana-cloud (namespace monitoring)"
+  [ -t 0 ] || { echo "Нужен интерактивный терминал: значения вводятся вручную" >&2; exit 1; }
+  OUT="$ROOT/infra/k8s/monitoring/grafana-cloud.yaml"
+  mkdir -p "$ROOT/infra/k8s/monitoring"
+  can_write "$OUT" || exit 0
+  read -r -p "Prometheus: Username / Instance ID (число): " GC_PROM_USER
+  read -r -p "Loki: User (число): " GC_LOKI_USER
+  read -r -s -p "Токен (access policy: metrics:write, logs:write; ввод не отображается): " GC_TOKEN
+  echo
+  case "$GC_PROM_USER$GC_LOKI_USER" in *[!0-9]*) echo "ID экземпляров состоят только из цифр" >&2; exit 1 ;; esac
+  if [ -z "$GC_PROM_USER" ] || [ -z "$GC_LOKI_USER" ] || [ -z "$GC_TOKEN" ]; then
+    echo "Нужны оба ID и токен" >&2
+    exit 1
+  fi
+  seal_env grafana-cloud "$OUT" monitoring <<ENV
+prometheus-username=${GC_PROM_USER}
+loki-username=${GC_LOKI_USER}
+token=${GC_TOKEN}
+ENV
+  unset GC_TOKEN
+  echo "Готово: ${OUT#"$ROOT"/} (только шифртекст). Закоммитьте и слейте PR, дальше ArgoCD запустит Alloy."
   exit 0
 fi
 
