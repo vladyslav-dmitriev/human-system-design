@@ -1,0 +1,59 @@
+# Мониторинг: Grafana Alloy (чарт grafana/k8s-monitoring v4) шлёт метрики и логи кластера в Grafana Cloud (Free).
+# Устанавливается Application `monitoring` (infra/argocd/applications/monitoring.yaml).
+# Логин (ID экземпляра) и токен берутся из Secret `grafana-cloud` в namespace monitoring: это SealedSecret
+# infra/k8s/monitoring/grafana-cloud.yaml, его создаёт `infra/scripts/seal-secrets.sh --grafana`. В git токена нет.
+
+cluster:
+  name: hsd-prod
+
+destinations:
+  grafana-cloud-metrics:
+    type: prometheus
+    url: https://prometheus-prod-66-prod-us-east-3.grafana.net/api/prom/push
+    auth:
+      type: basic
+      usernameKey: prometheus-username
+      passwordKey: token
+    secret:
+      create: false
+      name: grafana-cloud
+      namespace: monitoring
+
+  grafana-cloud-logs:
+    type: loki
+    url: https://logs-prod-042.grafana.net/loki/api/v1/push
+    auth:
+      type: basic
+      usernameKey: loki-username
+      passwordKey: token
+    secret:
+      create: false
+      name: grafana-cloud
+      namespace: monitoring
+
+# Что собираем
+clusterMetrics:
+  enabled: true
+  collector: alloy-metrics
+
+# Метрики подов, помеченных аннотациями prometheus.io/scrape (api: /metrics)
+annotationAutodiscovery:
+  enabled: true
+  collector: alloy-metrics
+
+podLogsViaLoki:
+  enabled: true
+  collector: alloy-logs
+
+collectors:
+  alloy-metrics:
+    presets: [clustered, statefulset, small]
+  alloy-logs:
+    presets: [filesystem-log-reader, daemonset, small]
+
+# kube-state-metrics (состояние подов, деплойментов) и node-exporter (CPU, память, диск сервера) ставим вместе с чартом
+telemetryServices:
+  kube-state-metrics:
+    deploy: true
+  node-exporter:
+    deploy: true

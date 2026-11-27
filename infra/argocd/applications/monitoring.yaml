@@ -1,0 +1,43 @@
+# Мониторинг: агент Grafana Alloy (чарт grafana/k8s-monitoring v4) собирает метрики узла, подов и api, а также логи подов
+# и отправляет их в Grafana Cloud (Free). Дашборды и алерты живут в самой Grafana Cloud.
+# Три источника: чарт, значения из нашего репозитория (ref values) и SealedSecret с токеном (infra/k8s/monitoring).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    # после приложения: мониторинг не должен задерживать выкат app и deps
+    argocd.argoproj.io/sync-wave: "4"
+
+spec:
+  project: human-system-design
+
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: k8s-monitoring
+      targetRevision: 4.6.2
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/infra/helm/monitoring/values.yaml
+    - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/vladyslav-dmitriev/human-system-design.git
+      targetRevision: main
+      path: infra/k8s/monitoring
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # CRD оператора Alloy большие: обычный apply упирается в лимит аннотации
+      - ServerSideApply=true

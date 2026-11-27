@@ -9,6 +9,11 @@ api:
   # Реальные ключи сторонних сервисов (Stripe, почта, R2 и т.д.) перекрывают заглушки из app-api.
   # SealedSecret app-api-overrides создаёт infra/scripts/seal-secrets.sh --overrides; без него секрет просто не подключается.
   overridesSecret: app-api-overrides
+  # Alloy (namespace monitoring) собирает /metrics с пода api: http_requests_total и http_request_duration_seconds
+  podAnnotations:
+    k8s.grafana.com/scrape: "true"
+    k8s.grafana.com/metrics.path: /metrics
+    k8s.grafana.com/metrics.portNumber: "3001"
   resources:
     requests:
       cpu: 100m
@@ -34,6 +39,8 @@ config:
     NODE_ENV: production
     # На проде платные SMS включаются значением "enabled", иначе проверка кода всегда проходит
     PAID_API: "false"
+    # На проде /metrics по умолчанию отвечает 404; включаем для внутреннего сбора (NetworkPolicy пускает только namespace monitoring)
+    ENABLE_METRICS: "true"
     # Письма уходят через Resend: домен подтверждается DNS-записями из infra/terraform/email-dns.tf,
     # ключ RESEND_API_KEY лежит в SealedSecret app-api-overrides. EMAIL_FROM (noreply@домен) задаёт SealedSecret app-api.
     EMAIL_PROVIDER: resend
