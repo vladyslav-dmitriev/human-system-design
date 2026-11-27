@@ -1,9 +1,0 @@
-# Продовые оверрайды. Подключать в ArgoCD: valueFiles: [values.yaml, ../../values/prod/monitoring.yaml]
-kube-prometheus-stack:
-  prometheus:
-    prometheusSpec:
-      retention: 30d
-  grafana:
-    persistence:
-      enabled: true
-      size: 10Gi
