@@ -4,7 +4,7 @@ api:
   replicas: 1
   image:
     repository: ghcr.io/vladyslav-dmitriev/human-system-design-api
-    tag: sha-e94e50a7f1e6fb1af691ff8c430729d594f69afc
+    tag: sha-e6c41e5d84f2d601811d63d5baeabc67a92d36e4
     pullPolicy: IfNotPresent
   # Реальные ключи сторонних сервисов (Stripe, почта, R2 и т.д.) перекрывают заглушки из app-api.
   # SealedSecret app-api-overrides создаёт infra/scripts/seal-secrets.sh --overrides; без него секрет просто не подключается.
@@ -25,7 +25,7 @@ web:
   replicas: 1
   image:
     repository: ghcr.io/vladyslav-dmitriev/human-system-design-web
-    tag: sha-e94e50a7f1e6fb1af691ff8c430729d594f69afc
+    tag: sha-e6c41e5d84f2d601811d63d5baeabc67a92d36e4
     pullPolicy: IfNotPresent
   resources:
     requests:
