@@ -34,6 +34,9 @@ config:
     NODE_ENV: production
     # На проде платные SMS включаются значением "enabled", иначе проверка кода всегда проходит
     PAID_API: "false"
+    # Письма уходят через Resend: домен подтверждается DNS-записями из infra/terraform/email-dns.tf,
+    # ключ RESEND_API_KEY лежит в SealedSecret app-api-overrides. EMAIL_FROM (noreply@домен) задаёт SealedSecret app-api.
+    EMAIL_PROVIDER: resend
 
 ingress:
   className: traefik
