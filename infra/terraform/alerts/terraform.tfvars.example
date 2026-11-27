@@ -1,0 +1,2 @@
+# Скопируйте в terraform.tfvars (в .gitignore).
+alert_email = "you@example.com"
