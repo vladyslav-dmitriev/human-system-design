@@ -1,5 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 
+import { S3Client } from '@aws-sdk/client-s3';
+
 import { S3StorageService } from './s3.service';
 
 const send = jest.fn();
@@ -47,6 +49,34 @@ describe('S3StorageService', () => {
       ContentType: 'image/png',
       ContentLength: 3,
     });
+  });
+
+  it('R2: passes the endpoint and returns a link on the public base URL', async () => {
+    send.mockResolvedValue({});
+
+    const url = await build({
+      ...env,
+      AWS_REGION: 'auto',
+      AWS_S3_ENDPOINT: 'https://acc.r2.cloudflarestorage.com',
+      AWS_S3_PUBLIC_URL: 'https://files.test.dev/',
+    }).upload({ file: Buffer.from('x'), fileName: 'a.png', folder: 'todos' });
+
+    expect(url).toBe('https://files.test.dev/todos/a.png');
+    expect(S3Client).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        region: 'auto',
+        endpoint: 'https://acc.r2.cloudflarestorage.com',
+        forcePathStyle: true,
+      }),
+    );
+  });
+
+  it('without R2 variables the client gets no endpoint and the link is AWS-style', () => {
+    build();
+
+    expect(S3Client).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ endpoint: expect.anything() }),
+    );
   });
 
   it('hides S3 error details behind a generic 500', async () => {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
@@ -56,9 +57,10 @@ export class PdfProcessor extends WorkerHost {
       date: new Date(data.date),
     });
 
+    // Номера счетов идут подряд (INV-2026-1001), а ссылка публичная: случайный сегмент не даёт перебрать чужие счета
     const pdfUrl = await this.storageService.upload({
       file: pdfBuffer,
-      fileName: `${data.invoiceNumber}.pdf`,
+      fileName: `${randomUUID()}/${data.invoiceNumber}.pdf`,
       folder: 'invoices',
       contentType: 'application/pdf',
     });
