@@ -187,7 +187,7 @@ E2E_BASE_URL=https://myapp.local pnpm --filter e2e exec playwright test
 Осталось (следующие шаги):
 
 - Секреты и зависимости (шаг 2): `infra/scripts/seal-secrets.sh` генерирует случайные пароли и шифрует `app-deps`, `app-api`, `app-web` в `infra/k8s/app-secrets/` (SealedSecret, безопасны для git; значения не печатаются). Реальные ключи Stripe, почты, R2 и т.д. шифруются отдельно: `seal-secrets.sh --overrides <env-файл>` создаёт `app-api-overrides` (подключён через `api.overridesSecret`). Applications `app-secrets` (sync-wave 1) и `deps` (sync-wave 2, чарт `infra/helm/deps`: Postgres, Redis, RabbitMQ) в namespace `app`.
-- В `TRUST_PROXY` задать подсеть подов (клиентский IP через Traefik).
+- `TRUST_PROXY` (проверено 2026-11-27): менять не нужно. Сервис Traefik в k3s с `externalTrafficPolicy: Local` сохраняет IP клиента, до api доходит один хоп (Traefik), поэтому дефолт `1` даёт верный `req.ip` для throttler.
 
 - Бэкап и восстановление Postgres (R2):
   - CronJob `postgres-backup` (чарт `deps`, включён в Application `deps`): каждый день в 03:00 UTC `pg_dump` (формат custom) в бакет R2, файлы `postgres/mydb-<UTC дата-время>.dump` (хранятся 14 суток, чистит сам CronJob) и `postgres/latest.dump`. Пустой дамп не отправляется.
